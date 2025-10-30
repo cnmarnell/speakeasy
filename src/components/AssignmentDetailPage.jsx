@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
-import { getStudentProgressForAssignment } from '../data/supabaseData'
+import { getStudentProgressForAssignment, getDetailedStudentFeedback } from '../data/supabaseData'
+import VideoPlayer from './VideoPlayer'
 
 function AssignmentDetailPage({ assignment, onBack, onViewStudent }) {
   const [revealedStudentGrades, setRevealedStudentGrades] = useState({})
   const [studentProgressData, setStudentProgressData] = useState([])
   const [loading, setLoading] = useState(true)
+  const [selectedStudentFeedback, setSelectedStudentFeedback] = useState(null)
+  const [feedbackLoading, setFeedbackLoading] = useState(false)
 
   useEffect(() => {
     const fetchStudentProgress = async () => {
@@ -44,6 +47,23 @@ function AssignmentDetailPage({ assignment, onBack, onViewStudent }) {
       ...prev,
       [studentId]: !prev[studentId]
     }))
+  }
+
+  const viewStudentFeedback = async (studentId) => {
+    setFeedbackLoading(true)
+    try {
+      const feedbackData = await getDetailedStudentFeedback(assignment.id, studentId)
+      setSelectedStudentFeedback(feedbackData)
+    } catch (error) {
+      console.error('Error fetching student feedback:', error)
+      alert('Failed to load student feedback')
+    } finally {
+      setFeedbackLoading(false)
+    }
+  }
+
+  const closeFeedbackModal = () => {
+    setSelectedStudentFeedback(null)
   }
 
   if (loading) {
@@ -95,6 +115,15 @@ function AssignmentDetailPage({ assignment, onBack, onViewStudent }) {
                     </span>
                   )}
                 </div>
+                {student.status !== 'Not Started' && (
+                  <button 
+                    className="view-feedback-btn"
+                    onClick={() => viewStudentFeedback(student.id)}
+                    disabled={feedbackLoading}
+                  >
+                    {feedbackLoading ? 'Loading...' : 'View Feedback'}
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -104,6 +133,131 @@ function AssignmentDetailPage({ assignment, onBack, onViewStudent }) {
       <button className="back-btn" onClick={onBack}>
         Back to Class
       </button>
+
+      {/* Teacher Feedback Modal */}
+      {selectedStudentFeedback && (
+        <div className="modal-overlay" onClick={closeFeedbackModal}>
+          <div className="modal-content teacher-feedback-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="teacher-feedback-header">
+              <h2>Detailed Feedback: {selectedStudentFeedback.student.name}</h2>
+              <button className="close-modal-btn" onClick={closeFeedbackModal}>×</button>
+            </div>
+            
+            <div className="teacher-feedback-content">
+              {/* Grade Summary */}
+              <div className="grade-summary">
+                <h3>Grade Summary</h3>
+                <div className="grade-details">
+                  <span className="grade-score">
+                    {selectedStudentFeedback.grade?.letterGrade || 'N/A'} 
+                    ({selectedStudentFeedback.grade?.totalScore || 'N/A'}/100)
+                  </span>
+                  {selectedStudentFeedback.grade?.gradedAt && (
+                    <span className="grade-date">
+                      Graded: {new Date(selectedStudentFeedback.grade.gradedAt).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Transcript */}
+              <div className="teacher-transcript-section">
+                <h3>Speech Transcript</h3>
+                <div className="teacher-transcript-content">
+                  {selectedStudentFeedback.submission?.transcript ? (
+                    <p className="transcript-text">{selectedStudentFeedback.submission.transcript}</p>
+                  ) : (
+                    <p className="no-transcript">No transcript available</p>
+                  )}
+                </div>
+                {selectedStudentFeedback.submission?.submittedAt && (
+                  <p className="submission-info">
+                    Submitted: {new Date(selectedStudentFeedback.submission.submittedAt).toLocaleString()}
+                  </p>
+                )}
+              </div>
+
+              {/* AI Feedback */}
+              {selectedStudentFeedback.feedback && (
+                <div className="teacher-feedback-analysis">
+                  <h3>AI Analysis & Feedback</h3>
+                  
+                  <div className="feedback-category">
+                    <h4>Filler Words Analysis</h4>
+                    <p>{selectedStudentFeedback.feedback.fillerWords}</p>
+                    
+                    {selectedStudentFeedback.grade && (
+                      <div className="filler-word-details">
+                        <div className="filler-stats">
+                          <span className="filler-count">
+                            Total filler words: {selectedStudentFeedback.grade.fillerWordCount}
+                          </span>
+                          {selectedStudentFeedback.grade.fillersPerMinute > 0 && (
+                            <span className="filler-rate">
+                              Rate: {selectedStudentFeedback.grade.fillersPerMinute} per minute
+                            </span>
+                          )}
+                        </div>
+                        
+                        {selectedStudentFeedback.grade.fillerWordsUsed && 
+                         selectedStudentFeedback.grade.fillerWordsUsed.length > 0 && (
+                          <div className="filler-words-used">
+                            <strong>Specific filler words detected:</strong>
+                            <div className="filler-word-tags">
+                              {selectedStudentFeedback.grade.fillerWordsUsed.map((word, index) => (
+                                <span key={index} className="filler-word-tag">
+                                  {word}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {selectedStudentFeedback.grade.categoryBreakdown && 
+                         Object.keys(selectedStudentFeedback.grade.categoryBreakdown).length > 0 && (
+                          <div className="filler-category-breakdown">
+                            <strong>Breakdown by type:</strong>
+                            <div className="category-stats">
+                              {Object.entries(selectedStudentFeedback.grade.categoryBreakdown)
+                                .filter(([category, count]) => count > 0)
+                                .map(([category, count]) => (
+                                  <span key={category} className="category-stat">
+                                    {category}: {count}
+                                  </span>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="feedback-category">
+                    <h4>Speech Content Analysis</h4>
+                    <p>{selectedStudentFeedback.feedback.speechContent}</p>
+                  </div>
+
+                  <div className="feedback-category">
+                    <h4>Delivery & Language Analysis</h4>
+                    <p>{selectedStudentFeedback.feedback.bodyLanguage}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Video Player */}
+              {selectedStudentFeedback.submission?.videoUrl && (
+                <div className="teacher-video-section">
+                  <h3>Student Video</h3>
+                  <VideoPlayer 
+                    videoUrl={selectedStudentFeedback.submission.videoUrl}
+                    className="teacher-video-player"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

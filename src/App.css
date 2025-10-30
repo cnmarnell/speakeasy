@@ -1334,3 +1334,393 @@
   color: #333;
   font-weight: 600;
 }
+
+/* Video Player Styles */
+.video-player-container {
+  width: 100%;
+  max-width: 600px;
+  margin: 1rem auto;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.video-player {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.video-placeholder,
+.video-loading,
+.video-error {
+  padding: 3rem;
+  text-align: center;
+  background-color: #f8f9fa;
+  border: 2px dashed #ddd;
+  color: #666;
+}
+
+.video-loading {
+  background-color: #fff3cd;
+  border-color: #ffeaa7;
+  color: #856404;
+}
+
+.video-error {
+  background-color: #f8d7da;
+  border-color: #f1b0b7;
+  color: #721c24;
+}
+
+/* Transcript Styles */
+.transcript-section {
+  margin-bottom: 2rem;
+}
+
+.transcript-category {
+  background-color: #f0f8ff;
+  border: 2px solid #4285f4;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.transcript-content {
+  margin-top: 1rem;
+}
+
+.transcript-text {
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1rem;
+  line-height: 1.6;
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  color: #333;
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.transcript-placeholder {
+  color: #666;
+  font-style: italic;
+  text-align: center;
+  padding: 2rem;
+  background-color: #f8f9fa;
+  border: 2px dashed #ddd;
+  border-radius: 8px;
+}
+
+.submission-timestamp {
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 0.5rem;
+  text-align: right;
+}
+
+/* Teacher Feedback Modal */
+.teacher-feedback-modal {
+  max-width: 900px;
+  max-height: 90vh;
+  width: 95%;
+  overflow-y: auto;
+}
+
+.teacher-feedback-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #eee;
+  margin-bottom: 1.5rem;
+}
+
+.teacher-feedback-header h2 {
+  color: #333;
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.close-modal-btn {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-modal-btn:hover {
+  color: #333;
+}
+
+.teacher-feedback-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* Grade Summary */
+.grade-summary {
+  background: linear-gradient(135deg, #4285f4, #1a73e8);
+  color: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+}
+
+.grade-summary h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.2rem;
+}
+
+.grade-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.grade-score {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.grade-date {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+/* Teacher Transcript Section */
+.teacher-transcript-section {
+  background-color: #f8f9fa;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.teacher-transcript-section h3 {
+  margin: 0 0 1rem 0;
+  color: #333;
+}
+
+.teacher-transcript-content {
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1rem;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.no-transcript {
+  color: #666;
+  font-style: italic;
+  text-align: center;
+  padding: 2rem;
+}
+
+.submission-info {
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 0.5rem;
+  text-align: right;
+}
+
+/* Teacher Feedback Analysis */
+.teacher-feedback-analysis {
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.teacher-feedback-analysis h3 {
+  margin: 0 0 1.5rem 0;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 0.5rem;
+}
+
+.teacher-feedback-analysis .feedback-category {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #4285f4;
+}
+
+.teacher-feedback-analysis .feedback-category h4 {
+  color: #333;
+  margin: 0 0 0.5rem 0;
+}
+
+.teacher-feedback-analysis .feedback-category p {
+  margin: 0 0 0.5rem 0;
+  line-height: 1.5;
+}
+
+.filler-count {
+  display: inline-block;
+  background-color: #e3f2fd;
+  color: #1976d2;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+/* Teacher Video Section */
+.teacher-video-section {
+  background-color: #f8f9fa;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.teacher-video-section h3 {
+  margin: 0 0 1rem 0;
+  color: #333;
+}
+
+.teacher-video-player {
+  max-width: 100%;
+}
+
+/* View Feedback Button */
+.view-feedback-btn {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-top: 0.5rem;
+}
+
+.view-feedback-btn:hover:not(:disabled) {
+  background-color: #218838;
+}
+
+.view-feedback-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+/* Enhanced Filler Word Analysis Styles */
+.filler-word-details {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #1976d2;
+}
+
+.filler-stats {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.filler-count {
+  display: inline-block;
+  background-color: #e3f2fd;
+  color: #1976d2;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.filler-rate {
+  display: inline-block;
+  background-color: #fff3e0;
+  color: #ef6c00;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.filler-words-used {
+  margin-bottom: 1rem;
+}
+
+.filler-words-used strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.filler-word-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.filler-word-tag {
+  background-color: #ffebee;
+  color: #c62828;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid #ffcdd2;
+}
+
+.filler-category-breakdown {
+  margin-top: 1rem;
+}
+
+.filler-category-breakdown strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.category-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.category-stat {
+  background-color: #e8f5e8;
+  color: #2e7d32;
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid #c8e6c9;
+  text-transform: capitalize;
+}
+
+/* Record Button Container */
+.record-button-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 2rem 0;
+}
+
+.due-date-passed {
+  color: #721c24;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 6px;
+  padding: 1rem 1.5rem;
+  margin: 0;
+  font-weight: 500;
+  text-align: center;
+}

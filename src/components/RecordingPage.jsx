@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { createSubmission } from '../data/supabaseData'
+import { createSubmission, uploadVideoToStorage } from '../data/supabaseData'
 
 function RecordingPage({ assignment, studentId, onBack }) {
   const [isRecording, setIsRecording] = useState(false)
@@ -85,13 +85,18 @@ function RecordingPage({ assignment, studentId, onBack }) {
     setIsProcessing(true)
     
     try {
-      // Create submission in Supabase without video URL (will be null until storage is implemented)
+      // First upload video to Supabase Storage
+      console.log('Uploading video to storage...')
+      const uploadResult = await uploadVideoToStorage(recordedBlob, studentId, assignment.id)
+      console.log('Video uploaded successfully:', uploadResult)
+      
+      // Then create submission with AI analysis
       const submission = await createSubmission({
         assignmentId: assignment.id,
         studentId: studentId,
-        videoUrl: null,
-        transcript: null
-      })
+        videoUrl: uploadResult.publicUrl,
+        transcript: null // Will be populated by AI processing
+      }, recordedBlob, assignment.title)
       
       console.log('Submission created:', submission)
       alert('Video submitted successfully! You will receive feedback shortly.')
@@ -100,7 +105,7 @@ function RecordingPage({ assignment, studentId, onBack }) {
       onBack()
     } catch (error) {
       console.error('Error submitting video:', error)
-      alert('Failed to submit video. Please try again.')
+      alert(`Failed to submit video: ${error.message}. Please try again.`)
     } finally {
       setIsProcessing(false)
     }
@@ -164,7 +169,7 @@ function RecordingPage({ assignment, studentId, onBack }) {
               onClick={sendForAnalysis}
               disabled={isProcessing}
             >
-              {isProcessing ? 'Sending...' : 'Send for Analysis'}
+              {isProcessing ? 'Processing with AI...' : 'Send for Analysis'}
             </button>
           </div>
         )}

@@ -1,0 +1,134 @@
+Here is some guidance on how to run the deepgram ai
+
+api key = a6568044c5405f04b832179a2ba6e936d9168f0f
+
+
+1. Install the Deepgram SDK.
+2. Create a new file called deepgram_test.py in the location you chose.
+    #python code: 
+    "
+    from deepgram import DeepgramClient, PrerecordedOptions
+
+# The API key we created in step 3
+DEEPGRAM_API_KEY = 'dcc873e1d31586926d028b9d530586b7b0e446c0'
+
+# Hosted sample file
+AUDIO_URL = {
+  'url': 'https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav'
+}
+
+def main():
+    deepgram = DeepgramClient(DEEPGRAM_API_KEY)
+
+    options = PrerecordedOptions(
+        smart_format=True, model="nova-2", language="en-US"
+    )
+
+    response = deepgram.listen.prerecorded.v('1').transcribe_url(AUDIO_URL, options)
+    print(response.to_json(indent=4))
+
+if __name__ == '__main__':
+    main()
+    "
+
+3. To run the application from the terminal, run the following command: python deepgram_test.py
+
+4. When the file is finished processing, you’ll receive a JSON response including a transcript, word arrays, timings, and confidence scores.
+Understanding the response:
+"
+{
+  "metadata": {
+    "transaction_key": "deprecated",
+    "request_id": "00af010e-8574-4fb0-895b-d7251dbc7464",
+    "sha256": "532...566",
+    "created": "2021-09-27T20:48:17.706Z",
+    "duration": 17.56631,
+    "channels": 1,
+    "models": ["41757536-6114-494d-83fd-c2694524d80b"]
+  },
+  "results": {
+    "channels": [
+      {
+        "alternatives": [
+          {
+            "transcript": "Yep. I said it before, and I'll say it again...",
+            "confidence": 0.98984337,
+            "words": [
+              {
+                "word": "yep",
+                "start": 5.7,
+                "end": 5.8599997,
+                "confidence": 0.99607015,
+                "punctuated_word": "Yep."
+              },
+              {
+                "word": "i",
+                "start": 7.274305,
+                "end": 7.433877,
+                "confidence": 0.8834631,
+                "punctuated_word": "I"
+              },
+              ...
+            ],
+            "paragraphs": {
+              "transcript": "Yep. I said it before, and I'll say it again...",
+              "paragraphs": [
+                {
+                  "sentences": [
+                    {
+                      "text": "Yep.",
+                      "start": 5.6,
+                      "end": 6.1
+                    },
+                    {
+                      "text": "I said it before, and I'll say it again.",
+                      "start": 7.095,
+                      "end": 9.115
+                    },
+                    {
+                      "text": "Life moves pretty fast.",
+                      "start": 9.975,
+                      "end": 11.514999
+                    },
+                    {
+                      "text": "You don't stop and look around once in a while.",
+                      "start": 11.975,
+                      "end": 14.315
+                    },
+                    {
+                      "text": "you could miss it.",
+                      "start": 14.561312,
+                      "end": 15.701312
+                    }
+                  ],
+                  "num_words": 28,
+                  "start": 5.6,
+                  "end": 15.701312
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+
+"
+
+
+
+transcript:
+The transcript for the audio segment being processed.
+
+
+confidence:
+A floating point value between 0 and 1 that indicates overall transcript reliability. Larger values indicate higher confidence.
+
+
+words:
+An array containing each word in the transcript, along with its start time and end time (in seconds) from the beginning of the audio stream, and a confidence value.
+
+Including smart_format=True in listen.prerecorded('1').transcribe_url adds a few fields to the response:
+each word object also includes its punctuated_word value, which contains the transformed word after punctuation and capitalization are applied.
+each alternatives object also includes a paragraphs object. This object also contains sentences for each paragraph, along with a count of the num_words in the paragraph, and the start and end times for each paragraph.

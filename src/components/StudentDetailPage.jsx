@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getStudentGradesById, getStudentProfile } from '../data/supabaseData'
+import { getStudentGradesById } from '../data/supabaseData'
 
 function StudentDetailPage({ student, onBack }) {
   const [studentGrades, setStudentGrades] = useState([])
