@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { transcribeWithDeepgram } from '../lib/deepgram'
-import { analyzeSpeechWithChatGPT } from '../lib/openai'
+import { analyzeSpeechWithBedrockAgent } from '../lib/bedrockAgent'
 import { analyzeFillerWords, getFillerWordScore } from '../lib/fillerWordAnalysis'
 
 // Fetch all classes for teacher dashboard
@@ -463,14 +463,14 @@ export const processVideoWithAI = async (videoBlob, assignmentTitle) => {
     console.log('Step 2: Analyzing filler words...')
     const fillerAnalysis = analyzeFillerWords(transcriptionResult.text)
     
-    // Step 3: Analyze speech content with ChatGPT
-    console.log('Step 3: Analyzing speech content...')
-    const analysisResult = await analyzeSpeechWithChatGPT(
+    // Step 3: Analyze speech content with AWS Bedrock Agent
+    console.log('Step 3: Analyzing speech content with Bedrock Agent...')
+    const analysisResult = await analyzeSpeechWithBedrockAgent(
       transcriptionResult.text, 
       assignmentTitle
     )
     
-    // Combine filler word analysis with ChatGPT analysis
+    // Combine filler word analysis with Bedrock Agent analysis
     const enhancedAnalysis = {
       ...analysisResult,
       fillerWords: fillerAnalysis.analysis,
@@ -678,37 +678,23 @@ export const createSubmission = async (submissionData, videoBlob = null, assignm
       grade = newGrade
     }
 
-    // Generate feedback based on AI analysis or fallback
+    // Generate feedback using AI analysis (Bedrock Agent)
     let feedbackTexts
     
     if (aiResult && aiResult.aiProcessed) {
-      // Use AI-generated feedback
+      // Use Bedrock Agent generated feedback directly
       feedbackTexts = {
         filler_words: aiResult.analysis.fillerWords,
-        speech_content: aiResult.analysis.speechContent,
+        speech_content: aiResult.analysis.speechContent, // Pure Bedrock Agent output
         body_language: aiResult.analysis.bodyLanguage
       }
     } else {
-      // Fallback to predefined feedback based on score
-      const feedbackLevel = finalScore >= 90 ? 'high' : finalScore >= 80 ? 'medium' : 'low'
-      const defaultFeedback = {
-        high: {
-          filler_words: "Excellent control of filler words. Very natural and confident delivery.",
-          speech_content: "Outstanding content with clear structure and compelling arguments.",
-          body_language: "Confident posture, excellent eye contact, and effective use of gestures."
-        },
-        medium: {
-          filler_words: "Good control of filler words with room for minor improvement.",
-          speech_content: "Well-organized content with solid supporting evidence.",
-          body_language: "Good posture and eye contact. Consider using more hand gestures."
-        },
-        low: {
-          filler_words: "Work on reducing filler words like 'um' and 'uh' for smoother delivery.",
-          speech_content: "Content is adequate but could benefit from better organization.",
-          body_language: "Focus on maintaining eye contact and confident posture throughout."
-        }
+      // Simple fallback when Bedrock Agent fails
+      feedbackTexts = {
+        filler_words: "Filler word analysis will be available when AI processing is restored.",
+        speech_content: "Speech content analysis temporarily unavailable. Please try submitting again.",
+        body_language: "Delivery analysis will be available when AI processing is restored."
       }
-      feedbackTexts = defaultFeedback[feedbackLevel]
     }
     
     // Check if feedback already exists for this grade
@@ -964,6 +950,7 @@ export const calculateStudentTotalGrade = async (studentId) => {
     }
   }
 }
+
 
 // Get all grades for a student with detailed info
 export const getDetailedStudentGrades = async (studentId) => {
