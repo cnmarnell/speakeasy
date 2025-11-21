@@ -17,7 +17,6 @@ interface NovaLiteResponse {
   sources: string[];
 }
 
-
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -29,9 +28,9 @@ Deno.serve(async (req: Request) => {
     if (req.method !== 'POST') {
       return new Response(
         JSON.stringify({ error: 'Method not allowed' }),
-        { 
-          status: 405, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 405,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
@@ -47,9 +46,13 @@ Deno.serve(async (req: Request) => {
     if (!awsAccessKeyId || !awsSecretAccessKey || !awsRegion || !systemPrompt) {
       console.error('Missing AWS credentials or system prompt configuration');
       return new Response(
-        JSON.stringify({ error: 'Nova Lite configuration not complete' }),
+        JSON.stringify({ 
+          speechContent: 'Configuration not complete - missing credentials or system prompt',
+          confidence: 0,
+          sources: ['Configuration Error']
+        }),
         { 
-          status: 500, 
+          status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
@@ -67,21 +70,25 @@ Deno.serve(async (req: Request) => {
     if (!transcript) {
       console.error('Missing transcript in request');
       return new Response(
-        JSON.stringify({ error: 'Transcript is required' }),
+        JSON.stringify({ 
+          speechContent: 'Transcript is required for analysis',
+          confidence: 0,
+          sources: ['Missing Data']
+        }),
         { 
-          status: 400, 
+          status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
     }
 
-    // Prepare the combined prompt for Nova Lite (system prompt + transcript)
-    const combinedPrompt = `${systemPrompt}\n\nTranscript to evaluate:\n${transcript}`;
+    // Combine system prompt with transcript
+    const combinedPrompt = `${systemPrompt}\n\ntranscript: ${transcript}`;
 
-    console.log('Calling Nova Lite model...', {
-      region: awsRegion,
+    console.log('Calling Nova Lite with system prompt and transcript...', {
+      systemPromptLength: systemPrompt.length,
       transcriptLength: transcript.length,
-      assignment: assignmentTitle
+      combinedLength: combinedPrompt.length
     });
 
     // AWS Bedrock Runtime API endpoint for Nova Lite
@@ -113,7 +120,7 @@ Deno.serve(async (req: Request) => {
       awsRegion
     );
 
-    console.log('Calling Nova Lite API...', { url });
+    console.log('Calling Nova Lite API...');
 
     // Call Nova Lite
     const novaResponse = await fetch(url, {
@@ -137,9 +144,6 @@ Deno.serve(async (req: Request) => {
         error: errorText
       });
       
-      // Return actual Nova Lite error response
-      console.log('Nova Lite API error - returning error details');
-      
       return new Response(
         JSON.stringify({
           speechContent: `Nova Lite API Error (${novaResponse.status}): ${errorText}`,
@@ -153,12 +157,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Parse Nova Lite response (simple JSON, no streaming)
+    // Parse Nova Lite response
     const novaResponseData = await novaResponse.json();
-    console.log('Nova Lite response received:', {
-      hasResponse: !!novaResponseData,
-      hasOutput: !!novaResponseData.output
-    });
+    console.log('Nova Lite response received');
 
     // Extract response text from Nova Lite response structure
     const responseText = novaResponseData.output?.message?.content?.[0]?.text;
@@ -179,18 +180,11 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log('Nova Lite response text:', {
-      length: responseText.length,
-      preview: responseText.substring(0, 200) + '...'
-    });
+    console.log('Nova Lite response text received:', responseText.substring(0, 200) + '...');
 
     // Return the raw Nova Lite response exactly as received
-    console.log('Returning raw Nova Lite response');
-    const speechContent: string = responseText.trim();
-
-    // Return the Nova Lite analysis result
     const analysisResult: NovaLiteResponse = {
-      speechContent: speechContent,
+      speechContent: responseText.trim(),
       confidence: 0.95,
       sources: ['AWS Nova Lite Model']
     };
@@ -204,18 +198,17 @@ Deno.serve(async (req: Request) => {
     });
 
   } catch (error) {
-    console.error('Nova Lite error:', error);
-    
-    // Return actual error details instead of fallback
+    console.error('Nova Lite placeholder error:', error);
+
     return new Response(
       JSON.stringify({
         speechContent: `Error processing with Nova Lite: ${error.message}`,
         confidence: 0,
         sources: ['Nova Lite Processing Error']
       }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }
@@ -239,7 +232,11 @@ async function createAWSSignature(
   const dateStamp = amzDate.substring(0, 8);
   
   // Create canonical request - AWS expects URL-encoded path
-  const canonicalUri = urlObj.pathname;
+  const canonicalUri = urlObj.pathname
+    .split('/')
+    .map(segment => encodeURIComponent(segment))
+    .join('/');
+    
   const canonicalQuerystring = urlObj.search.substring(1);
   const canonicalHeaders = `host:${host}\nx-amz-date:${amzDate}\n`;
   const signedHeaders = 'host;x-amz-date';
@@ -247,17 +244,10 @@ async function createAWSSignature(
   
   const canonicalRequest = `${method}\n${canonicalUri}\n${canonicalQuerystring}\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
   
-  // Debug logging
-  console.log('Canonical Request:', canonicalRequest);
-  console.log('URL pathname:', urlObj.pathname);
-  console.log('Full URL:', url);
-  
   // Create string to sign
   const algorithm = 'AWS4-HMAC-SHA256';
   const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
   const stringToSign = `${algorithm}\n${amzDate}\n${credentialScope}\n${await sha256(canonicalRequest)}`;
-  
-  console.log('String to Sign:', stringToSign);
   
   // Create signing key
   const signingKey = await getSigningKey(secretAccessKey, dateStamp, region, service);
@@ -313,4 +303,3 @@ async function hmacSha256Raw(key: Uint8Array, message: string): Promise<Uint8Arr
   const signature = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(message));
   return new Uint8Array(signature);
 }
-

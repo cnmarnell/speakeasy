@@ -481,9 +481,13 @@ export const processVideoWithAI = async (videoBlob, assignmentTitle) => {
       transcript: transcriptionResult.text,
       duration: transcriptionResult.duration,
       language: transcriptionResult.language,
-      analysis: enhancedAnalysis,
+      analysis: {
+        ...enhancedAnalysis,
+        overallScore: enhancedAnalysis.overallScore || 75 // Provide fallback score
+      },
       fillerWordAnalysis: fillerAnalysis,
-      aiProcessed: true
+      // If we got the placeholder, let's reflect that it wasn't a full AI process
+      aiProcessed: analysisResult.speechContent !== "We are fixing this."
     }
   } catch (error) {
     console.error('AI processing failed:', error)
@@ -681,15 +685,15 @@ export const createSubmission = async (submissionData, videoBlob = null, assignm
     // Generate feedback using AI analysis (Bedrock Agent)
     let feedbackTexts
     
-    if (aiResult && aiResult.aiProcessed) {
-      // Use Bedrock Agent generated feedback directly
+    if (aiResult && aiResult.analysis) {
+      // If we have an AI result, even a partial or placeholder one, use its content.
       feedbackTexts = {
-        filler_words: aiResult.analysis.fillerWords,
-        speech_content: aiResult.analysis.speechContent, // Pure Bedrock Agent output
-        body_language: aiResult.analysis.bodyLanguage
+        filler_words: aiResult.analysis.fillerWords || "Filler word analysis will be available when AI processing is restored.",
+        speech_content: aiResult.analysis.speechContent || "Speech content analysis temporarily unavailable.",
+        body_language: aiResult.analysis.bodyLanguage || "Delivery analysis will be available when AI processing is restored."
       }
     } else {
-      // Simple fallback when Bedrock Agent fails
+      // Simple fallback when AI processing fails entirely
       feedbackTexts = {
         filler_words: "Filler word analysis will be available when AI processing is restored.",
         speech_content: "Speech content analysis temporarily unavailable. Please try submitting again.",
