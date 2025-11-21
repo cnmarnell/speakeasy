@@ -6,16 +6,17 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-interface BedrockAgentRequest {
+interface NovaLiteRequest {
   transcript: string;
   assignmentTitle: string;
 }
 
-interface BedrockAgentResponse {
+interface NovaLiteResponse {
   speechContent: string;
   confidence: number;
   sources: string[];
 }
+
 
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight requests
@@ -35,19 +36,18 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log('Bedrock Agent request received');
+    console.log('Nova Lite grading request received');
 
-    // Get AWS credentials from environment
+    // Get AWS credentials and system prompt from environment
     const awsAccessKeyId = Deno.env.get('AWS_ACCESS_KEY_ID');
     const awsSecretAccessKey = Deno.env.get('AWS_SECRET_ACCESS_KEY');
     const awsRegion = Deno.env.get('AWS_REGION');
-    const agentId = Deno.env.get('BEDROCK_AGENT_ID');
-    const agentAliasId = Deno.env.get('BEDROCK_AGENT_ALIAS_ID');
+    const systemPrompt = Deno.env.get('ELEVATOR_PITCH_SYSTEM_PROMPT');
 
-    if (!awsAccessKeyId || !awsSecretAccessKey || !awsRegion || !agentId || !agentAliasId) {
-      console.error('Missing AWS credentials or agent configuration');
+    if (!awsAccessKeyId || !awsSecretAccessKey || !awsRegion || !systemPrompt) {
+      console.error('Missing AWS credentials or system prompt configuration');
       return new Response(
-        JSON.stringify({ error: 'AWS Bedrock configuration not complete' }),
+        JSON.stringify({ error: 'Nova Lite configuration not complete' }),
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -56,7 +56,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Parse request body
-    const { transcript, assignmentTitle }: BedrockAgentRequest = await req.json();
+    const { transcript, assignmentTitle }: NovaLiteRequest = await req.json();
 
     console.log('Request parsed:', {
       transcriptLength: transcript?.length || 0,
@@ -75,56 +75,48 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Prepare the prompt with the actual transcript
-    const prompt = `Please analyze this student's speech transcript and provide detailed feedback on their content and delivery. This is for educational purposes to help the student improve their public speaking skills.
+    // Prepare the combined prompt for Nova Lite (system prompt + transcript)
+    const combinedPrompt = `${systemPrompt}\n\nTranscript to evaluate:\n${transcript}`;
 
-ASSIGNMENT: ${assignmentTitle}
-
-STUDENT SPEECH TRANSCRIPT:
-"${transcript}"
-
-Please provide constructive feedback focusing on:
-- Content organization and structure
-- Use of supporting evidence and examples
-- Clarity and coherence of main points
-- Engagement techniques and persuasiveness
-- Areas for improvement with specific suggestions
-
-Provide encouraging, educational feedback that helps the student develop stronger public speaking skills.`;
-
-    console.log('Calling Bedrock Agent...', {
-      agentId,
-      agentAliasId,
+    console.log('Calling Nova Lite model...', {
       region: awsRegion,
-      promptLength: prompt.length
+      transcriptLength: transcript.length,
+      assignment: assignmentTitle
     });
 
-    // Generate a unique session ID for this conversation
-    const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // AWS Bedrock Runtime API endpoint for Nova Lite
+    const endpoint = `https://bedrock-runtime.${awsRegion}.amazonaws.com`;
+    const url = `${endpoint}/model/amazon.nova-lite-v1:0/converse`;
 
-    // AWS Bedrock Agent Runtime API endpoint
-    const endpoint = `https://bedrock-agent-runtime.${awsRegion}.amazonaws.com`;
-    const url = `${endpoint}/agents/${agentId}/agentAliases/${agentAliasId}/sessions/${sessionId}/text`;
-
-    // Prepare the request body for Bedrock Agent
-    const bedrockRequestBody = {
-      inputText: prompt
+    // Prepare the request body for Nova Lite
+    const novaRequestBody = {
+      messages: [
+        {
+          role: "user",
+          content: [{ text: combinedPrompt }]
+        }
+      ],
+      inferenceConfig: {
+        maxTokens: 1000,
+        temperature: 0.1,
+        topP: 0.9
+      }
     };
 
-    // Create AWS signature
+    // Create AWS signature for Nova Lite
     const awsSignature = await createAWSSignature(
       'POST',
       url,
-      JSON.stringify(bedrockRequestBody),
+      JSON.stringify(novaRequestBody),
       awsAccessKeyId,
       awsSecretAccessKey,
       awsRegion
     );
 
-    console.log('Calling Bedrock Agent API...', { url, sessionId });
+    console.log('Calling Nova Lite API...', { url });
 
-    // Call Bedrock Agent
-    const bedrockResponse = await fetch(url, {
+    // Call Nova Lite
+    const novaResponse = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -132,28 +124,27 @@ Provide encouraging, educational feedback that helps the student develop stronge
         'X-Amz-Date': awsSignature.amzDate,
         'Accept': 'application/json'
       },
-      body: JSON.stringify(bedrockRequestBody)
+      body: JSON.stringify(novaRequestBody)
     });
 
-    console.log('Bedrock Agent response status:', bedrockResponse.status);
+    console.log('Nova Lite response status:', novaResponse.status);
 
-    if (!bedrockResponse.ok) {
-      const errorText = await bedrockResponse.text();
-      console.error('Bedrock Agent API error:', {
-        status: bedrockResponse.status,
-        statusText: bedrockResponse.statusText,
+    if (!novaResponse.ok) {
+      const errorText = await novaResponse.text();
+      console.error('Nova Lite API error:', {
+        status: novaResponse.status,
+        statusText: novaResponse.statusText,
         error: errorText
       });
       
-      // Fallback to basic analysis if Bedrock fails
-      const fallbackAnalysis = generateFallbackAnalysis(transcript, assignmentTitle);
-      console.log('Using fallback analysis due to Bedrock error');
+      // Return actual Nova Lite error response
+      console.log('Nova Lite API error - returning error details');
       
       return new Response(
         JSON.stringify({
-          speechContent: fallbackAnalysis,
-          confidence: 0.5,
-          sources: ['Fallback Analysis - Bedrock unavailable']
+          speechContent: `Nova Lite API Error (${novaResponse.status}): ${errorText}`,
+          confidence: 0,
+          sources: ['Nova Lite API Error']
         }),
         { 
           status: 200, 
@@ -162,73 +153,46 @@ Provide encouraging, educational feedback that helps the student develop stronge
       );
     }
 
-    // Handle streaming response from Bedrock Agent
-    const reader = bedrockResponse.body?.getReader();
-    if (!reader) {
-      throw new Error('Failed to get response stream');
-    }
+    // Parse Nova Lite response (simple JSON, no streaming)
+    const novaResponseData = await novaResponse.json();
+    console.log('Nova Lite response received:', {
+      hasResponse: !!novaResponseData,
+      hasOutput: !!novaResponseData.output
+    });
 
-    let responseText = '';
-    let done = false;
-
-    while (!done) {
-      const { value, done: readerDone } = await reader.read();
-      done = readerDone;
+    // Extract response text from Nova Lite response structure
+    const responseText = novaResponseData.output?.message?.content?.[0]?.text;
+    
+    if (!responseText || responseText.trim().length === 0) {
+      console.warn('No content received from Nova Lite');
       
-      if (value) {
-        const chunk = new TextDecoder().decode(value);
-        console.log('Received chunk:', chunk.substring(0, 100) + '...');
-        
-        // Parse the streaming response (similar to your Python code)
-        try {
-          const lines = chunk.split('\n');
-          for (const line of lines) {
-            if (line.trim() && line.startsWith('data:')) {
-              const jsonData = line.substring(5).trim();
-              if (jsonData) {
-                const parsed = JSON.parse(jsonData);
-                if (parsed.chunk?.bytes) {
-                  const decodedText = atob(parsed.chunk.bytes);
-                  responseText += decodedText;
-                }
-              }
-            }
-          }
-        } catch (e) {
-          // If parsing fails, append the chunk directly
-          responseText += chunk;
+      return new Response(
+        JSON.stringify({
+          speechContent: 'Nova Lite returned empty response',
+          confidence: 0,
+          sources: ['Nova Lite - Empty Response']
+        }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
-      }
+      );
     }
 
-    console.log('Bedrock Agent response received:', {
-      hasResponse: !!responseText,
-      responseLength: responseText.length,
+    console.log('Nova Lite response text:', {
+      length: responseText.length,
       preview: responseText.substring(0, 200) + '...'
     });
 
-    if (!responseText || responseText.trim().length === 0) {
-      console.warn('No content received from Bedrock Agent');
-      const fallbackAnalysis = generateFallbackAnalysis(transcript, assignmentTitle);
-      
-      return new Response(
-        JSON.stringify({
-          speechContent: fallbackAnalysis,
-          confidence: 0.4,
-          sources: ['No AI response received']
-        }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
+    // Return the raw Nova Lite response exactly as received
+    console.log('Returning raw Nova Lite response');
+    const speechContent: string = responseText.trim();
 
-    // Return the agent's response
-    const analysisResult: BedrockAgentResponse = {
-      speechContent: responseText.trim(),
+    // Return the Nova Lite analysis result
+    const analysisResult: NovaLiteResponse = {
+      speechContent: speechContent,
       confidence: 0.95,
-      sources: ['AWS Bedrock Agent']
+      sources: ['AWS Nova Lite Model']
     };
 
     return new Response(JSON.stringify(analysisResult), {
@@ -240,36 +204,20 @@ Provide encouraging, educational feedback that helps the student develop stronge
     });
 
   } catch (error) {
-    console.error('Bedrock Agent error:', error);
+    console.error('Nova Lite error:', error);
     
-    // Fallback to basic analysis on any error
-    try {
-      const { transcript, assignmentTitle } = await req.json();
-      const fallbackAnalysis = generateFallbackAnalysis(transcript || '', assignmentTitle || '');
-      
-      return new Response(
-        JSON.stringify({
-          speechContent: fallbackAnalysis,
-          confidence: 0.3,
-          sources: ['Error Fallback - Basic analysis']
-        }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    } catch {
-      return new Response(
-        JSON.stringify({ 
-          error: 'Internal server error',
-          message: error.message 
-        }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
+    // Return actual error details instead of fallback
+    return new Response(
+      JSON.stringify({
+        speechContent: `Error processing with Nova Lite: ${error.message}`,
+        confidence: 0,
+        sources: ['Nova Lite Processing Error']
+      }),
+      { 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
   }
 });
 
@@ -290,7 +238,7 @@ async function createAWSSignature(
   const amzDate = now.toISOString().replace(/[:\-]|\.\d{3}/g, '');
   const dateStamp = amzDate.substring(0, 8);
   
-  // Create canonical request
+  // Create canonical request - AWS expects URL-encoded path
   const canonicalUri = urlObj.pathname;
   const canonicalQuerystring = urlObj.search.substring(1);
   const canonicalHeaders = `host:${host}\nx-amz-date:${amzDate}\n`;
@@ -299,10 +247,17 @@ async function createAWSSignature(
   
   const canonicalRequest = `${method}\n${canonicalUri}\n${canonicalQuerystring}\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
   
+  // Debug logging
+  console.log('Canonical Request:', canonicalRequest);
+  console.log('URL pathname:', urlObj.pathname);
+  console.log('Full URL:', url);
+  
   // Create string to sign
   const algorithm = 'AWS4-HMAC-SHA256';
   const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
   const stringToSign = `${algorithm}\n${amzDate}\n${credentialScope}\n${await sha256(canonicalRequest)}`;
+  
+  console.log('String to Sign:', stringToSign);
   
   // Create signing key
   const signingKey = await getSigningKey(secretAccessKey, dateStamp, region, service);
@@ -329,7 +284,7 @@ async function sha256(message: string): Promise<string> {
 async function hmacSha256(key: Uint8Array, message: string): Promise<string> {
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
-    key,
+    key.buffer as ArrayBuffer,
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign']
@@ -350,7 +305,7 @@ async function getSigningKey(secretAccessKey: string, dateStamp: string, region:
 async function hmacSha256Raw(key: Uint8Array, message: string): Promise<Uint8Array> {
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
-    key,
+    key.buffer as ArrayBuffer,
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign']
@@ -359,26 +314,3 @@ async function hmacSha256Raw(key: Uint8Array, message: string): Promise<Uint8Arr
   return new Uint8Array(signature);
 }
 
-function generateFallbackAnalysis(transcript: string, assignmentTitle: string): string {
-  const wordCount = transcript.split(' ').length;
-  const hasExamples = /for example|such as|for instance|specifically/i.test(transcript);
-  const hasTransitions = /first|second|next|finally|in conclusion|however|furthermore/i.test(transcript);
-  
-  return `Content Analysis for "${assignmentTitle}":
-
-**Strengths:**
-${wordCount > 150 ? '• Good speech length and detail' : '• Clear and concise delivery'}
-${hasExamples ? '• Includes supporting examples' : '• Direct communication style'}
-${hasTransitions ? '• Uses transition words effectively' : '• Maintains focus on main topic'}
-
-**Areas for Growth:**
-${wordCount < 100 ? '• Consider expanding with more detail and examples' : '• Continue developing comprehensive content'}
-${!hasExamples ? '• Add specific examples to support your points' : '• Further strengthen examples with data or personal experiences'}
-${!hasTransitions ? '• Include transition words to improve flow' : '• Enhance transitions for even smoother delivery'}
-
-**Suggestions:**
-• Structure your speech with clear introduction, body, and conclusion
-• Use specific examples and evidence to support your main points
-• Practice smooth transitions between ideas for better flow
-• Consider your audience and tailor content to their interests`;
-}

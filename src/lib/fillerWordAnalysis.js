@@ -126,15 +126,82 @@ const removeDuplicateDetections = (detections) => {
 // Generate human-readable analysis
 const generateFillerAnalysis = (totalCount, fillersPerMinute, categoryBreakdown, wordCounts) => {
   if (totalCount === 0) {
-    return "No filler words detected."
+    return "**Excellent!** No filler words detected. Your speech was clear and confident."
   }
 
-  // Create simple list of filler words with counts
-  const wordCountList = Object.entries(wordCounts)
-    .map(([word, count]) => `"${word}" (${count})`)
-    .join(', ')
+  // Get filler word score for context
+  const score = getFillerWordScoreFromRate(fillersPerMinute)
+  let performance = "Good"
+  if (score >= 95) performance = "Excellent"
+  else if (score >= 88) performance = "Very Good"
+  else if (score >= 75) performance = "Good"
+  else if (score >= 60) performance = "Needs Improvement"
+  else performance = "Poor"
+
+  // Create detailed feedback
+  let analysis = `**Filler Word Analysis (${performance})**\n\n`
   
-  return wordCountList
+  // Summary stats
+  analysis += `**Summary:**\n`
+  analysis += `• Total filler words: ${totalCount}\n`
+  analysis += `• Rate: ${fillersPerMinute} per minute\n`
+  analysis += `• Score: ${score}/100\n\n`
+  
+  // Specific words detected
+  if (Object.keys(wordCounts).length > 0) {
+    analysis += `**Detected filler words:**\n`
+    const sortedWords = Object.entries(wordCounts)
+      .sort(([,a], [,b]) => b - a) // Sort by count, highest first
+      .map(([word, count]) => `• "${word}" (${count} time${count > 1 ? 's' : ''})`)
+      .join('\n')
+    analysis += sortedWords + '\n\n'
+  }
+  
+  // Category breakdown (only show categories with counts > 0)
+  const activeCategories = Object.entries(categoryBreakdown)
+    .filter(([category, count]) => count > 0)
+  
+  if (activeCategories.length > 0) {
+    analysis += `**Breakdown by type:**\n`
+    activeCategories.forEach(([category, count]) => {
+      const categoryName = category.charAt(0).toUpperCase() + category.slice(1)
+      analysis += `• ${categoryName}: ${count}\n`
+    })
+    analysis += '\n'
+  }
+  
+  // Improvement suggestions based on performance
+  analysis += `**Suggestions for improvement:**\n`
+  if (fillersPerMinute > 8) {
+    analysis += `• Practice pausing instead of using filler words\n`
+    analysis += `• Slow down your speech pace to reduce hesitation\n`
+    analysis += `• Record yourself practicing to become more aware of filler usage\n`
+  } else if (fillersPerMinute > 4) {
+    analysis += `• Focus on reducing the most common fillers you use\n`
+    analysis += `• Practice transitional phrases instead of filler words\n`
+  } else if (fillersPerMinute > 2) {
+    analysis += `• Work on eliminating specific filler words you use most\n`
+    analysis += `• Practice confident pauses for emphasis\n`
+  } else {
+    analysis += `• Great job! Maintain this level of clarity in future speeches\n`
+    analysis += `• Continue practicing to eliminate the few remaining fillers\n`
+  }
+
+  return analysis
+}
+
+// Helper function to get score from rate (for internal use)
+const getFillerWordScoreFromRate = (fillersPerMinute) => {
+  if (fillersPerMinute <= 1) return 100
+  if (fillersPerMinute <= 2) return 95
+  if (fillersPerMinute <= 3) return 88
+  if (fillersPerMinute <= 4) return 82
+  if (fillersPerMinute <= 5) return 75
+  if (fillersPerMinute <= 6) return 68
+  if (fillersPerMinute <= 8) return 60
+  if (fillersPerMinute <= 10) return 50
+  if (fillersPerMinute <= 12) return 40
+  return Math.max(20, 40 - Math.floor((fillersPerMinute - 12) * 2))
 }
 
 // Helper function to get filler word score for grading
@@ -160,4 +227,37 @@ export const testFillerAnalysis = (text) => {
   const result = analyzeFillerWords(text)
   console.log('Result:', result)
   return result
+}
+
+// Test function to verify the enhanced filler word analysis
+export const demonstrateFillerAnalysis = () => {
+  console.log('=== FILLER WORD ANALYSIS DEMO ===')
+  
+  const testCases = [
+    {
+      name: "Clean Speech",
+      text: "Traffic congestion costs people hours daily. Our app finds optimal routes using real-time data. Users save thirty minutes per commute and reduce stress."
+    },
+    {
+      name: "With Fillers", 
+      text: "Um, traffic congestion, like, costs people hours daily, you know? Our app, uh, finds optimal routes using, basically, real-time data. Users, um, save thirty minutes per commute and, like, reduce stress."
+    },
+    {
+      name: "Heavy Fillers",
+      text: "Um, so like, traffic congestion, you know, um, costs people hours daily, right? Our app, uh, basically finds, um, optimal routes using, like, real-time data, okay? Users, um, save, like, thirty minutes per commute and, uh, reduce stress, you know?"
+    }
+  ]
+  
+  testCases.forEach(testCase => {
+    console.log(`\n--- Testing: ${testCase.name} ---`)
+    const result = analyzeFillerWords(testCase.text)
+    console.log('Analysis:', result.analysis)
+    console.log('Stats:', {
+      totalCount: result.totalCount,
+      fillersPerMinute: result.fillersPerMinute,
+      score: getFillerWordScore(result)
+    })
+  })
+  
+  return "Demo complete - check console for results"
 }

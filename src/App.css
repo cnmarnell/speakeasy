@@ -1010,6 +1010,37 @@
   margin: 0;
 }
 
+/* Enhanced styling for filler word analysis */
+.filler-words-category {
+  border-left: 4px solid #ff6b6b;
+}
+
+.filler-analysis-text strong {
+  color: #333;
+  font-weight: 600;
+}
+
+.filler-analysis-text {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.speech-analysis-text strong {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.delivery-analysis-text strong {
+  color: #059669;
+  font-weight: 600;
+}
+
+.no-feedback {
+  color: #999;
+  font-style: italic;
+  margin: 0;
+}
+
 .record-btn {
   background-color: #dc3545;
   color: white;

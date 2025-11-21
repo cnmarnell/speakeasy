@@ -88,25 +88,61 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
 
         {/* Feedback Categories */}
         <div className="feedback-categories">
-          <div className="feedback-category">
+          <div className="feedback-category filler-words-category">
             <h4 className="feedback-category-title">Filler Words Analysis</h4>
-            <p className="feedback-content">
-              {isCompleted && feedback ? feedback.fillerWords : "N/A"}
-            </p>
+            <div className="feedback-content filler-words-content">
+              {isCompleted && feedback ? (
+                <div 
+                  className="filler-analysis-text"
+                  dangerouslySetInnerHTML={{
+                    __html: feedback.fillerWords
+                      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                      .replace(/\n/g, '<br>')
+                      .replace(/•/g, '&bull;')
+                  }}
+                />
+              ) : (
+                <p className="no-feedback">N/A</p>
+              )}
+            </div>
           </div>
 
           <div className="feedback-category">
             <h4 className="feedback-category-title">Speech Content Analysis</h4>
-            <p className="feedback-content">
-              {isCompleted && feedback ? feedback.speechContent : "N/A"}
-            </p>
+            <div className="feedback-content speech-content">
+              {isCompleted && feedback ? (
+                <div 
+                  className="speech-analysis-text"
+                  dangerouslySetInnerHTML={{
+                    __html: feedback.speechContent
+                      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                      .replace(/\n/g, '<br>')
+                      .replace(/•/g, '&bull;')
+                  }}
+                />
+              ) : (
+                <p className="no-feedback">N/A</p>
+              )}
+            </div>
           </div>
 
           <div className="feedback-category">
             <h4 className="feedback-category-title">Delivery & Language Analysis</h4>
-            <p className="feedback-content">
-              {isCompleted && feedback ? feedback.bodyLanguage : "N/A"}
-            </p>
+            <div className="feedback-content">
+              {isCompleted && feedback ? (
+                <div 
+                  className="delivery-analysis-text"
+                  dangerouslySetInnerHTML={{
+                    __html: feedback.bodyLanguage
+                      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                      .replace(/\n/g, '<br>')
+                      .replace(/•/g, '&bull;')
+                  }}
+                />
+              ) : (
+                <p className="no-feedback">N/A</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
