@@ -27,7 +27,7 @@ export const getAssignmentsByClass = async (className) => {
       classes!inner(name)
     `)
     .eq('classes.name', className)
-    .order('created_at', { ascending: false })
+    .order('due_date', { ascending: true }) // Sort by due date, soonest first
   
   if (error) {
     console.error('Error fetching assignments:', error)
@@ -43,7 +43,8 @@ export const getAssignmentsByClass = async (className) => {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
-    })
+    }),
+    rawDueDate: assignment.due_date // Keep raw date for sorting
   }))
 }
 
@@ -552,6 +553,75 @@ export const createAssignment = async (assignmentData) => {
   }
 }
 
+// Delete an assignment and all related data
+export const deleteAssignment = async (assignmentId) => {
+  try {
+    console.log('Deleting assignment:', assignmentId)
+
+    // Delete in order due to foreign key constraints:
+    // 1. Delete feedback first
+    const { error: feedbackError } = await supabase
+      .from('feedback')
+      .delete()
+      .in('grade_id', 
+        supabase
+          .from('grades')
+          .select('id')
+          .in('submission_id',
+            supabase
+              .from('submissions')
+              .select('id')
+              .eq('assignment_id', assignmentId)
+          )
+      )
+
+    if (feedbackError) {
+      console.error('Error deleting feedback:', feedbackError)
+    }
+
+    // 2. Delete grades
+    const { error: gradesError } = await supabase
+      .from('grades')
+      .delete()
+      .in('submission_id',
+        supabase
+          .from('submissions')
+          .select('id')
+          .eq('assignment_id', assignmentId)
+      )
+
+    if (gradesError) {
+      console.error('Error deleting grades:', gradesError)
+    }
+
+    // 3. Delete submissions
+    const { error: submissionsError } = await supabase
+      .from('submissions')
+      .delete()
+      .eq('assignment_id', assignmentId)
+
+    if (submissionsError) {
+      console.error('Error deleting submissions:', submissionsError)
+    }
+
+    // 4. Finally delete the assignment
+    const { error: assignmentError } = await supabase
+      .from('assignments')
+      .delete()
+      .eq('id', assignmentId)
+
+    if (assignmentError) {
+      throw assignmentError
+    }
+
+    console.log('Assignment deleted successfully')
+    return { success: true }
+  } catch (error) {
+    console.error('Error deleting assignment:', error)
+    throw error
+  }
+}
+
 // Create a submission with AI-powered analysis
 export const createSubmission = async (submissionData, videoBlob = null, assignmentTitle = 'Speech Assignment') => {
   try {
@@ -785,6 +855,7 @@ export const getAssignmentsForStudent = async (studentId) => {
             day: 'numeric',
             year: 'numeric'
           }),
+          rawDueDate: assignment.due_date,
           status: submission ? 
             (submission.status === 'graded' ? 'In Progress' : 'In Progress') : 
             'Not Started',
@@ -793,7 +864,8 @@ export const getAssignmentsForStudent = async (studentId) => {
       }
     }
 
-    return allAssignments
+    // Sort all assignments by due date (soonest first)
+    return allAssignments.sort((a, b) => new Date(a.rawDueDate) - new Date(b.rawDueDate))
   } catch (error) {
     console.error('Error fetching student assignments:', error)
     return []

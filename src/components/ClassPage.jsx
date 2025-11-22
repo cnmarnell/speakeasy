@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import NewAssignmentModal from './NewAssignmentModal'
-import { getAssignmentsByClass, getStudentsByClass, createAssignment } from '../data/supabaseData'
+import { getAssignmentsByClass, getStudentsByClass, createAssignment, deleteAssignment } from '../data/supabaseData'
 
 function ClassPage({ className, onBack, onViewAssignment, onViewStudent }) {
   const [activeTab, setActiveTab] = useState('assignments')
@@ -57,6 +57,29 @@ function ClassPage({ className, onBack, onViewAssignment, onViewStudent }) {
     }
   }
 
+  const handleDeleteAssignment = async (assignmentId, assignmentTitle) => {
+    const isConfirmed = window.confirm(
+      `Are you sure you want to delete "${assignmentTitle}"?\n\nThis will permanently delete:\n• The assignment\n• All student submissions\n• All grades and feedback\n\nThis action cannot be undone.`
+    )
+
+    if (!isConfirmed) {
+      return
+    }
+
+    try {
+      await deleteAssignment(assignmentId)
+      
+      // Refresh assignments list
+      const updatedAssignments = await getAssignmentsByClass(className)
+      setAssignments(updatedAssignments)
+      
+      alert('Assignment deleted successfully')
+    } catch (error) {
+      console.error('Error deleting assignment:', error)
+      alert('Failed to delete assignment. Please try again.')
+    }
+  }
+
   const toggleStudentGradeReveal = (studentId) => {
     setRevealedStudentGrades(prev => ({
       ...prev,
@@ -94,17 +117,29 @@ function ClassPage({ className, onBack, onViewAssignment, onViewStudent }) {
         {activeTab === 'assignments' && (
           <div className="assignments-tab">
             {assignments.map(assignment => (
-              <div key={assignment.id} className="assignment-card" onClick={() => onViewAssignment(assignment)}>
-                <div className="assignment-info">
-                  <h3 className="assignment-title">{assignment.title}</h3>
-                  <p className="assignment-description">{assignment.description}</p>
+              <div key={assignment.id} className="assignment-card">
+                <div className="assignment-content" onClick={() => onViewAssignment(assignment)}>
+                  <div className="assignment-info">
+                    <h3 className="assignment-title">{assignment.title}</h3>
+                    <p className="assignment-description">{assignment.description}</p>
+                  </div>
+                  <div className="assignment-details">
+                    <span className={`assignment-status ${assignment.status.toLowerCase()}`}>
+                      {assignment.status}
+                    </span>
+                    <span className="assignment-due">Due: {assignment.dueDate}</span>
+                  </div>
                 </div>
-                <div className="assignment-details">
-                  <span className={`assignment-status ${assignment.status.toLowerCase()}`}>
-                    {assignment.status}
-                  </span>
-                  <span className="assignment-due">Due: {assignment.dueDate}</span>
-                </div>
+                <button 
+                  className="delete-assignment-btn"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDeleteAssignment(assignment.id, assignment.title)
+                  }}
+                  title="Delete Assignment"
+                >
+                  ×
+                </button>
               </div>
             ))}
           </div>

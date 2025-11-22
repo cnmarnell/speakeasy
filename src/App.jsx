@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
+import { supabase } from './lib/supabase'
+import LoginPage from './components/LoginPage'
 import Header from './components/Header'
 import TeacherDashboard from './components/TeacherDashboard'
 import StudentDashboard from './components/StudentDashboard'
@@ -8,26 +10,93 @@ import AssignmentDetailPage from './components/AssignmentDetailPage'
 import StudentDetailPage from './components/StudentDetailPage'
 import StudentAssignmentPage from './components/StudentAssignmentPage'
 import RecordingPage from './components/RecordingPage'
-import StudentSelector from './components/StudentSelector'
 
 function App() {
-  const [currentView, setCurrentView] = useState('teacher')
+  const [user, setUser] = useState(null)
+  const [userRole, setUserRole] = useState(null) // 'teacher' or 'student'
+  const [isLoading, setIsLoading] = useState(true)
+  const [currentView, setCurrentView] = useState('dashboard')
   const [selectedClass, setSelectedClass] = useState(null)
   const [selectedAssignment, setSelectedAssignment] = useState(null)
   const [selectedStudent, setSelectedStudent] = useState(null)
   const [selectedStudentAssignment, setSelectedStudentAssignment] = useState(null)
   const [currentStudentId, setCurrentStudentId] = useState(null)
 
-  const handleEnterClass = (className) => {
-    setSelectedClass(className)
-    setCurrentView('class')
+  // Check for existing session on app load
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user) {
+        await handleLogin(session.user)
+      }
+      setIsLoading(false)
+    }
+    
+    checkSession()
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setUser(null)
+        setUserRole(null)
+        setCurrentStudentId(null)
+        setCurrentView('dashboard')
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // Handle user login and determine role
+  const handleLogin = async (user) => {
+    setUser(user)
+    
+    // Try to find user in students table first
+    const { data: studentData } = await supabase
+      .from('students')
+      .select('id')
+      .eq('email', user.email)
+      .single()
+
+    if (studentData) {
+      setUserRole('student')
+      setCurrentStudentId(studentData.id)
+      setCurrentView('dashboard')
+    } else {
+      // Check if user is a teacher
+      const { data: teacherData } = await supabase
+        .from('teachers')
+        .select('id')
+        .eq('email', user.email)
+        .single()
+
+      if (teacherData) {
+        setUserRole('teacher')
+        setCurrentView('dashboard')
+      } else {
+        // Default to student role if not found (for new signups)
+        setUserRole('student')
+        setCurrentView('dashboard')
+      }
+    }
   }
 
+  // Handle logout
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+  }
+
+  // Navigation handlers
   const handleBackToDashboard = () => {
     setSelectedClass(null)
     setSelectedAssignment(null)
     setSelectedStudent(null)
-    setCurrentView('teacher')
+    setCurrentView('dashboard')
+  }
+
+  const handleEnterClass = (className) => {
+    setSelectedClass(className)
+    setCurrentView('class')
   }
 
   const handleViewAssignment = (assignment) => {
@@ -63,7 +132,7 @@ function App() {
 
   const handleBackFromStudentAssignment = () => {
     setSelectedStudentAssignment(null)
-    setCurrentView('student')
+    setCurrentView('dashboard')
   }
 
   const handleViewRecording = (assignment) => {
@@ -75,30 +144,31 @@ function App() {
     setCurrentView('studentAssignment')
   }
 
-  const handleSelectStudent = (studentId) => {
-    setCurrentStudentId(studentId)
-    setCurrentView('student')
+  // Show loading spinner
+  if (isLoading) {
+    return (
+      <div className="loading-container">
+        <div>Loading...</div>
+      </div>
+    )
+  }
+
+  // Show login page if not authenticated
+  if (!user) {
+    return <LoginPage onLogin={handleLogin} />
   }
 
   return (
     <>
-      <Header />
-      {currentView === 'teacher' && (
+      <Header user={user} userRole={userRole} onLogout={handleLogout} />
+      {currentView === 'dashboard' && userRole === 'teacher' && (
         <TeacherDashboard 
-          onSwitchToStudent={() => setCurrentView('studentSelector')}
           onEnterClass={handleEnterClass}
         />
       )}
-      {currentView === 'studentSelector' && (
-        <StudentSelector 
-          onSelectStudent={handleSelectStudent}
-          onBackToTeacher={() => setCurrentView('teacher')}
-        />
-      )}
-      {currentView === 'student' && currentStudentId && (
+      {currentView === 'dashboard' && userRole === 'student' && currentStudentId && (
         <StudentDashboard 
           studentId={currentStudentId}
-          onSwitchToTeacher={() => setCurrentView('teacher')}
           onViewStudentAssignment={handleViewStudentAssignment}
         />
       )}

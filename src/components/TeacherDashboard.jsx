@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getClasses } from '../data/supabaseData'
 
-function TeacherDashboard({ onSwitchToStudent, onEnterClass }) {
+function TeacherDashboard({ onEnterClass }) {
   const [classes, setClasses] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -35,9 +35,6 @@ function TeacherDashboard({ onSwitchToStudent, onEnterClass }) {
           </div>
         ))}
       </div>
-      <button className="student-dashboard-btn" onClick={onSwitchToStudent}>
-        Student Dashboard
-      </button>
     </div>
   )
 }
