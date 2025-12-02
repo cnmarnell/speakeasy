@@ -2,6 +2,8 @@ import { supabase } from '../lib/supabase'
 import { transcribeWithDeepgram } from '../lib/deepgram'
 import { analyzeSpeechWithBedrockAgent } from '../lib/bedrockAgent'
 import { analyzeFillerWords, getFillerWordScore } from '../lib/fillerWordAnalysis'
+import { extractFramesFromVideo } from '../lib/frameExtraction'
+import { analyzeBodyLanguageWithGemini } from '../lib/geminiBodyLanguageDirect'
 
 // Fetch all classes for teacher dashboard
 export const getClasses = async () => {
@@ -216,10 +218,14 @@ export const getDetailedStudentFeedback = async (assignmentId, studentId) => {
         grades(
           id,
           total_score,
+          speech_content_score,
+          content_score_max,
           filler_word_count,
           filler_words_used,
           filler_words_per_minute,
           filler_category_breakdown,
+          filler_word_score,
+          filler_word_counts,
           graded_at,
           feedback(
             filler_words_feedback,
@@ -267,10 +273,14 @@ export const getDetailedStudentFeedback = async (assignmentId, studentId) => {
       // Grade details
       grade: grade ? {
         totalScore: grade.total_score,
+        speechContentScore: grade.speech_content_score,
+        contentScoreMax: grade.content_score_max || 3,
         fillerWordCount: grade.filler_word_count,
         fillerWordsUsed: grade.filler_words_used || [],
         fillersPerMinute: grade.filler_words_per_minute || 0,
         categoryBreakdown: grade.filler_category_breakdown || {},
+        fillerWordScore: grade.filler_word_score || Math.max(0, 20 - (grade.filler_word_count || 0)),
+        fillerWordCounts: grade.filler_word_counts || {},
         gradedAt: grade.graded_at,
         letterGrade: getLetterGrade(grade.total_score)
       } : null,
@@ -467,16 +477,35 @@ export const processVideoWithAI = async (videoBlob, assignmentTitle) => {
     // Step 3: Analyze speech content with AWS Bedrock Agent
     console.log('Step 3: Analyzing speech content with Bedrock Agent...')
     const analysisResult = await analyzeSpeechWithBedrockAgent(
-      transcriptionResult.text, 
+      transcriptionResult.text,
       assignmentTitle
     )
-    
-    // Combine filler word analysis with Bedrock Agent analysis
+
+    // Step 4: Analyze body language with Google Gemini
+    console.log('Step 4: Analyzing body language with Gemini...')
+    let bodyLanguageFeedback = 'Body language analysis will be available soon.'
+    try {
+      const frames = await extractFramesFromVideo(videoBlob, 4)
+      console.log('Extracted frames for Gemini analysis:', frames.length)
+      const geminiResult = await analyzeBodyLanguageWithGemini(frames)
+      console.log('Gemini analysis result:', geminiResult)
+      bodyLanguageFeedback = geminiResult.bodyLanguageFeedback
+      console.log('Body language feedback set to:', bodyLanguageFeedback)
+    } catch (error) {
+      console.error('Body language analysis error:', error)
+      // Keep default fallback feedback
+    }
+
+    // Combine filler word analysis with Bedrock Agent analysis and body language
+    // IMPORTANT: bodyLanguage must come AFTER the spread to override Bedrock's placeholder
     const enhancedAnalysis = {
       ...analysisResult,
       fillerWords: fillerAnalysis.analysis,
-      fillerWordData: fillerAnalysis
+      fillerWordData: fillerAnalysis,
+      bodyLanguage: bodyLanguageFeedback  // This overrides analysisResult.bodyLanguage
     }
+
+    console.log('Enhanced analysis with Gemini body language:', enhancedAnalysis.bodyLanguage)
     
     return {
       transcript: transcriptionResult.text,
@@ -557,63 +586,89 @@ export const createAssignment = async (assignmentData) => {
 export const deleteAssignment = async (assignmentId) => {
   try {
     console.log('Deleting assignment:', assignmentId)
-
+    
     // Delete in order due to foreign key constraints:
-    // 1. Delete feedback first
-    const { error: feedbackError } = await supabase
-      .from('feedback')
-      .delete()
-      .in('grade_id', 
-        supabase
-          .from('grades')
-          .select('id')
-          .in('submission_id',
-            supabase
-              .from('submissions')
-              .select('id')
-              .eq('assignment_id', assignmentId)
-          )
-      )
-
-    if (feedbackError) {
-      console.error('Error deleting feedback:', feedbackError)
-    }
-
-    // 2. Delete grades
-    const { error: gradesError } = await supabase
-      .from('grades')
-      .delete()
-      .in('submission_id',
-        supabase
-          .from('submissions')
-          .select('id')
-          .eq('assignment_id', assignmentId)
-      )
-
-    if (gradesError) {
-      console.error('Error deleting grades:', gradesError)
-    }
-
-    // 3. Delete submissions
-    const { error: submissionsError } = await supabase
+    // Step 1: Get all submissions for this assignment
+    const { data: submissions, error: submissionsSelectError } = await supabase
       .from('submissions')
-      .delete()
+      .select('id')
       .eq('assignment_id', assignmentId)
-
-    if (submissionsError) {
-      console.error('Error deleting submissions:', submissionsError)
+    
+    if (submissionsSelectError) {
+      console.error('Error fetching submissions:', submissionsSelectError)
+      throw submissionsSelectError
     }
-
-    // 4. Finally delete the assignment
+    
+    console.log('Found submissions:', submissions?.length || 0)
+    
+    if (submissions && submissions.length > 0) {
+      const submissionIds = submissions.map(s => s.id)
+      
+      // Step 2: Get all grades for these submissions
+      const { data: grades, error: gradesSelectError } = await supabase
+        .from('grades')
+        .select('id')
+        .in('submission_id', submissionIds)
+      
+      if (gradesSelectError) {
+        console.error('Error fetching grades:', gradesSelectError)
+        throw gradesSelectError
+      }
+      
+      console.log('Found grades:', grades?.length || 0)
+      
+      if (grades && grades.length > 0) {
+        const gradeIds = grades.map(g => g.id)
+        
+        // Step 3: Delete feedback first
+        const { error: feedbackError } = await supabase
+          .from('feedback')
+          .delete()
+          .in('grade_id', gradeIds)
+        
+        if (feedbackError) {
+          console.error('Error deleting feedback:', feedbackError)
+          throw feedbackError
+        }
+        console.log('Feedback deleted')
+        
+        // Step 4: Delete grades
+        const { error: gradesError } = await supabase
+          .from('grades')
+          .delete()
+          .in('submission_id', submissionIds)
+        
+        if (gradesError) {
+          console.error('Error deleting grades:', gradesError)
+          throw gradesError
+        }
+        console.log('Grades deleted')
+      }
+      
+      // Step 5: Delete submissions
+      const { error: submissionsError } = await supabase
+        .from('submissions')
+        .delete()
+        .eq('assignment_id', assignmentId)
+      
+      if (submissionsError) {
+        console.error('Error deleting submissions:', submissionsError)
+        throw submissionsError
+      }
+      console.log('Submissions deleted')
+    }
+    
+    // Step 6: Finally delete the assignment
     const { error: assignmentError } = await supabase
       .from('assignments')
       .delete()
       .eq('id', assignmentId)
-
+    
     if (assignmentError) {
+      console.error('Error deleting assignment:', assignmentError)
       throw assignmentError
     }
-
+    
     console.log('Assignment deleted successfully')
     return { success: true }
   } catch (error) {
@@ -701,6 +756,32 @@ export const createSubmission = async (submissionData, videoBlob = null, assignm
     const fillerWordsUsed = aiResult?.fillerWordAnalysis?.fillerWordsUsed || []
     const fillersPerMinute = aiResult?.fillerWordAnalysis?.fillersPerMinute || 0
     const categoryBreakdown = aiResult?.fillerWordAnalysis?.categoryBreakdown || {}
+    
+    // Get individual word counts from detections (if available) or generate fallback
+    const fillerWordCounts = {}
+    if (aiResult?.fillerWordAnalysis?.detections) {
+      // Count each word from actual detections
+      aiResult.fillerWordAnalysis.detections.forEach(detection => {
+        fillerWordCounts[detection.word] = (fillerWordCounts[detection.word] || 0) + 1
+      })
+    } else if (fillerWordsUsed.length > 0) {
+      // Fallback: distribute count among used words
+      fillerWordsUsed.forEach(word => {
+        fillerWordCounts[word] = Math.ceil(fillerWordCount / fillerWordsUsed.length)
+      })
+    }
+    
+    // Calculate filler word score (0-20 scale, will be displayed as X/20)
+    const fillerWordScore = Math.max(0, 20 - fillerWordCount)
+    
+    // Get speech content score from AI analysis (0-3 scale)
+    const speechContentScore = aiResult?.analysis?.overallScore || 2.0 // Default to "good" (2/3)
+    
+    // Calculate simple average of both scores converted to 100-point scale
+    // Formula: ((contentScore/3) * 100 + (fillerScore/20) * 100) / 2
+    const contentPercentage = (speechContentScore / 3) * 100
+    const fillerPercentage = (fillerWordScore / 20) * 100
+    const averageFinalScore = Math.round((contentPercentage + fillerPercentage) / 2)
 
     // Check if grade already exists for this submission
     const { data: existingGrade, error: gradeCheckError } = await supabase
@@ -716,11 +797,15 @@ export const createSubmission = async (submissionData, videoBlob = null, assignm
       const { data: updatedGrade, error: gradeUpdateError } = await supabase
         .from('grades')
         .update({
-          total_score: finalScore,
+          total_score: averageFinalScore,
+          speech_content_score: speechContentScore,
           filler_word_count: fillerWordCount,
           filler_words_used: fillerWordsUsed,
           filler_words_per_minute: fillersPerMinute,
           filler_category_breakdown: categoryBreakdown,
+          filler_word_score: fillerWordScore,
+          filler_word_counts: fillerWordCounts,
+          content_score_max: 3,
           graded_at: new Date().toISOString()
         })
         .eq('id', existingGrade.id)
@@ -737,11 +822,15 @@ export const createSubmission = async (submissionData, videoBlob = null, assignm
         .from('grades')
         .insert([{
           submission_id: submission.id,
-          total_score: finalScore,
+          total_score: averageFinalScore,
+          speech_content_score: speechContentScore,
           filler_word_count: fillerWordCount,
           filler_words_used: fillerWordsUsed,
           filler_words_per_minute: fillersPerMinute,
-          filler_category_breakdown: categoryBreakdown
+          filler_category_breakdown: categoryBreakdown,
+          filler_word_score: fillerWordScore,
+          filler_word_counts: fillerWordCounts,
+          content_score_max: 3
         }])
         .select()
         .single()
@@ -755,17 +844,46 @@ export const createSubmission = async (submissionData, videoBlob = null, assignm
     // Generate feedback using AI analysis (Bedrock Agent)
     let feedbackTexts
     
+    // Generate filler word feedback text
+    const generateFillerFeedback = () => {
+      if (fillerWordCount === 0) {
+        return "Excellent! No filler words detected. Your speech was clear and confident."
+      }
+      
+      let feedback = `Detected ${fillerWordCount} filler word${fillerWordCount > 1 ? 's' : ''} in your speech.`
+      
+      if (fillerWordsUsed && fillerWordsUsed.length > 0) {
+        const wordsWithCounts = fillerWordsUsed.map(word => {
+          const count = fillerWordCounts[word] || 1
+          return `"${word}" (${count}x)`
+        }).join(', ')
+        feedback += ` Words used: ${wordsWithCounts}.`
+      }
+      
+      feedback += ` Score: ${fillerWordScore}/20.`
+      
+      if (fillerWordCount <= 2) {
+        feedback += " Good job! Just a few minor fillers to work on."
+      } else if (fillerWordCount <= 5) {
+        feedback += " Try to reduce filler words for clearer communication."
+      } else {
+        feedback += " Focus on pausing instead of using filler words to improve your delivery."
+      }
+      
+      return feedback
+    }
+
     if (aiResult && aiResult.analysis) {
       // If we have an AI result, even a partial or placeholder one, use its content.
       feedbackTexts = {
-        filler_words: aiResult.analysis.fillerWords || "Filler word analysis will be available when AI processing is restored.",
+        filler_words: aiResult.analysis.fillerWords || generateFillerFeedback(),
         speech_content: aiResult.analysis.speechContent || "Speech content analysis temporarily unavailable.",
         body_language: aiResult.analysis.bodyLanguage || "Delivery analysis will be available when AI processing is restored."
       }
     } else {
       // Simple fallback when AI processing fails entirely
       feedbackTexts = {
-        filler_words: "Filler word analysis will be available when AI processing is restored.",
+        filler_words: generateFillerFeedback(),
         speech_content: "Speech content analysis temporarily unavailable. Please try submitting again.",
         body_language: "Delivery analysis will be available when AI processing is restored."
       }
@@ -868,6 +986,67 @@ export const getAssignmentsForStudent = async (studentId) => {
     return allAssignments.sort((a, b) => new Date(a.rawDueDate) - new Date(b.rawDueDate))
   } catch (error) {
     console.error('Error fetching student assignments:', error)
+    return []
+  }
+}
+
+// Get assignments for a specific class for a student
+export const getAssignmentsForStudentInClass = async (studentId, classId) => {
+  try {
+    // Get assignments for the specific class
+    const { data: assignments, error: assignmentsError } = await supabase
+      .from('assignments')
+      .select(`
+        id,
+        title,
+        description,
+        due_date,
+        max_duration_seconds,
+        classes!inner(
+          id,
+          name
+        )
+      `)
+      .eq('class_id', classId)
+      .order('due_date', { ascending: true })
+
+    if (assignmentsError) {
+      throw assignmentsError
+    }
+
+    // Process each assignment to get submission status
+    const processedAssignments = await Promise.all(
+      assignments.map(async (assignment) => {
+        // Get submission status for this student
+        const { data: submission } = await supabase
+          .from('submissions')
+          .select('status')
+          .eq('assignment_id', assignment.id)
+          .eq('student_id', studentId)
+          .single()
+
+        return {
+          id: assignment.id,
+          title: assignment.title,
+          description: assignment.description,
+          className: assignment.classes.name,
+          dueDate: assignment.due_date ? new Date(assignment.due_date).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          }) : null,
+          rawDueDate: assignment.due_date,
+          status: submission ? 
+            (submission.status === 'completed' ? 'completed' : 'in_progress') : 
+            'not_started',
+          maxDuration: assignment.max_duration_seconds ? Math.floor(assignment.max_duration_seconds / 60) : null
+        }
+      })
+    )
+
+    return processedAssignments
+  } catch (error) {
+    console.error('Error fetching student assignments for class:', error)
     return []
   }
 }
@@ -1027,6 +1206,199 @@ export const calculateStudentTotalGrade = async (studentId) => {
   }
 }
 
+
+// CLASS CREATION AND ENROLLMENT FUNCTIONS
+
+// Create a new class (for teachers)
+export const createClass = async (classData, teacherEmail) => {
+  try {
+    // First get the teacher ID from email
+    const { data: teacher, error: teacherError } = await supabase
+      .from('teachers')
+      .select('id')
+      .eq('email', teacherEmail)
+      .single()
+    
+    if (teacherError || !teacher) {
+      throw new Error('Teacher not found')
+    }
+
+    // Create the class (the database will auto-generate the class_code)
+    const { data: newClass, error: classError } = await supabase
+      .from('classes')
+      .insert([{
+        name: classData.name,
+        description: classData.description || '',
+        teacher_id: teacher.id
+      }])
+      .select('id, name, description, class_code, teacher_id, created_at')
+      .single()
+    
+    if (classError) {
+      throw classError
+    }
+
+    return newClass
+  } catch (error) {
+    console.error('Error creating class:', error)
+    throw error
+  }
+}
+
+// Join a class using class code (for students)
+export const joinClassByCode = async (classCode, studentEmail) => {
+  try {
+    // Get student ID from email
+    const { data: student, error: studentError } = await supabase
+      .from('students')
+      .select('id, name')
+      .eq('email', studentEmail)
+      .single()
+    
+    if (studentError || !student) {
+      throw new Error('Student not found')
+    }
+
+    // Find class by code
+    const { data: classInfo, error: classError } = await supabase
+      .from('classes')
+      .select('id, name, teacher_id')
+      .eq('class_code', classCode.toUpperCase())
+      .single()
+    
+    if (classError || !classInfo) {
+      throw new Error('Class not found with that code')
+    }
+
+    // Check if student is already enrolled
+    const { data: existingEnrollment, error: enrollmentCheckError } = await supabase
+      .from('class_enrollments')
+      .select('id')
+      .eq('student_id', student.id)
+      .eq('class_id', classInfo.id)
+      .single()
+    
+    if (existingEnrollment) {
+      throw new Error('Student is already enrolled in this class')
+    }
+
+    // Enroll student in class
+    const { data: enrollment, error: enrollmentError } = await supabase
+      .from('class_enrollments')
+      .insert([{
+        student_id: student.id,
+        class_id: classInfo.id
+      }])
+      .select()
+      .single()
+    
+    if (enrollmentError) {
+      throw enrollmentError
+    }
+
+    return {
+      success: true,
+      className: classInfo.name,
+      enrollment: enrollment
+    }
+  } catch (error) {
+    console.error('Error joining class:', error)
+    throw error
+  }
+}
+
+// Get classes with their codes (for teachers)
+export const getClassesWithCodes = async (teacherEmail) => {
+  try {
+    // Get teacher ID
+    const { data: teacher, error: teacherError } = await supabase
+      .from('teachers')
+      .select('id')
+      .eq('email', teacherEmail)
+      .single()
+    
+    if (teacherError || !teacher) {
+      throw new Error('Teacher not found')
+    }
+
+    // Get classes with codes
+    const { data: classes, error: classesError } = await supabase
+      .from('classes')
+      .select(`
+        id,
+        name,
+        description,
+        class_code,
+        created_at,
+        class_enrollments(count)
+      `)
+      .eq('teacher_id', teacher.id)
+      .order('created_at', { ascending: false })
+    
+    if (classesError) {
+      throw classesError
+    }
+
+    return classes.map(classItem => ({
+      id: classItem.id,
+      name: classItem.name,
+      description: classItem.description,
+      classCode: classItem.class_code,
+      createdAt: classItem.created_at,
+      studentCount: classItem.class_enrollments?.[0]?.count || 0
+    }))
+  } catch (error) {
+    console.error('Error fetching classes with codes:', error)
+    throw error
+  }
+}
+
+// Get enrolled classes for students (updated to include class codes for reference)
+export const getEnrolledClasses = async (studentEmail) => {
+  try {
+    const { data: student, error: studentError } = await supabase
+      .from('students')
+      .select('id')
+      .eq('email', studentEmail)
+      .single()
+    
+    if (studentError || !student) {
+      throw new Error('Student not found')
+    }
+
+    const { data: enrollments, error: enrollmentsError } = await supabase
+      .from('class_enrollments')
+      .select(`
+        enrolled_at,
+        classes(
+          id,
+          name,
+          description,
+          class_code,
+          teachers(name, email)
+        )
+      `)
+      .eq('student_id', student.id)
+      .order('enrolled_at', { ascending: false })
+    
+    if (enrollmentsError) {
+      throw enrollmentsError
+    }
+
+    return enrollments.map(enrollment => ({
+      id: enrollment.classes.id,
+      name: enrollment.classes.name,
+      description: enrollment.classes.description,
+      classCode: enrollment.classes.class_code,
+      teacherName: enrollment.classes.teachers?.name,
+      teacherEmail: enrollment.classes.teachers?.email,
+      enrolledAt: enrollment.enrolled_at
+    }))
+  } catch (error) {
+    console.error('Error fetching enrolled classes:', error)
+    throw error
+  }
+}
 
 // Get all grades for a student with detailed info
 export const getDetailedStudentGrades = async (studentId) => {

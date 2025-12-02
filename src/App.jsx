@@ -5,6 +5,7 @@ import LoginPage from './components/LoginPage'
 import Header from './components/Header'
 import TeacherDashboard from './components/TeacherDashboard'
 import StudentDashboard from './components/StudentDashboard'
+import StudentClassesPage from './components/StudentClassesPage'
 import ClassPage from './components/ClassPage'
 import AssignmentDetailPage from './components/AssignmentDetailPage'
 import StudentDetailPage from './components/StudentDetailPage'
@@ -21,6 +22,7 @@ function App() {
   const [selectedStudent, setSelectedStudent] = useState(null)
   const [selectedStudentAssignment, setSelectedStudentAssignment] = useState(null)
   const [currentStudentId, setCurrentStudentId] = useState(null)
+  const [selectedStudentClass, setSelectedStudentClass] = useState(null)
 
   // Check for existing session on app load
   useEffect(() => {
@@ -91,6 +93,7 @@ function App() {
     setSelectedClass(null)
     setSelectedAssignment(null)
     setSelectedStudent(null)
+    setSelectedStudentClass(null)
     setCurrentView('dashboard')
   }
 
@@ -132,12 +135,26 @@ function App() {
 
   const handleBackFromStudentAssignment = () => {
     setSelectedStudentAssignment(null)
-    setCurrentView('dashboard')
+    if (selectedStudentClass) {
+      setCurrentView('studentAssignments')
+    } else {
+      setCurrentView('dashboard')
+    }
   }
 
   const handleViewRecording = (assignment) => {
     setSelectedStudentAssignment(assignment)
     setCurrentView('recording')
+  }
+
+  const handleStudentSelectClass = (classItem) => {
+    setSelectedStudentClass(classItem)
+    setCurrentView('studentAssignments')
+  }
+
+  const handleBackToStudentClasses = () => {
+    setSelectedStudentClass(null)
+    setCurrentView('dashboard')
   }
 
   const handleBackFromRecording = () => {
@@ -163,13 +180,22 @@ function App() {
       <Header user={user} userRole={userRole} onLogout={handleLogout} />
       {currentView === 'dashboard' && userRole === 'teacher' && (
         <TeacherDashboard 
-          onEnterClass={handleEnterClass}
+          user={user}
+          onClassSelect={(classItem) => handleEnterClass(classItem.name)}
         />
       )}
       {currentView === 'dashboard' && userRole === 'student' && currentStudentId && (
+        <StudentClassesPage 
+          user={{ id: currentStudentId, email: user.email }}
+          onClassSelect={handleStudentSelectClass}
+        />
+      )}
+      {currentView === 'studentAssignments' && selectedStudentClass && (
         <StudentDashboard 
-          studentId={currentStudentId}
-          onViewStudentAssignment={handleViewStudentAssignment}
+          user={{ id: currentStudentId, email: user.email }}
+          selectedClass={selectedStudentClass}
+          onAssignmentSelect={handleViewStudentAssignment}
+          onBackToClasses={handleBackToStudentClasses}
         />
       )}
       {currentView === 'class' && (

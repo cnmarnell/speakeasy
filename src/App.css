@@ -1,3 +1,95 @@
+/* CSS Variables - Design Tokens */
+:root {
+  /* Primary Colors */
+  --primary-50: #e8f4fd;
+  --primary-100: #bde3fa;
+  --primary-200: #8ed0f7;
+  --primary-300: #5fbdf3;
+  --primary-400: #3baef0;
+  --primary-500: #1a9fed;
+  --primary-600: #0e8ed6;
+  --primary-700: #0a7bb8;
+  --primary-800: #086899;
+  --primary-900: #064d70;
+  
+  /* Semantic Colors */
+  --success-light: #d4f4dd;
+  --success: #22c55e;
+  --success-dark: #15803d;
+  
+  --warning-light: #fef3c7;
+  --warning: #f59e0b;
+  --warning-dark: #d97706;
+  
+  --danger-light: #fee2e2;
+  --danger: #ef4444;
+  --danger-dark: #dc2626;
+  
+  --info-light: #dbeafe;
+  --info: #3b82f6;
+  --info-dark: #2563eb;
+  
+  /* Neutral Colors */
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+  
+  /* Background Colors */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  --bg-overlay: rgba(15, 23, 42, 0.5);
+  
+  /* Text Colors */
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-tertiary: #64748b;
+  --text-inverse: #ffffff;
+  
+  /* Spacing Scale */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+  
+  /* Border Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --radius-full: 9999px;
+  
+  /* Shadows */
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+  
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+  --transition-slow: 350ms ease;
+  
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Poppins', var(--font-sans);
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+}
+
 #root {
   margin: 0;
   padding: 0;
@@ -502,8 +594,9 @@
   align-items: center;
   justify-content: center;
   transition: all 0.3s ease;
-  opacity: 0;
-  transform: scale(0.8);
+  opacity: 0.7;
+  transform: scale(0.9);
+  z-index: 10;
 }
 
 .assignment-card:hover .delete-assignment-btn {
@@ -514,6 +607,7 @@
 .delete-assignment-btn:hover {
   background: #c82333;
   transform: scale(1.1);
+  opacity: 1;
 }
 
 .assignment-info, .student-info {
@@ -1092,8 +1186,17 @@
 .feedback-content {
   font-size: 1rem;
   line-height: 1.5;
-  color: #555;
+  color: #000;
   margin: 0;
+}
+
+/* Ensure all feedback text is black */
+.speech-analysis-text {
+  color: #000 !important;
+}
+
+.speech-analysis-text * {
+  color: #000 !important;
 }
 
 /* Enhanced styling for filler word analysis */
@@ -1102,23 +1205,241 @@
 }
 
 .filler-analysis-text strong {
-  color: #333;
+  color: #000;
   font-weight: 600;
 }
 
 .filler-analysis-text {
   margin: 0;
   line-height: 1.6;
+  color: #000;
 }
 
 .speech-analysis-text strong {
-  color: #2563eb;
+  color: #000;
   font-weight: 600;
 }
 
 .delivery-analysis-text strong {
-  color: #059669;
+  color: #000;
   font-weight: 600;
+}
+
+.delivery-analysis-text {
+  color: #000;
+}
+
+/* Ensure all feedback text elements are black */
+.feedback-category p,
+.feedback-content p,
+.teacher-feedback-analysis p,
+[class*="feedback"] p,
+[class*="analysis-text"] {
+  color: #000 !important;
+}
+
+/* Class Creation and Join Class Components */
+.class-creation-modal,
+.join-class-modal {
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+}
+
+.class-creation-form,
+.join-class-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group textarea {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-group textarea:focus {
+  outline: none;
+  border-color: #53a6ff;
+  box-shadow: 0 0 0 3px rgba(83, 166, 255, 0.1);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.btn-primary {
+  background: #53a6ff;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #4285f4;
+}
+
+.btn-primary:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #f8f9fa;
+  color: #333;
+  border: 1px solid #ddd;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #e9ecef;
+}
+
+.input-help {
+  font-size: 0.875rem;
+  color: #666;
+  margin-top: 0.5rem;
+}
+
+.error-message {
+  background: #fee;
+  border: 1px solid #fcc;
+  color: #c33;
+  padding: 0.75rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+
+.success-message {
+  background: #efe;
+  border: 1px solid #cfc;
+  color: #363;
+  padding: 0.75rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+
+/* Create Class and Join Class Buttons */
+.create-class-btn,
+.join-class-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #53a6ff;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.create-class-btn:hover,
+.join-class-btn:hover {
+  background: #4285f4;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.back-to-classes-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #6b7280;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.back-to-classes-btn:hover {
+  background: #4b5563;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.btn-icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* Header Actions Layout */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.header-stats {
+  display: flex;
+  gap: 1rem;
+}
+
+/* Class Code Display */
+.class-code-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.class-code-label {
+  font-size: 0.875rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.class-code-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  color: #2c3e50;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 1rem;
+  font-weight: bold;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.class-code-display:hover {
+  background: rgba(0, 0, 0, 0.15);
+  transform: scale(1.02);
+}
+
+.copy-icon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.8;
 }
 
 .no-feedback {
@@ -1683,6 +2004,7 @@
 .teacher-feedback-analysis .feedback-category p {
   margin: 0 0 0.5rem 0;
   line-height: 1.5;
+  color: #000;
 }
 
 .filler-count {
@@ -1767,6 +2089,56 @@
   border-radius: 4px;
   font-size: 0.8rem;
   font-weight: bold;
+}
+
+.filler-score {
+  display: inline-block;
+  background-color: #e8f5e8;
+  color: #2e7d32;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+/* Component Score Breakdown Styles */
+.component-scores {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.component-scores h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.score-components {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.score-component {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background: white;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+}
+
+.component-label {
+  font-weight: 500;
+  color: #374151;
+}
+
+.component-score {
+  font-weight: bold;
+  color: #059669;
 }
 
 .filler-words-used {
@@ -1959,4 +2331,146 @@
 
 .toggle-mode-button:hover:not(:disabled) {
   color: #4285f4;
+}
+
+/* Container and Layout Classes for New Frontend */
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 var(--space-lg);
+  width: 100%;
+}
+
+/* Loading and Spinner Components */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  text-align: center;
+  animation: fadeIn 0.5s ease;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--gray-200);
+  border-top: 4px solid var(--primary-600);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: var(--space-lg);
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Badge Components */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.badge-success {
+  background: var(--success-light);
+  color: var(--success-dark);
+  border: 1px solid var(--success);
+}
+
+.badge-warning {
+  background: var(--warning-light);
+  color: var(--warning-dark);
+  border: 1px solid var(--warning);
+}
+
+.badge-danger {
+  background: var(--danger-light);
+  color: var(--danger-dark);
+  border: 1px solid var(--danger);
+}
+
+.badge-icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Button Components */
+.btn {
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
+.btn-primary {
+  background: var(--primary-600);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--primary-700);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }

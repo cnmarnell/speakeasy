@@ -43,17 +43,32 @@ export default function Results({ submissionId }) {
 
       setSubmission(sub)
 
-      // If graded, get the grade
+      // If graded, get the grade with feedback
       if (sub.status === 'graded') {
         const { data: gradeData, error: gradeError } = await supabase
           .from('grades')
-          .select('*')
+          .select(`
+            *,
+            feedback(
+              body_language_feedback,
+              speech_content_feedback,
+              filler_words_feedback
+            )
+          `)
           .eq('submission_id', submissionId)
           .single()
 
         if (gradeError) throw gradeError
 
-        setGrade(gradeData)
+        // Flatten feedback into grade object for easier access
+        const gradeWithFeedback = {
+          ...gradeData,
+          body_language_feedback: gradeData.feedback?.[0]?.body_language_feedback,
+          speech_content_feedback: gradeData.feedback?.[0]?.speech_content_feedback,
+          filler_words_feedback: gradeData.feedback?.[0]?.filler_words_feedback
+        }
+
+        setGrade(gradeWithFeedback)
       }
 
       setLoading(false)
@@ -122,18 +137,60 @@ export default function Results({ submissionId }) {
             <span className="text-3xl">/100</span>
           </p>
         </div>
+        
+        {/* Component Score Breakdown for Students */}
+        {grade?.speech_content_score && (
+          <div className="mt-4 pt-4 border-t border-green-200">
+            <p className="text-sm text-gray-600 text-center mb-3">Score Breakdown (Simple Average)</p>
+            <div className="flex justify-between text-sm">
+              <div className="text-center">
+                <p className="font-semibold text-gray-700">Speech Content (50%)</p>
+                <p className="text-lg font-bold text-blue-600">{grade.speech_content_score}/3</p>
+              </div>
+              <div className="text-center">
+                <p className="font-semibold text-gray-700">Filler Words (50%)</p>
+                <p className="text-lg font-bold text-orange-600">{grade.filler_word_score}/20</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Filler Words */}
       <div className="bg-blue-50 rounded-lg p-4 mb-6">
         <h3 className="font-bold text-lg mb-2">Filler Words</h3>
-        <p className="text-3xl font-bold text-blue-600">
-          {grade?.filler_word_count || 0} filler words detected
-        </p>
-        <p className="text-sm text-gray-600 mt-2">
-          Try to reduce "um", "uh", "like" for clearer communication
-        </p>
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-lg">Count: {grade?.filler_word_count || 0}</span>
+          <span className="text-lg font-bold text-blue-600">
+            Score: {grade?.filler_word_score || Math.max(0, 20 - (grade?.filler_word_count || 0))}/20
+          </span>
+        </div>
+        {grade?.filler_words_used && grade.filler_words_used.length > 0 && (
+          <div className="mt-2">
+            <p className="text-sm font-semibold mb-1">Detected words:</p>
+            <div className="flex flex-wrap gap-2">
+              {grade.filler_words_used.map((word, index) => {
+                const count = grade?.filler_word_counts?.[word] || 1
+                return (
+                  <span key={index} className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">
+                    {word} ({count}x)
+                  </span>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Delivery & Language Analysis */}
+      {grade?.body_language_feedback && (
+        <div className="bg-purple-50 rounded-lg p-4 mb-6">
+          <h3 className="font-bold text-lg mb-2">📹 Delivery & Language Analysis</h3>
+          <p className="text-gray-700 whitespace-pre-wrap">
+            {grade.body_language_feedback}
+          </p>
+        </div>
+      )}
 
       {/* Feedback */}
       {grade?.feedback && (
@@ -146,7 +203,7 @@ export default function Results({ submissionId }) {
               </h3>
               <ul className="list-disc list-inside space-y-1">
                 {grade.feedback.strengths.map((strength, idx) => (
-                  <li key={idx} className="text-green-700">{strength}</li>
+                  <li key={idx} className="text-black">{strength}</li>
                 ))}
               </ul>
             </div>
@@ -160,7 +217,7 @@ export default function Results({ submissionId }) {
               </h3>
               <ul className="list-disc list-inside space-y-1">
                 {grade.feedback.improvements.map((improvement, idx) => (
-                  <li key={idx} className="text-orange-700">{improvement}</li>
+                  <li key={idx} className="text-black">{improvement}</li>
                 ))}
               </ul>
             </div>

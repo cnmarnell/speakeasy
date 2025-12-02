@@ -49,6 +49,7 @@ export const analyzeSpeechWithBedrockAgent = async (transcript, assignmentTitle)
       speechContent: result.speechContent || 'Analysis not available', // Pure Bedrock Agent output
       confidence: result.confidence,
       sources: result.sources,
+      overallScore: calculateContentScoreFromAnalysis(result.speechContent || ''), // 3-point scale
       // Simple delivery guidance since Bedrock Agent focuses on content analysis
       bodyLanguage: 'Focus on clear articulation, confident posture, and engaging delivery. Maintain eye contact and use purposeful gestures to enhance your message.',
       contentOrganization: result.speechContent || 'Analysis not available' // Use same content for organization
@@ -94,9 +95,56 @@ This analysis provides basic feedback. For more detailed, AI-powered insights, e
     speechContent: speechContent,
     confidence: 0.6,
     sources: ['Basic Analysis - Bedrock Agent Unavailable'],
+    overallScore: calculateContentScoreFromAnalysis(speechContent), // 3-point scale
     bodyLanguage: 'Delivery Analysis: Focus on maintaining clear articulation, appropriate volume, and confident posture. Practice using vocal variety to keep your audience engaged.',
     contentOrganization: 'Structure: Organize your speech with a strong opening that captures attention, well-developed main points with supporting evidence, and a memorable conclusion.'
   }
+}
+
+// Calculate content score from analysis text (3-point scale)
+const calculateContentScoreFromAnalysis = (analysisText) => {
+  const lowerText = analysisText.toLowerCase()
+  
+  // Excellent indicators (3 points)
+  const excellentWords = ['excellent', 'outstanding', 'exceptional', 'superb', 'masterful', 'compelling', 'sophisticated']
+  const goodWords = ['good', 'strong', 'clear', 'well-organized', 'effective', 'appropriate', 'solid']
+  const fairWords = ['adequate', 'satisfactory', 'basic', 'simple', 'consider']
+  const poorWords = ['poor', 'weak', 'unclear', 'disorganized', 'needs improvement', 'lacks', 'confusing', 'difficult']
+  
+  let score = 2 // Start with good/adequate base
+  
+  // Check for excellent indicators
+  if (excellentWords.some(word => lowerText.includes(word))) {
+    score = 3
+  }
+  // Check for good indicators  
+  else if (goodWords.some(word => lowerText.includes(word))) {
+    score = 2
+  }
+  // Check for fair indicators
+  else if (fairWords.some(word => lowerText.includes(word))) {
+    score = 1
+  }
+  // Check for poor indicators
+  else if (poorWords.some(word => lowerText.includes(word))) {
+    score = 0
+  }
+  
+  // Content quality indicators
+  const hasExamples = /example|specific|detail|evidence|support/i.test(analysisText)
+  const hasStructure = /organized|structure|flow|transition|clear.*point/i.test(analysisText)
+  const hasClarity = /clear|understand|coherent|focused/i.test(analysisText)
+  const hasDepth = /substantial|develop|thorough|comprehensive/i.test(analysisText)
+  
+  // Bonus adjustments for content quality
+  if (hasExamples && hasStructure && hasClarity && hasDepth && score < 3) {
+    score = Math.min(3, score + 1)
+  } else if ((hasExamples && hasStructure) || (hasClarity && hasDepth)) {
+    score = Math.min(3, score + 0.5)
+  }
+  
+  // Ensure score is within 0-3 bounds and round to nearest 0.5
+  return Math.max(0, Math.min(3, Math.round(score * 2) / 2))
 }
 
 // Test function for development

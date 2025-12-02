@@ -158,6 +158,31 @@ function AssignmentDetailPage({ assignment, onBack, onViewStudent }) {
                     </span>
                   )}
                 </div>
+                
+                {/* Component Score Breakdown */}
+                {selectedStudentFeedback.grade && (
+                  <div className="component-scores">
+                    <h4>Score Breakdown (Simple Average)</h4>
+                    <div className="score-components">
+                      <div className="score-component">
+                        <span className="component-label">
+                          Speech Content (50%):
+                        </span>
+                        <span className="component-score">
+                          {selectedStudentFeedback.grade.speechContentScore || 'N/A'}/{selectedStudentFeedback.grade.contentScoreMax || 3}
+                        </span>
+                      </div>
+                      <div className="score-component">
+                        <span className="component-label">
+                          Filler Words (50%):
+                        </span>
+                        <span className="component-score">
+                          {selectedStudentFeedback.grade.fillerWordScore || 'N/A'}/20
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Transcript */}
@@ -190,41 +215,26 @@ function AssignmentDetailPage({ assignment, onBack, onViewStudent }) {
                       <div className="filler-word-details">
                         <div className="filler-stats">
                           <span className="filler-count">
-                            Total filler words: {selectedStudentFeedback.grade.fillerWordCount}
+                            Count: {selectedStudentFeedback.grade.fillerWordCount || 0}
                           </span>
-                          {selectedStudentFeedback.grade.fillersPerMinute > 0 && (
-                            <span className="filler-rate">
-                              Rate: {selectedStudentFeedback.grade.fillersPerMinute} per minute
-                            </span>
-                          )}
+                          <span className="filler-score">
+                            Score: {selectedStudentFeedback.grade.fillerWordScore || Math.max(0, 20 - (selectedStudentFeedback.grade.fillerWordCount || 0))}/20
+                          </span>
                         </div>
                         
                         {selectedStudentFeedback.grade.fillerWordsUsed && 
                          selectedStudentFeedback.grade.fillerWordsUsed.length > 0 && (
                           <div className="filler-words-used">
-                            <strong>Specific filler words detected:</strong>
+                            <strong>Detected filler words:</strong>
                             <div className="filler-word-tags">
-                              {selectedStudentFeedback.grade.fillerWordsUsed.map((word, index) => (
-                                <span key={index} className="filler-word-tag">
-                                  {word}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {selectedStudentFeedback.grade.categoryBreakdown && 
-                         Object.keys(selectedStudentFeedback.grade.categoryBreakdown).length > 0 && (
-                          <div className="filler-category-breakdown">
-                            <strong>Breakdown by type:</strong>
-                            <div className="category-stats">
-                              {Object.entries(selectedStudentFeedback.grade.categoryBreakdown)
-                                .filter(([category, count]) => count > 0)
-                                .map(([category, count]) => (
-                                  <span key={category} className="category-stat">
-                                    {category}: {count}
+                              {selectedStudentFeedback.grade.fillerWordsUsed.map((word, index) => {
+                                const count = selectedStudentFeedback.grade.fillerWordCounts?.[word] || 1
+                                return (
+                                  <span key={index} className="filler-word-tag">
+                                    {word} ({count}x)
                                   </span>
-                                ))}
+                                )
+                              })}
                             </div>
                           </div>
                         )}

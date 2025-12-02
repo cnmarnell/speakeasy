@@ -128,26 +128,49 @@ const parseFeedbackResponse = (response) => {
   }
 }
 
-// Calculate score based on feedback sentiment
+// Calculate score based on feedback sentiment (3-point scale)
 const calculateScoreFromFeedback = (feedback) => {
   const lowerFeedback = feedback.toLowerCase()
   
-  // Positive indicators
-  const positiveWords = ['excellent', 'outstanding', 'great', 'strong', 'clear', 'well-organized', 'effective']
-  const negativeWords = ['poor', 'weak', 'unclear', 'disorganized', 'needs improvement', 'lacks']
+  // Excellent indicators (3 points)
+  const excellentWords = ['excellent', 'outstanding', 'exceptional', 'superb', 'masterful']
+  const goodWords = ['great', 'strong', 'clear', 'well-organized', 'effective', 'good']
+  const fairWords = ['adequate', 'satisfactory', 'basic', 'simple']
+  const poorWords = ['poor', 'weak', 'unclear', 'disorganized', 'needs improvement', 'lacks', 'confusing', 'difficult']
   
-  let score = 80 // Base score
+  let score = 2 // Start with good/adequate base
   
-  positiveWords.forEach(word => {
-    if (lowerFeedback.includes(word)) score += 3
-  })
+  // Check for excellent indicators
+  if (excellentWords.some(word => lowerFeedback.includes(word))) {
+    score = 3
+  }
+  // Check for good indicators  
+  else if (goodWords.some(word => lowerFeedback.includes(word))) {
+    score = 2
+  }
+  // Check for fair indicators
+  else if (fairWords.some(word => lowerFeedback.includes(word))) {
+    score = 1
+  }
+  // Check for poor indicators
+  else if (poorWords.some(word => lowerFeedback.includes(word))) {
+    score = 0
+  }
   
-  negativeWords.forEach(word => {
-    if (lowerFeedback.includes(word)) score -= 5
-  })
+  // Content length and structure analysis
+  const hasExamples = /example|specific|detail|evidence/i.test(feedback)
+  const hasStructure = /organized|structure|flow|transition/i.test(feedback)
+  const hasClarity = /clear|understand|coherent/i.test(feedback)
   
-  // Ensure score is within reasonable bounds
-  return Math.max(65, Math.min(98, score))
+  // Bonus adjustments for content quality indicators
+  if (hasExamples && hasStructure && hasClarity && score < 3) {
+    score = Math.min(3, score + 1)
+  } else if ((hasExamples || hasStructure) && score < 2) {
+    score = Math.min(2, score + 0.5)
+  }
+  
+  // Ensure score is within 0-3 bounds and round to nearest 0.5
+  return Math.max(0, Math.min(3, Math.round(score * 2) / 2))
 }
 
 export { openai }

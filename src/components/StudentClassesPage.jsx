@@ -1,22 +1,22 @@
 import React, { useState, useEffect } from 'react'
-import { getClassesWithCodes, createClass } from '../data/supabaseData'
-import ClassCreation from './ClassCreation'
-import './TeacherDashboard.css'
+import { getEnrolledClasses, joinClassByCode } from '../data/supabaseData'
+import JoinClass from './JoinClass'
+import './StudentDashboard.css'
 
-const TeacherDashboard = ({ user, onClassSelect }) => {
+const StudentClassesPage = ({ user, onClassSelect }) => {
   const [classes, setClasses] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
-  const [showCreateClass, setShowCreateClass] = useState(false)
+  const [showJoinClass, setShowJoinClass] = useState(false)
 
   useEffect(() => {
     loadClasses()
-  }, [user?.id])
+  }, [user.email])
 
   const loadClasses = async () => {
     try {
       setIsLoading(true)
-      const data = await getClassesWithCodes(user.email)
+      const data = await getEnrolledClasses(user.email)
       setClasses(data || [])
     } catch (err) {
       setError('Failed to load classes')
@@ -26,26 +26,15 @@ const TeacherDashboard = ({ user, onClassSelect }) => {
     }
   }
 
-  const handleCreateClass = async (classData) => {
+  const handleJoinClass = async (classCode) => {
     try {
-      await createClass(classData, user.email)
-      setShowCreateClass(false)
-      await loadClasses() // Reload classes to show the new one
+      const result = await joinClassByCode(classCode, user.email)
+      setShowJoinClass(false)
+      await loadClasses() // Reload classes to show the newly joined class
+      return result
     } catch (error) {
-      console.error('Error creating class:', error)
-      throw error // Re-throw so ClassCreation component can handle it
-    }
-  }
-
-  const copyClassCode = async (classCode) => {
-    try {
-      await navigator.clipboard.writeText(classCode)
-      // Could add a toast notification here
-      alert(`Class code ${classCode} copied to clipboard!`)
-    } catch (error) {
-      console.error('Failed to copy class code:', error)
-      // Fallback for browsers that don't support clipboard API
-      prompt('Class code (copy with Ctrl+C):', classCode)
+      console.error('Error joining class:', error)
+      throw error // Re-throw so JoinClass component can handle it
     }
   }
 
@@ -86,7 +75,7 @@ const TeacherDashboard = ({ user, onClassSelect }) => {
 
   if (isLoading) {
     return (
-      <div className="teacher-dashboard">
+      <div className="student-dashboard">
         <div className="dashboard-header">
           <h1>My Classes</h1>
         </div>
@@ -100,7 +89,7 @@ const TeacherDashboard = ({ user, onClassSelect }) => {
 
   if (error) {
     return (
-      <div className="teacher-dashboard">
+      <div className="student-dashboard">
         <div className="dashboard-header">
           <h1>My Classes</h1>
         </div>
@@ -118,28 +107,31 @@ const TeacherDashboard = ({ user, onClassSelect }) => {
   }
 
   return (
-    <div className="teacher-dashboard">
+    <div className="student-dashboard">
       <div className="dashboard-header">
         <div className="header-content">
           <div className="header-text">
             <h1>My Classes</h1>
-            <p className="header-subtitle">Manage your classes and assignments</p>
+            <p className="header-subtitle">Select a class to view assignments</p>
           </div>
           <div className="header-actions">
             <div className="header-stats">
               <div className="stat-card">
                 <span className="stat-value">{classes.length}</span>
-                <span className="stat-label">Total Classes</span>
+                <span className="stat-label">Enrolled Classes</span>
               </div>
             </div>
             <button 
-              className="create-class-btn"
-              onClick={() => setShowCreateClass(true)}
+              className="join-class-btn"
+              onClick={() => setShowJoinClass(true)}
             >
               <svg className="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 5v14M5 12h14"/>
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="m22 2-5 5"/>
+                <path d="m17 2 5 5"/>
               </svg>
-              Create Class
+              Join Class
             </button>
           </div>
         </div>
@@ -152,7 +144,7 @@ const TeacherDashboard = ({ user, onClassSelect }) => {
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
             <h2>No Classes Yet</h2>
-            <p>Classes assigned to you will appear here</p>
+            <p>Join a class using the class code from your teacher</p>
           </div>
         ) : (
           <div className="classes-grid">
@@ -169,33 +161,25 @@ const TeacherDashboard = ({ user, onClassSelect }) => {
                     {getClassIcon(index)}
                   </div>
                   <h3 className="class-name">{classItem.name}</h3>
-                  <div className="class-code-section">
-                    <span className="class-code-label">Class Code:</span>
-                    <button 
-                      className="class-code-display"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        copyClassCode(classItem.classCode)
-                      }}
-                      title="Click to copy class code"
-                    >
-                      {classItem.classCode}
-                      <svg className="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                        <path d="m5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                      </svg>
-                    </button>
-                  </div>
+                  {classItem.description && (
+                    <p className="class-description">{classItem.description}</p>
+                  )}
                   <div className="class-meta">
                     <span className="meta-item">
                       <svg className="meta-icon" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+                        <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z"/>
                       </svg>
-                      {classItem.studentCount || 0} Students
+                      {classItem.teacherName}
+                    </span>
+                    <span className="meta-item">
+                      <svg className="meta-icon" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                      </svg>
+                      Joined {new Date(classItem.enrolledAt).toLocaleDateString()}
                     </span>
                   </div>
                   <button className="enter-class-btn">
-                    Enter Class
+                    View Assignments
                     <svg className="btn-arrow" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
                     </svg>
@@ -207,15 +191,15 @@ const TeacherDashboard = ({ user, onClassSelect }) => {
         )}
       </div>
       
-      {/* Class Creation Modal */}
-      {showCreateClass && (
-        <ClassCreation 
-          onCreateClass={handleCreateClass}
-          onCancel={() => setShowCreateClass(false)}
+      {/* Join Class Modal */}
+      {showJoinClass && (
+        <JoinClass 
+          onJoinClass={handleJoinClass}
+          onCancel={() => setShowJoinClass(false)}
         />
       )}
     </div>
   )
 }
 
-export default TeacherDashboard
+export default StudentClassesPage
