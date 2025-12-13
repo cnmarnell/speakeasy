@@ -1,0 +1,16 @@
+[build]
+  # Use our custom build script
+  command = "./netlify-build.sh"
+
+  # Publish directory (where Vite builds to)
+  publish = "dist"
+
+[build.environment]
+  # Node version
+  NODE_VERSION = "18"
+
+# Redirect all requests to index.html for SPA routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
