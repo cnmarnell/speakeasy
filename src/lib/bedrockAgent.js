@@ -1,12 +1,19 @@
 // AWS Bedrock Agent analysis via Supabase Edge Function
+import { supabase } from '../supabaseClient'
 
 // Analyze speech content using AWS Bedrock Agent
 export const analyzeSpeechWithBedrockAgent = async (transcript, assignmentTitle) => {
   try {
-    console.log('Analyzing speech with AWS Bedrock Agent...', { 
+    console.log('Analyzing speech with AWS Bedrock Agent...', {
       transcriptLength: transcript.length,
-      assignment: assignmentTitle 
+      assignment: assignmentTitle
     })
+
+    // Get user session for authentication
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      throw new Error('User session not found. Please ensure you are authenticated.')
+    }
 
     // Get Supabase URL for the Bedrock Agent function
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -15,14 +22,14 @@ export const analyzeSpeechWithBedrockAgent = async (transcript, assignmentTitle)
     }
 
     const proxyUrl = `${supabaseUrl}/functions/v1/bedrock-agent`
-    
+
     console.log('Calling Bedrock Agent function...')
-    
+
     const response = await fetch(proxyUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        'Authorization': `Bearer ${session.access_token}`,
         'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
       },
       body: JSON.stringify({
