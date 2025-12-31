@@ -1,4 +1,5 @@
 // Direct client-side Google Gemini body language analysis
+import { fetchWithRetry } from './apiResilience'
 
 /**
  * Analyze body language using Google Gemini API directly from client
@@ -18,8 +19,8 @@ export const analyzeBodyLanguageWithGemini = async (frameImages) => {
       throw new Error('VITE_GOOGLE_GEMINI_API_KEY is not configured in environment variables')
     }
 
-    // Build Gemini API URL
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`
+    // Build Gemini API URL (using gemini-1.5-pro for multimodal support)
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=${apiKey}`
 
     // System prompt for body language analysis
     const systemPrompt = `You are an expert public speaking coach analyzing student presentations. Based on the video frames provided, evaluate the student's body language and non-verbal communication. Focus on:
@@ -56,23 +57,27 @@ Provide constructive, actionable feedback in 2-3 sentences that helps students i
 
     console.log('📡 Calling Gemini API directly...')
 
-    // Call Gemini API
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: contentParts
-        }],
-        generationConfig: {
-          temperature: 0.4,
-          maxOutputTokens: 300,
-          topP: 0.9
-        }
-      })
-    })
+    // RETRY LOGIC APPLIED: Wrap Gemini API call with retry mechanism
+    // This handles 429 (rate limits) and 5xx errors with exponential backoff
+    const response = await fetchWithRetry(() =>
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: contentParts
+          }],
+          generationConfig: {
+            temperature: 0.4,
+            maxOutputTokens: 300,
+            topP: 0.9
+          }
+        })
+      }),
+      { maxAttempts: 3 }
+    )
 
     console.log('📥 Gemini API response status:', response.status)
 

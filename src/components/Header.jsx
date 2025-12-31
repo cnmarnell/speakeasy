@@ -1,16 +1,39 @@
 function Header({ user, userRole, onLogout }) {
   return (
     <header className="header-banner">
-      <h1 className="header-title">SpeakEasy</h1>
-      {user && (
-        <div className="header-user-info">
-          <span className="user-email">{user.email}</span>
-          <span className="user-role">({userRole})</span>
-          <button className="logout-button" onClick={onLogout}>
-            Sign Out
-          </button>
+      <div className="header-content">
+        <div className="header-logo">
+          <div className="header-mic-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+          </div>
+          <div className="header-title-group">
+            <h1 className="header-title">Speakeasy</h1>
+            <span className="header-tagline">Find Your Voice</span>
+          </div>
         </div>
-      )}
+        {user && (
+          <div className="header-user-info">
+            <div className="user-details">
+              <span className="user-email">{user.email}</span>
+              <span className="user-role">{userRole === 'teacher' ? 'Instructor' : 'Student'}</span>
+            </div>
+            <button className="logout-button" onClick={onLogout}>
+              <span>Exit Stage</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </button>
+          </div>
+        )}
+      </div>
+      <div className="header-accent"></div>
     </header>
   )
 }

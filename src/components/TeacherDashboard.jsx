@@ -120,29 +120,54 @@ const TeacherDashboard = ({ user, onClassSelect }) => {
   return (
     <div className="teacher-dashboard">
       <div className="dashboard-header">
+        <div className="header-decorative-corner header-corner-left"></div>
+        <div className="header-decorative-corner header-corner-right"></div>
+
         <div className="header-content">
           <div className="header-text">
-            <h1>My Classes</h1>
-            <p className="header-subtitle">Manage your classes and assignments</p>
+            <div className="header-title-wrapper">
+              <svg className="header-theater-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="8" r="6"/>
+                <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>
+              </svg>
+              <div>
+                <h1>My Classes</h1>
+                <div className="header-subtitle-group">
+                  <span className="subtitle-accent">●</span>
+                  <p className="header-subtitle">Direct Your Students to Excellence</p>
+                  <span className="subtitle-accent">●</span>
+                </div>
+              </div>
+            </div>
           </div>
           <div className="header-actions">
             <div className="header-stats">
               <div className="stat-card">
+                <div className="stat-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                </div>
                 <span className="stat-value">{classes.length}</span>
-                <span className="stat-label">Total Classes</span>
+                <span className="stat-label">Total Theaters</span>
               </div>
             </div>
-            <button 
+            <button
               className="create-class-btn"
               onClick={() => setShowCreateClass(true)}
             >
               <svg className="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 5v14M5 12h14"/>
               </svg>
-              Create Class
+              Create New Class
             </button>
           </div>
         </div>
+
+        <div className="header-wave-accent"></div>
       </div>
 
       <div className="container">

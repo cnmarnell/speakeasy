@@ -109,19 +109,41 @@ const StudentClassesPage = ({ user, onClassSelect }) => {
   return (
     <div className="student-dashboard">
       <div className="dashboard-header">
+        <div className="header-decorative-corner header-corner-left"></div>
+        <div className="header-decorative-corner header-corner-right"></div>
+
         <div className="header-content">
           <div className="header-text">
-            <h1>My Classes</h1>
-            <p className="header-subtitle">Select a class to view assignments</p>
+            <div className="header-title-wrapper">
+              <svg className="header-theater-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/>
+                <line x1="2" y1="20" x2="2.01" y2="20"/>
+              </svg>
+              <div>
+                <h1>My Classes</h1>
+                <div className="header-subtitle-group">
+                  <span className="subtitle-accent">●</span>
+                  <p className="header-subtitle">Your Performance Stage Awaits</p>
+                  <span className="subtitle-accent">●</span>
+                </div>
+              </div>
+            </div>
           </div>
           <div className="header-actions">
             <div className="header-stats">
               <div className="stat-card">
+                <div className="stat-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                    <path d="M2 17l10 5 10-5"/>
+                    <path d="M2 12l10 5 10-5"/>
+                  </svg>
+                </div>
                 <span className="stat-value">{classes.length}</span>
-                <span className="stat-label">Enrolled Classes</span>
+                <span className="stat-label">Active Stages</span>
               </div>
             </div>
-            <button 
+            <button
               className="join-class-btn"
               onClick={() => setShowJoinClass(true)}
             >
@@ -131,10 +153,12 @@ const StudentClassesPage = ({ user, onClassSelect }) => {
                 <path d="m22 2-5 5"/>
                 <path d="m17 2 5 5"/>
               </svg>
-              Join Class
+              Join New Class
             </button>
           </div>
         </div>
+
+        <div className="header-wave-accent"></div>
       </div>
 
       <div className="container">

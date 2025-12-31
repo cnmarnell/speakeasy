@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { createSubmission, uploadVideoToStorage } from '../data/supabaseData'
+import { initiateSubmission, checkSubmissionStatus, uploadVideoToStorage } from '../data/supabaseData'
 
 function RecordingPage({ assignment, studentId, onBack }) {
   const [isRecording, setIsRecording] = useState(false)
@@ -83,30 +83,69 @@ function RecordingPage({ assignment, studentId, onBack }) {
     if (!recordedBlob) return
 
     setIsProcessing(true)
-    
+
     try {
-      // First upload video to Supabase Storage
+      // Step 1: Upload video to Supabase Storage
       console.log('Uploading video to storage...')
       const uploadResult = await uploadVideoToStorage(recordedBlob, studentId, assignment.id)
       console.log('Video uploaded successfully:', uploadResult)
-      
-      // Then create submission with AI analysis
-      const submission = await createSubmission({
+
+      // Step 2: Initiate submission (FAST - returns immediately with pending status)
+      const { submissionId, status } = await initiateSubmission({
         assignmentId: assignment.id,
         studentId: studentId,
         videoUrl: uploadResult.publicUrl,
-        transcript: null // Will be populated by AI processing
+        transcript: null
       }, recordedBlob, assignment.title)
-      
-      console.log('Submission created:', submission)
-      alert('Video submitted successfully! You will receive feedback shortly.')
-      
-      // Return to assignment page
-      onBack()
+
+      console.log(`Submission created with ID: ${submissionId}, status: ${status}`)
+
+      // Step 3: Start polling with 15-second timeout
+      const startTime = Date.now()
+      const POLL_INTERVAL = 2000 // 2 seconds
+      const REDIRECT_TIMEOUT = 15000 // 15 seconds
+
+      const pollStatus = async () => {
+        const elapsedTime = Date.now() - startTime
+
+        // Check if 15 seconds have elapsed
+        if (elapsedTime >= REDIRECT_TIMEOUT) {
+          console.log('15 seconds elapsed - processing still in progress')
+          alert('Your video is being analyzed. This is taking longer than usual - please check back shortly!')
+          setIsProcessing(false)
+          onBack() // Return to assignment page
+          return
+        }
+
+        // Poll for status
+        const submissionStatus = await checkSubmissionStatus(submissionId)
+        console.log(`Status check: ${submissionStatus.status} (elapsed: ${elapsedTime}ms)`)
+
+        if (submissionStatus.status === 'completed') {
+          // Fast path: Analysis completed within 15 seconds
+          console.log('Analysis completed successfully!')
+          alert('Video submitted and analyzed successfully! Your results are ready.')
+          setIsProcessing(false)
+          onBack() // Return to assignment page
+          return
+        }
+
+        if (submissionStatus.status === 'failed') {
+          // Processing failed
+          console.error('Analysis failed:', submissionStatus.error_message)
+          throw new Error(submissionStatus.error_message || 'Analysis failed')
+        }
+
+        // Still pending/processing - continue polling
+        setTimeout(pollStatus, POLL_INTERVAL)
+      }
+
+      // Start the polling loop
+      pollStatus()
+
     } catch (error) {
       console.error('Error submitting video:', error)
       alert(`Failed to submit video: ${error.message}. Please try again.`)
-    } finally {
       setIsProcessing(false)
     }
   }

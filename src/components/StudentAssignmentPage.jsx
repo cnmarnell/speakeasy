@@ -6,7 +6,7 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
   const [studentStatus, setStudentStatus] = useState('Not Started')
   const [feedback, setFeedback] = useState(null)
   const [loading, setLoading] = useState(true)
-  
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -92,7 +92,7 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
             <h4 className="feedback-category-title">Filler Words Analysis</h4>
             <div className="feedback-content filler-words-content">
               {isCompleted && feedback ? (
-                <div 
+                <div
                   className="filler-analysis-text"
                   dangerouslySetInnerHTML={{
                     __html: feedback.fillerWords
@@ -111,7 +111,7 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
             <h4 className="feedback-category-title">Speech Content Analysis</h4>
             <div className="feedback-content speech-content">
               {isCompleted && feedback ? (
-                <div 
+                <div
                   className="speech-analysis-text"
                   dangerouslySetInnerHTML={{
                     __html: feedback.speechContent
@@ -130,7 +130,7 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
             <h4 className="feedback-category-title">Delivery & Language Analysis</h4>
             <div className="feedback-content">
               {isCompleted && feedback ? (
-                <div 
+                <div
                   className="delivery-analysis-text"
                   dangerouslySetInnerHTML={{
                     __html: feedback.bodyLanguage

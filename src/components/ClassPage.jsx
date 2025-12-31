@@ -93,11 +93,39 @@ function ClassPage({ className, onBack, onViewAssignment, onViewStudent }) {
 
   return (
     <div className="class-page">
-      <div className="class-header">
-        <h2 className="class-title">{className}</h2>
-        <button className="new-assignment-btn" onClick={handleNewAssignment}>New Assignment</button>
+      <div className="class-page-header">
+        <div className="header-decorative-corner header-corner-left"></div>
+        <div className="header-decorative-corner header-corner-right"></div>
+
+        <div className="class-header-content">
+          <div className="class-header-left">
+            <div className="class-title-wrapper">
+              <svg className="class-header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                <path d="M2 17l10 5 10-5"/>
+                <path d="M2 12l10 5 10-5"/>
+              </svg>
+              <div>
+                <h2 className="class-title">{className}</h2>
+                <div className="class-subtitle-group">
+                  <span className="subtitle-accent">●</span>
+                  <p className="class-subtitle">Your Stage for Excellence</p>
+                  <span className="subtitle-accent">●</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button className="new-assignment-btn" onClick={handleNewAssignment}>
+            <svg className="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+            New Assignment
+          </button>
+        </div>
+
+        <div className="header-wave-accent"></div>
       </div>
-      
+
       <div className="class-tabs">
         <button 
           className={`tab-button ${activeTab === 'assignments' ? 'active' : ''}`}

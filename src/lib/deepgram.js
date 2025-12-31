@@ -1,4 +1,5 @@
 // Direct Deepgram API calls using URL method (no SDK needed)
+import { fetchWithRetry } from './apiResilience'
 
 // Extract audio from video blob
 const extractAudioFromVideo = async (videoBlob) => {
@@ -108,17 +109,23 @@ const transcribeWithDeepgramProxy = async (videoBlob) => {
     }
 
     console.log('Making proxy API call to Supabase Edge Function...')
-    
+
     const proxyUrl = `${supabaseUrl}/functions/v1/deepgram-proxy`
-    const response = await fetch(proxyUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'audio/webm'
-        // Temporarily removing auth for local development
-        // 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-      },
-      body: audioBuffer
-    })
+
+    // RETRY LOGIC APPLIED: Wrap Deepgram proxy call with retry mechanism
+    // This handles 429 (rate limits) and 5xx errors with exponential backoff
+    const response = await fetchWithRetry(() =>
+      fetch(proxyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'audio/webm'
+          // Temporarily removing auth for local development
+          // 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: audioBuffer
+      }),
+      { maxAttempts: 3 }
+    )
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -162,17 +169,21 @@ const transcribeWithDeepgramDirect = async (videoUrl) => {
       throw new Error('Deepgram API key not configured')
     }
 
-    // Direct API call following your research example
-    const response = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&filler_words=true&punctuate=true&language=en-US', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Token ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        url: videoUrl
-      })
-    })
+    // RETRY LOGIC APPLIED: Wrap direct Deepgram API call with retry mechanism
+    // This handles 429 (rate limits) and 5xx errors with exponential backoff
+    const response = await fetchWithRetry(() =>
+      fetch('https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&filler_words=true&punctuate=true&language=en-US', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          url: videoUrl
+        })
+      }),
+      { maxAttempts: 3 }
+    )
 
     console.log('Deepgram response status:', response.status)
 

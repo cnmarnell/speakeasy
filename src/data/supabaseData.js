@@ -4,6 +4,7 @@ import { analyzeSpeechWithBedrockAgent } from '../lib/bedrockAgent'
 import { analyzeFillerWords, getFillerWordScore } from '../lib/fillerWordAnalysis'
 import { extractFramesFromVideo } from '../lib/frameExtraction'
 import { analyzeBodyLanguageWithGemini } from '../lib/geminiBodyLanguageDirect'
+import pLimit from 'p-limit'
 
 // Fetch all classes for teacher dashboard
 export const getClasses = async () => {
@@ -68,11 +69,15 @@ export const getStudentsByClass = async (className) => {
     return []
   }
   
-  // Calculate grades for each student
+  // CONCURRENCY CONTROL: Limit parallel database queries to prevent connection pool exhaustion
+  // Process only 5 students at a time instead of all simultaneously
+  // This prevents "Self-DDoS" when a class has 50+ students
+  const limit = pLimit(5)
+
   const studentsWithGrades = await Promise.all(
-    data.map(async (student) => {
+    data.map((student) => limit(async () => {
       const totalGradeInfo = await calculateStudentTotalGrade(student.id)
-      
+
       return {
         id: student.id,
         name: student.name,
@@ -82,7 +87,7 @@ export const getStudentsByClass = async (className) => {
         submissionCount: totalGradeInfo.submissionCount,
         lastActivity: ""
       }
-    })
+    }))
   )
   
   return studentsWithGrades
@@ -385,38 +390,154 @@ export const getStudentAssignmentStatus = async (studentId, assignmentId) => {
 
 // VIDEO STORAGE FUNCTIONS
 
-// Upload video to Supabase Storage
-export const uploadVideoToStorage = async (videoBlob, studentId, assignmentId) => {
+/**
+ * Generate a presigned upload URL for direct client-to-storage uploads
+ * This eliminates the "double tax" of routing video through your backend
+ *
+ * @param {string} studentId - Student identifier
+ * @param {string} assignmentId - Assignment identifier
+ * @returns {Promise<{uploadUrl: string, filePath: string, token: string}>}
+ */
+export const generatePresignedUploadUrl = async (studentId, assignmentId) => {
   try {
     // Generate unique filename with timestamp
     const timestamp = Date.now()
     const fileName = `${studentId}/${assignmentId}/${timestamp}.webm`
-    
-    // Upload video to storage bucket
+
+    // Create a presigned upload URL (valid for 10 minutes)
     const { data, error } = await supabase.storage
       .from('speech-videos')
-      .upload(fileName, videoBlob, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: 'video/webm'
+      .createSignedUploadUrl(fileName, {
+        upsert: false
       })
 
     if (error) {
-      console.error('Storage upload error:', error)
-      throw error
+      console.error('Failed to create presigned upload URL:', error)
+      throw new Error(`Presigned URL generation failed: ${error.message}`)
     }
 
-    // Get public URL for the uploaded file
-    const { data: urlData } = supabase.storage
-      .from('speech-videos')
-      .getPublicUrl(fileName)
+    console.log('✅ Generated presigned upload URL for direct client upload')
 
     return {
-      path: data.path,
-      publicUrl: urlData.publicUrl
+      uploadUrl: data.signedUrl,
+      filePath: fileName,
+      token: data.token
     }
   } catch (error) {
-    console.error('Error uploading video:', error)
+    console.error('Error generating presigned upload URL:', error)
+    throw error
+  }
+}
+
+/**
+ * Upload video to Supabase Storage (traditional method)
+ * IMPROVED: Enhanced error handling with retry capability
+ *
+ * NOTE: For production at scale, use generatePresignedUploadUrl() instead
+ * to enable direct client-to-storage uploads and avoid backend bottlenecks
+ *
+ * @param {Blob} videoBlob - The video file to upload
+ * @param {string} studentId - Student identifier
+ * @param {string} assignmentId - Assignment identifier
+ * @returns {Promise<{path: string, publicUrl: string}>}
+ */
+export const uploadVideoToStorage = async (videoBlob, studentId, assignmentId) => {
+  try {
+    // Validate input
+    if (!videoBlob || videoBlob.size === 0) {
+      throw new Error('Video blob is empty or invalid')
+    }
+
+    if (!studentId || !assignmentId) {
+      throw new Error('Student ID and Assignment ID are required')
+    }
+
+    // Check video size (warn if > 50MB)
+    const sizeMB = videoBlob.size / (1024 * 1024)
+    if (sizeMB > 50) {
+      console.warn(`⚠️  Large video upload (${sizeMB.toFixed(2)}MB). Consider implementing chunked uploads.`)
+    }
+
+    console.log(`📤 Uploading video: ${sizeMB.toFixed(2)}MB`)
+
+    // Generate unique filename with timestamp
+    const timestamp = Date.now()
+    const fileName = `${studentId}/${assignmentId}/${timestamp}.webm`
+
+    // Upload video to storage bucket with retry logic
+    let uploadAttempt = 0
+    const maxUploadAttempts = 2
+    let uploadError = null
+
+    while (uploadAttempt < maxUploadAttempts) {
+      const { data, error } = await supabase.storage
+        .from('speech-videos')
+        .upload(fileName, videoBlob, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: 'video/webm'
+        })
+
+      if (!error) {
+        // Upload succeeded
+        console.log(`✅ Video uploaded successfully: ${fileName}`)
+
+        // Get public URL for the uploaded file
+        const { data: urlData } = supabase.storage
+          .from('speech-videos')
+          .getPublicUrl(fileName)
+
+        if (!urlData || !urlData.publicUrl) {
+          throw new Error('Failed to generate public URL for uploaded video')
+        }
+
+        return {
+          path: data.path,
+          publicUrl: urlData.publicUrl
+        }
+      }
+
+      // Upload failed - check if retryable
+      uploadError = error
+      uploadAttempt++
+
+      // Check for specific error types
+      if (error.message?.includes('already exists')) {
+        // File collision - regenerate filename and retry
+        console.warn(`⚠️  File collision detected. Regenerating filename...`)
+        const newTimestamp = Date.now() + uploadAttempt
+        const newFileName = `${studentId}/${assignmentId}/${newTimestamp}.webm`
+        continue
+      }
+
+      if (error.message?.includes('quota') || error.message?.includes('storage limit')) {
+        // Storage quota exceeded - don't retry
+        console.error('❌ Storage quota exceeded')
+        throw new Error('Storage quota exceeded. Please contact support.')
+      }
+
+      if (uploadAttempt < maxUploadAttempts) {
+        console.warn(`⚠️  Upload attempt ${uploadAttempt} failed. Retrying...`, error)
+        await new Promise(resolve => setTimeout(resolve, 1000 * uploadAttempt))
+      }
+    }
+
+    // All upload attempts failed
+    console.error('❌ Video upload failed after retries:', uploadError)
+    throw new Error(`Video upload failed: ${uploadError?.message || 'Unknown error'}`)
+
+  } catch (error) {
+    console.error('❌ Error in uploadVideoToStorage:', error)
+
+    // Provide user-friendly error messages
+    if (error.message?.includes('quota') || error.message?.includes('limit')) {
+      throw new Error('Storage limit reached. Please contact your administrator.')
+    }
+
+    if (error.message?.includes('network') || error.message?.includes('timeout')) {
+      throw new Error('Network error during upload. Please check your connection and try again.')
+    }
+
     throw error
   }
 }
@@ -469,7 +590,12 @@ export const processVideoWithAI = async (videoBlob, assignmentTitle) => {
     // Step 1: Transcribe audio with Deepgram (testing direct API)
     console.log('Step 1: Transcribing audio...')
     const transcriptionResult = await transcribeWithDeepgram(videoBlob)
-    
+
+    // CRITICAL: Check if transcription succeeded before continuing
+    if (!transcriptionResult || !transcriptionResult.text) {
+      throw new Error('Transcription failed: No transcript returned from Deepgram')
+    }
+
     // Step 2: Analyze filler words in transcript
     console.log('Step 2: Analyzing filler words...')
     const fillerAnalysis = analyzeFillerWords(transcriptionResult.text)
@@ -520,24 +646,67 @@ export const processVideoWithAI = async (videoBlob, assignmentTitle) => {
       aiProcessed: analysisResult.speechContent !== "We are fixing this."
     }
   } catch (error) {
-    console.error('AI processing failed:', error)
-    
-    // Fallback to basic processing if AI fails
+    console.error('❌ AI processing failed:', error)
+
+    // Check if this is a critical error that should propagate
+    const errorMessage = error.message || error.toString() || ''
+    const errorStack = error.stack || ''
+
+    console.log('🔍 Error analysis:', {
+      message: errorMessage,
+      hasAuth: errorMessage.includes('401') || errorMessage.includes('403') || errorMessage.includes('AUTH_ERROR'),
+      hasRateLimit: errorMessage.includes('429') || errorMessage.includes('RATE_LIMITED'),
+      hasConfig: errorMessage.includes('API key') || errorMessage.includes('not configured')
+    })
+
+    // Authentication/configuration errors should fail immediately
+    if (errorMessage.includes('401') ||
+        errorMessage.includes('403') ||
+        errorMessage.includes('AUTH_ERROR') ||
+        errorMessage.includes('API key') ||
+        errorMessage.includes('not configured') ||
+        errorMessage.includes('Unauthorized') ||
+        errorMessage.includes('Invalid credentials') ||
+        errorMessage.includes('Invalid API')) {
+      console.error('🚨 AUTHENTICATION ERROR DETECTED - Propagating to user')
+      throw new Error(`Configuration error: ${errorMessage}. Please check your API keys.`)
+    }
+
+    // Rate limiting should propagate with specific message
+    if (errorMessage.includes('429') ||
+        errorMessage.includes('RATE_LIMITED') ||
+        errorMessage.includes('rate limit') ||
+        errorMessage.includes('Too Many Requests')) {
+      console.error('🚨 RATE LIMIT ERROR DETECTED - Propagating to user')
+      throw new Error(`Rate limit exceeded: ${errorMessage}. Please try again in a few minutes.`)
+    }
+
+    // Transcription failures should also propagate
+    if (errorMessage.includes('Transcription failed') ||
+        errorMessage.includes('Deepgram') ||
+        errorMessage.includes('No transcript')) {
+      console.error('🚨 TRANSCRIPTION ERROR DETECTED - Propagating to user')
+      throw new Error(`Transcription error: ${errorMessage}`)
+    }
+
+    // Transient errors (5xx, network) can use fallback
+    console.warn('Using fallback analysis due to transient error')
     const fallbackFillerAnalysis = analyzeFillerWords('') // Empty analysis
-    
+
     return {
-      transcript: 'AI transcription temporarily unavailable. Please try again later.',
+      transcript: 'AI transcription temporarily unavailable. Please try again.',
       duration: null,
       language: 'en',
       analysis: {
-        speechContent: 'AI analysis temporarily unavailable. Your submission has been recorded.',
-        fillerWords: 'Filler word analysis will be available when AI processing is restored.',
-        bodyLanguage: 'Content analysis will be available when AI processing is restored.',
-        overallScore: 75 // Default score when AI fails
+        speechContent: 'Temporary service interruption. Your submission has been recorded.',
+        fillerWords: 'Analysis will be available when AI services are restored.',
+        bodyLanguage: 'Analysis will be available when AI services are restored.',
+        overallScore: null // Don't generate a grade for failed analysis
       },
       fillerWordAnalysis: fallbackFillerAnalysis,
       aiProcessed: false,
-      error: error.message
+      error: error.message,
+      errorType: 'TRANSIENT_FAILURE'
     }
   }
 }
@@ -730,23 +899,39 @@ export const createSubmission = async (submissionData, videoBlob = null, assignm
 
     // Process video with AI if video blob is provided
     let aiResult = null
-    let finalScore = 80 // Default fallback score
-    
+    let finalScore = null // Don't use default score - will be set based on AI processing
+
     if (videoBlob) {
       console.log('Processing video with AI...')
-      aiResult = await processVideoWithAI(videoBlob, assignmentTitle)
-      finalScore = aiResult.analysis.overallScore
-      
-      // Update submission with AI-generated transcript
-      if (submission.id && aiResult.transcript && aiResult.transcript !== submissionData.transcript) {
-        await supabase
-          .from('submissions')
-          .update({ transcript: aiResult.transcript })
-          .eq('id', submission.id)
+      try {
+        aiResult = await processVideoWithAI(videoBlob, assignmentTitle)
+
+        // Only calculate score if AI processing succeeded
+        if (aiResult.analysis.overallScore !== null) {
+          finalScore = aiResult.analysis.overallScore
+        } else {
+          console.warn('AI processing failed - submission recorded without grade')
+          // Store submission but don't create grade record
+          // This allows reprocessing later
+        }
+
+        // Update submission with transcript (even if it's a fallback message)
+        if (submission.id && aiResult.transcript) {
+          await supabase
+            .from('submissions')
+            .update({
+              transcript: aiResult.transcript,
+              ai_processing_status: aiResult.aiProcessed ? 'completed' : 'failed'
+            })
+            .eq('id', submission.id)
+        }
+      } catch (error) {
+        // Critical errors (auth, config, rate limit) propagate to user
+        console.error('Critical AI processing error:', error)
+        throw new Error(`Submission failed: ${error.message}`)
       }
     } else {
-      // Fallback to basic grading if no video blob provided
-      finalScore = Math.floor(Math.random() * 31) + 70 // 70-100
+      throw new Error('Video blob is required for submission')
     }
     
     // Get detailed filler word data from analysis
@@ -776,7 +961,17 @@ export const createSubmission = async (submissionData, videoBlob = null, assignm
     
     // Get speech content score from AI analysis (0-3 scale)
     const speechContentScore = aiResult?.analysis?.overallScore || 2.0 // Default to "good" (2/3)
-    
+
+    // Skip grade creation if AI processing failed
+    if (finalScore === null) {
+      console.warn('Skipping grade creation - AI processing failed')
+      return {
+        submission,
+        grade: null,
+        message: 'Submission recorded. Analysis will be completed when AI services are available.'
+      }
+    }
+
     // Calculate simple average of both scores converted to 100-point scale
     // Formula: ((contentScore/3) * 100 + (fillerScore/20) * 100) / 2
     const contentPercentage = (speechContentScore / 3) * 100
@@ -926,6 +1121,206 @@ export const createSubmission = async (submissionData, videoBlob = null, assignm
   }
 }
 
+/**
+ * ASYNC SUBMISSION: Initiates submission and returns immediately
+ * Creates submission record with 'pending' status and triggers background AI processing
+ * Returns submission ID without waiting for AI analysis to complete
+ */
+export const initiateSubmission = async (submissionData, videoBlob, assignmentTitle = 'Speech Assignment') => {
+  try {
+    console.log('[Async Submission] Initiating submission...')
+
+    // 1. Create submission with status: 'pending'
+    const { data: submission, error } = await supabase
+      .from('submissions')
+      .insert([{
+        assignment_id: submissionData.assignmentId,
+        student_id: submissionData.studentId,
+        video_url: submissionData.videoUrl,
+        transcript: null,
+        status: 'pending', // NEW: Start as pending instead of 'graded'
+        submitted_at: new Date().toISOString()
+      }])
+      .select()
+      .single()
+
+    if (error) throw error
+
+    console.log(`[Async Submission] Submission created with ID: ${submission.id}`)
+
+    // 2. Trigger background AI processing (fire-and-forget)
+    runBackgroundAI(submission.id, videoBlob, assignmentTitle)
+      .catch(err => {
+        console.error('[Async Submission] Background AI processing failed:', err)
+        // Update submission status to 'failed'
+        supabase.from('submissions').update({
+          status: 'failed',
+          error_message: err.message
+        }).eq('id', submission.id)
+      })
+
+    // 3. Return submission ID immediately
+    return {
+      submissionId: submission.id,
+      status: 'pending'
+    }
+  } catch (error) {
+    console.error('[Async Submission] Error initiating submission:', error)
+    throw error
+  }
+}
+
+/**
+ * BACKGROUND AI PROCESSING: Runs asynchronously without blocking frontend
+ * This function executes AI analysis and updates submission status when complete
+ */
+const runBackgroundAI = async (submissionId, videoBlob, assignmentTitle) => {
+  try {
+    console.log(`[Background AI] Starting processing for submission ${submissionId}`)
+
+    // Update status to 'processing'
+    await supabase.from('submissions').update({
+      status: 'processing',
+      processing_started_at: new Date().toISOString()
+    }).eq('id', submissionId)
+
+    // Run AI processing (reuse existing processVideoWithAI function)
+    const aiResult = await processVideoWithAI(videoBlob, assignmentTitle)
+
+    // Update submission with AI results
+    await supabase.from('submissions').update({
+      transcript: aiResult.transcript,
+      ai_processing_status: aiResult.aiProcessed ? 'completed' : 'failed',
+      processing_completed_at: new Date().toISOString()
+    }).eq('id', submissionId)
+
+    // Only create grade if AI processing succeeded
+    if (aiResult.analysis.overallScore === null) {
+      console.warn(`[Background AI] AI processing failed for submission ${submissionId} - no grade created`)
+      await supabase.from('submissions').update({
+        status: 'failed',
+        error_message: 'AI analysis failed - please resubmit'
+      }).eq('id', submissionId)
+      return
+    }
+
+    // Extract AI analysis data
+    const fillerWordCount = aiResult?.fillerWordAnalysis?.totalCount || 0
+    const fillerWordsUsed = aiResult?.fillerWordAnalysis?.fillerWordsUsed || []
+    const fillersPerMinute = aiResult?.fillerWordAnalysis?.fillersPerMinute || 0
+    const categoryBreakdown = aiResult?.fillerWordAnalysis?.categoryBreakdown || {}
+
+    // Get individual word counts from detections
+    const fillerWordCounts = {}
+    if (aiResult?.fillerWordAnalysis?.detections) {
+      aiResult.fillerWordAnalysis.detections.forEach(detection => {
+        fillerWordCounts[detection.word] = (fillerWordCounts[detection.word] || 0) + 1
+      })
+    } else if (fillerWordsUsed.length > 0) {
+      fillerWordsUsed.forEach(word => {
+        fillerWordCounts[word] = Math.ceil(fillerWordCount / fillerWordsUsed.length)
+      })
+    }
+
+    // Calculate scores
+    const fillerWordScore = Math.max(0, 20 - fillerWordCount)
+    const speechContentScore = aiResult?.analysis?.overallScore || 2.0
+    const contentPercentage = (speechContentScore / 3) * 100
+    const fillerPercentage = (fillerWordScore / 20) * 100
+    const averageFinalScore = Math.round((contentPercentage + fillerPercentage) / 2)
+
+    // Create grade record
+    const { data: grade, error: gradeError } = await supabase.from('grades').insert([{
+      submission_id: submissionId,
+      total_score: averageFinalScore,
+      speech_content_score: speechContentScore,
+      filler_word_count: fillerWordCount,
+      filler_words_used: fillerWordsUsed,
+      filler_words_per_minute: fillersPerMinute,
+      filler_category_breakdown: categoryBreakdown,
+      filler_word_score: fillerWordScore,
+      filler_word_counts: fillerWordCounts,
+      content_score_max: 3
+    }]).select().single()
+
+    if (gradeError) throw gradeError
+
+    // Generate feedback
+    const generateFillerFeedback = () => {
+      if (fillerWordCount === 0) {
+        return "Excellent! No filler words detected. Your speech was clear and confident."
+      }
+
+      let feedback = `Detected ${fillerWordCount} filler word${fillerWordCount > 1 ? 's' : ''} in your speech.`
+
+      if (fillerWordsUsed && fillerWordsUsed.length > 0) {
+        const wordsWithCounts = fillerWordsUsed.map(word => {
+          const count = fillerWordCounts[word] || 1
+          return `"${word}" (${count}x)`
+        }).join(', ')
+        feedback += ` Words used: ${wordsWithCounts}.`
+      }
+
+      feedback += ` Score: ${fillerWordScore}/20.`
+
+      if (fillerWordCount <= 2) {
+        feedback += " Good job! Just a few minor fillers to work on."
+      } else if (fillerWordCount <= 5) {
+        feedback += " Try to reduce filler words for clearer communication."
+      } else {
+        feedback += " Focus on pausing instead of using filler words to improve your delivery."
+      }
+
+      return feedback
+    }
+
+    const feedbackTexts = {
+      filler_words: aiResult.analysis.fillerWords || generateFillerFeedback(),
+      speech_content: aiResult.analysis.speechContent || "Speech content analysis completed.",
+      body_language: aiResult.analysis.bodyLanguage || "Delivery analysis completed."
+    }
+
+    // Create feedback record
+    await supabase.from('feedback').insert([{
+      grade_id: grade.id,
+      filler_words_feedback: feedbackTexts.filler_words,
+      speech_content_feedback: feedbackTexts.speech_content,
+      body_language_feedback: feedbackTexts.body_language
+    }])
+
+    // Update submission to 'completed'
+    await supabase.from('submissions').update({
+      status: 'completed'
+    }).eq('id', submissionId)
+
+    console.log(`[Background AI] Successfully completed processing for submission ${submissionId}`)
+  } catch (error) {
+    console.error(`[Background AI] Fatal error for submission ${submissionId}:`, error)
+
+    // Update submission to failed state
+    await supabase.from('submissions').update({
+      status: 'failed',
+      error_message: error.message,
+      processing_completed_at: new Date().toISOString()
+    }).eq('id', submissionId)
+  }
+}
+
+/**
+ * UTILITY: Check submission status for polling
+ * Returns current status and processing metadata for a submission
+ */
+export const checkSubmissionStatus = async (submissionId) => {
+  const { data, error } = await supabase
+    .from('submissions')
+    .select('id, status, processing_started_at, processing_completed_at, error_message')
+    .eq('id', submissionId)
+    .single()
+
+  if (error) throw error
+  return data
+}
+
 // Get assignments for student dashboard
 export const getAssignmentsForStudent = async (studentId) => {
   try {
@@ -1014,9 +1409,12 @@ export const getAssignmentsForStudentInClass = async (studentId, classId) => {
       throw assignmentsError
     }
 
+    // CONCURRENCY CONTROL: Limit parallel assignment queries to prevent connection pool exhaustion
+    const limit = pLimit(5)
+
     // Process each assignment to get submission status
     const processedAssignments = await Promise.all(
-      assignments.map(async (assignment) => {
+      assignments.map((assignment) => limit(async () => {
         // Get submission status for this student
         const { data: submission } = await supabase
           .from('submissions')
@@ -1036,12 +1434,12 @@ export const getAssignmentsForStudentInClass = async (studentId, classId) => {
             year: 'numeric'
           }) : null,
           rawDueDate: assignment.due_date,
-          status: submission ? 
-            (submission.status === 'completed' ? 'completed' : 'in_progress') : 
+          status: submission ?
+            (submission.status === 'completed' ? 'completed' : 'in_progress') :
             'not_started',
           maxDuration: assignment.max_duration_seconds ? Math.floor(assignment.max_duration_seconds / 60) : null
         }
-      })
+      }))
     )
 
     return processedAssignments

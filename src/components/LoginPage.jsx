@@ -43,21 +43,41 @@ function LoginPage({ onLogin }) {
 
   return (
     <div className="login-page">
+      <div className="login-stage-left"></div>
+      <div className="login-stage-right"></div>
+
+      <div className="login-spotlight"></div>
+
       <div className="login-container">
-        <h1 className="login-title">Speakeasy</h1>
+        <div className="login-header">
+          <div className="microphone-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+          </div>
+          <h1 className="login-title">Speakeasy</h1>
+          <p className="login-tagline">Find Your Voice</p>
+        </div>
+
+        <div className="login-divider"></div>
+
         <p className="login-subtitle">
-          {isSignUp ? 'Create your account' : 'Sign in to continue'}
+          {isSignUp ? 'Take the Stage' : 'Welcome Back'}
         </p>
-        
+
         {error && (
           <div className="login-error">
+            <span className="error-icon">⚠</span>
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">Email Address</label>
             <input
               id="email"
               type="email"
@@ -65,6 +85,7 @@ function LoginPage({ onLogin }) {
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={isLoading}
+              placeholder="your@email.com"
             />
           </div>
 
@@ -77,26 +98,38 @@ function LoginPage({ onLogin }) {
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={isLoading}
+              placeholder="••••••••"
             />
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             className="login-button"
             disabled={isLoading}
           >
-            {isLoading ? 'Loading...' : (isSignUp ? 'Sign Up' : 'Sign In')}
+            <span className="button-text">
+              {isLoading ? 'Please Wait...' : (isSignUp ? 'Create Account' : 'Enter')}
+            </span>
+            <span className="button-arrow">→</span>
           </button>
         </form>
 
-        <button 
-          type="button"
-          className="toggle-mode-button"
-          onClick={() => setIsSignUp(!isSignUp)}
-          disabled={isLoading}
-        >
-          {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
-        </button>
+        <div className="login-footer">
+          <button
+            type="button"
+            className="toggle-mode-button"
+            onClick={() => setIsSignUp(!isSignUp)}
+            disabled={isLoading}
+          >
+            {isSignUp ? 'Already performing? Sign in' : "New here? Join the stage"}
+          </button>
+        </div>
+      </div>
+
+      <div className="login-decoration">
+        <div className="deco-circle"></div>
+        <div className="deco-circle"></div>
+        <div className="deco-circle"></div>
       </div>
     </div>
   )

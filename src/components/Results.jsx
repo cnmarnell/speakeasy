@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
+import { checkSubmissionStatus } from '../data/supabaseData'
 
 export default function Results({ submissionId }) {
   const [loading, setLoading] = useState(true)
   const [submission, setSubmission] = useState(null)
   const [grade, setGrade] = useState(null)
+  const [pollingActive, setPollingActive] = useState(false)
 
   useEffect(() => {
     fetchResults()
-    
+
     // Set up real-time listener for when grading completes
     const channel = supabase
       .channel('submission-updates')
@@ -19,8 +21,9 @@ export default function Results({ submissionId }) {
         filter: `id=eq.${submissionId}`
       }, (payload) => {
         console.log('Submission updated:', payload)
-        if (payload.new.status === 'graded') {
-          fetchResults()
+        // Listen for both 'completed' (new async flow) and 'graded' (old sync flow)
+        if (payload.new.status === 'completed' || payload.new.status === 'graded') {
+          fetchResults() // Refetch to get grade data
         }
       })
       .subscribe()
@@ -29,6 +32,36 @@ export default function Results({ submissionId }) {
       supabase.removeChannel(channel)
     }
   }, [submissionId])
+
+  // Polling effect for pending/processing states
+  useEffect(() => {
+    if (!submission) return
+
+    // Only poll if status is pending or processing
+    if (submission.status === 'pending' || submission.status === 'processing') {
+      setPollingActive(true)
+
+      const pollInterval = setInterval(async () => {
+        try {
+          const status = await checkSubmissionStatus(submissionId)
+
+          if (status.status === 'completed' || status.status === 'graded') {
+            clearInterval(pollInterval)
+            setPollingActive(false)
+            fetchResults() // Reload to get grade
+          } else if (status.status === 'failed') {
+            clearInterval(pollInterval)
+            setPollingActive(false)
+            setSubmission(status) // Update to show error
+          }
+        } catch (error) {
+          console.error('Polling error:', error)
+        }
+      }, 3000) // Poll every 3 seconds
+
+      return () => clearInterval(pollInterval)
+    }
+  }, [submission?.status, submissionId])
 
   const fetchResults = async () => {
     try {
@@ -43,8 +76,8 @@ export default function Results({ submissionId }) {
 
       setSubmission(sub)
 
-      // If graded, get the grade with feedback
-      if (sub.status === 'graded') {
+      // Fetch grade if status is 'completed' OR 'graded' (backwards compatibility)
+      if (sub.status === 'completed' || sub.status === 'graded') {
         const { data: gradeData, error: gradeError } = await supabase
           .from('grades')
           .select(`
@@ -78,6 +111,7 @@ export default function Results({ submissionId }) {
     }
   }
 
+  // Loading state
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow">
@@ -94,29 +128,110 @@ export default function Results({ submissionId }) {
     )
   }
 
-  if (submission.status === 'processing') {
+  // Pending/Processing state (THE WAITING ROOM)
+  if (submission.status === 'pending' || submission.status === 'processing') {
     return (
       <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div>
-          <h2 className="text-2xl font-bold text-orange-600 mb-2">
-            AI is Grading Your Speech...
+        {/* Banner - Email notification message */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="flex items-start">
+            <svg className="w-6 h-6 text-blue-600 mt-0.5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div>
+              <h3 className="text-lg font-semibold text-blue-900 mb-1">
+                This is taking a bit longer than usual
+              </h3>
+              <p className="text-blue-700">
+                Your submission is being processed. You can return to this page later to check the results.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Processing animation */}
+        <div className="text-center py-12">
+          <div className="relative inline-flex items-center justify-center mb-6">
+            {/* Outer spinning ring */}
+            <div className="animate-spin rounded-full h-24 w-24 border-b-4 border-orange-600"></div>
+            {/* Inner pulsing circle */}
+            <div className="absolute animate-pulse rounded-full h-16 w-16 bg-orange-100"></div>
+            {/* Icon */}
+            <svg className="absolute w-10 h-10 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+
+          <h2 className="text-3xl font-bold text-orange-600 mb-3">
+            Analyzing Your Speech...
           </h2>
-          <p className="text-gray-600">
-            This usually takes 2-3 minutes. The page will update automatically!
+
+          <p className="text-gray-600 text-lg mb-4">
+            Our AI is carefully reviewing your presentation
           </p>
+
+          {/* Processing steps skeleton */}
+          <div className="max-w-md mx-auto mt-8 space-y-3">
+            <ProcessingStep
+              icon="🎤"
+              label="Transcribing audio"
+              status={submission.status === 'processing' ? 'complete' : 'active'}
+            />
+            <ProcessingStep
+              icon="📝"
+              label="Analyzing speech content"
+              status={submission.status === 'processing' ? 'active' : 'pending'}
+            />
+            <ProcessingStep
+              icon="🎯"
+              label="Detecting filler words"
+              status="pending"
+            />
+            <ProcessingStep
+              icon="👤"
+              label="Evaluating body language"
+              status="pending"
+            />
+          </div>
+
+          {pollingActive && (
+            <p className="text-sm text-gray-500 mt-6">
+              Checking for updates every 3 seconds...
+            </p>
+          )}
         </div>
       </div>
     )
   }
 
+  // Failed state
   if (submission.status === 'failed') {
     return (
       <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow">
-        <div className="text-center text-red-600">
-          <h2 className="text-2xl font-bold mb-2">Grading Failed</h2>
-          <p>Something went wrong. Please try submitting again.</p>
+        <div className="text-center text-red-600 py-12">
+          <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <h2 className="text-2xl font-bold mb-2">Analysis Failed</h2>
+          <p className="text-gray-600 mb-4">
+            {submission.error_message || 'Something went wrong during analysis.'}
+          </p>
+          <button
+            onClick={() => window.location.href = '/'}
+            className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+          >
+            Return to Assignments
+          </button>
         </div>
+      </div>
+    )
+  }
+
+  // Completed state - show grade (existing code)
+  if (!grade) {
+    return (
+      <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow">
+        <p className="text-center text-gray-600">No grade available yet.</p>
       </div>
     )
   }
@@ -137,7 +252,7 @@ export default function Results({ submissionId }) {
             <span className="text-3xl">/100</span>
           </p>
         </div>
-        
+
         {/* Component Score Breakdown for Students */}
         {grade?.speech_content_score && (
           <div className="mt-4 pt-4 border-t border-green-200">
@@ -237,13 +352,34 @@ export default function Results({ submissionId }) {
 
       {/* Action */}
       <div className="mt-6 text-center">
-        <button 
+        <button
           onClick={() => window.location.reload()}
           className="bg-orange-600 text-white px-6 py-3 rounded hover:bg-orange-700 font-bold"
         >
           Submit Another Speech
         </button>
       </div>
+    </div>
+  )
+}
+
+// Helper component for processing steps
+function ProcessingStep({ icon, label, status }) {
+  const statusStyles = {
+    complete: 'bg-green-100 border-green-300 text-green-800',
+    active: 'bg-orange-100 border-orange-300 text-orange-800 animate-pulse',
+    pending: 'bg-gray-100 border-gray-300 text-gray-500'
+  }
+
+  return (
+    <div className={`flex items-center px-4 py-3 rounded-lg border-2 ${statusStyles[status]}`}>
+      <span className="text-2xl mr-3">{icon}</span>
+      <span className="font-medium">{label}</span>
+      {status === 'complete' && (
+        <svg className="w-5 h-5 ml-auto text-green-600" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
+        </svg>
+      )}
     </div>
   )
 }

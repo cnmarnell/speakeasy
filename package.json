@@ -7,11 +7,15 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:chaos:retry": "node tests/chaos/retryLogicTest.js",
+    "test:chaos:backoff": "node tests/chaos/networkDelayTest.js",
+    "test:chaos:all": "npm run test:chaos:retry && npm run test:chaos:backoff"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.77.0",
     "openai": "^6.7.0",
+    "p-limit": "^7.2.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },

@@ -1,5 +1,6 @@
 // AWS Bedrock Agent analysis via Supabase Edge Function
 import { supabase } from '../supabaseClient'
+import { fetchWithRetry } from './apiResilience'
 
 // Analyze speech content using AWS Bedrock Agent
 export const analyzeSpeechWithBedrockAgent = async (transcript, assignmentTitle) => {
@@ -25,18 +26,23 @@ export const analyzeSpeechWithBedrockAgent = async (transcript, assignmentTitle)
 
     console.log('Calling Bedrock Agent function...')
 
-    const response = await fetch(proxyUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-      },
-      body: JSON.stringify({
-        transcript: transcript,
-        assignmentTitle: assignmentTitle
-      })
-    })
+    // RETRY LOGIC APPLIED: Wrap Bedrock Agent API call with retry mechanism
+    // This handles 429 (rate limits) and 5xx errors with exponential backoff
+    const response = await fetchWithRetry(() =>
+      fetch(proxyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({
+          transcript: transcript,
+          assignmentTitle: assignmentTitle
+        })
+      }),
+      { maxAttempts: 3 }
+    )
 
     if (!response.ok) {
       const errorText = await response.text()
