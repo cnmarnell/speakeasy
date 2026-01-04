@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+
+# Local development
+tracker.py
+test_video.*
+*.webm
+*.mp4
+*.avi
+
+# Documentation
+*.md
+LOCAL_TESTING_GUIDE.md
+README.md
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

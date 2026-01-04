@@ -8,7 +8,6 @@ We added a **30-second timeout** to prevent AI API calls from hanging indefinite
 
 1. **Bedrock Agent** (`src/lib/bedrockAgent.js`) - AWS AI speech analysis
 2. **Deepgram** (`src/lib/deepgram.js`) - Audio transcription (both proxy and direct)
-3. **Gemini** (`src/lib/geminiBodyLanguageDirect.js`) - Body language analysis
 
 ### How It Works
 
@@ -131,7 +130,6 @@ Test with the actual AI services to ensure timeouts work in production.
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
    - `VITE_DEEPGRAM_API_KEY` (if testing direct Deepgram)
-   - `VITE_GOOGLE_GEMINI_API_KEY` (if testing Gemini)
 
 2. Deploy a modified version of the edge function that deliberately delays responses (for testing only).
 
@@ -204,10 +202,6 @@ Making proxy API call to Supabase Edge Function...
 ⚠️ API call failed: The user aborted a request. Retry 1/3...
 ```
 
-### Test Gemini Timeout
-
-Similar to Bedrock - create a slow test endpoint or use large frame images.
-
 ---
 
 ## Interpreting Results
@@ -217,7 +211,7 @@ Similar to Bedrock - create a slow test endpoint or use large frame images.
 1. **Timeout triggers within 30-32 seconds** per attempt (small variance is normal)
 2. **AbortError or "aborted" message** appears in error logs
 3. **Retry logic activates** (you see "Retry 1/3", "Retry 2/3", etc.)
-4. **Fallback response returned** after all retries fail (for Bedrock/Gemini)
+4. **Fallback response returned** after all retries fail (for Bedrock)
 
 ### ❌ Failure Indicators
 
@@ -241,7 +235,6 @@ Similar to Bedrock - create a slow test endpoint or use large frame images.
    ```bash
    grep -n "AbortController" src/lib/bedrockAgent.js
    grep -n "AbortController" src/lib/deepgram.js
-   grep -n "AbortController" src/lib/geminiBodyLanguageDirect.js
    ```
 
 2. Check if browser supports AbortController:
@@ -308,7 +301,6 @@ await runAllTimeoutTests()
 ```bash
 grep -A5 "AbortController" src/lib/bedrockAgent.js
 grep -A5 "AbortController" src/lib/deepgram.js
-grep -A5 "AbortController" src/lib/geminiBodyLanguageDirect.js
 ```
 
 ### Monitor Live Timeouts in Production

@@ -265,15 +265,15 @@ function AssignmentDetailPage({ assignment, onBack, onViewStudent }) {
 
                   <div className="feedback-category">
                     <h4>Delivery & Language Analysis</h4>
-                    <div
-                      style={{ color: 'black' }}
-                      dangerouslySetInnerHTML={{
-                        __html: selectedStudentFeedback.feedback.bodyLanguage
-                          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                          .replace(/\n/g, '<br>')
-                          .replace(/•/g, '&bull;')
-                      }}
-                    />
+                    <div>
+                      <span style={{
+                        fontSize: '16px',
+                        fontWeight: '500',
+                        color: selectedStudentFeedback.feedback.bodyLanguage?.includes('✓') ? '#22c55e' : '#ef4444'
+                      }}>
+                        {selectedStudentFeedback.feedback.bodyLanguage || '✗ Did not use hands effectively'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}

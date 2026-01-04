@@ -2,8 +2,6 @@ import { supabase } from '../lib/supabase'
 import { transcribeWithDeepgram } from '../lib/deepgram'
 import { analyzeSpeechWithBedrockAgent } from '../lib/bedrockAgent'
 import { analyzeFillerWords, getFillerWordScore } from '../lib/fillerWordAnalysis'
-import { extractFramesFromVideo } from '../lib/frameExtraction'
-import { analyzeBodyLanguageWithGemini } from '../lib/geminiBodyLanguageDirect'
 
 // Create user profile in students or teachers table after signup
 export const createUserProfile = async (email, name, accountType) => {
@@ -646,31 +644,12 @@ export const processVideoWithAI = async (videoBlob, assignmentTitle) => {
       assignmentTitle
     )
 
-    // Step 4: Analyze body language with Google Gemini
-    console.log('Step 4: Analyzing body language with Gemini...')
-    let bodyLanguageFeedback = 'Body language analysis will be available soon.'
-    try {
-      const frames = await extractFramesFromVideo(videoBlob, 4)
-      console.log('Extracted frames for Gemini analysis:', frames.length)
-      const geminiResult = await analyzeBodyLanguageWithGemini(frames)
-      console.log('Gemini analysis result:', geminiResult)
-      bodyLanguageFeedback = geminiResult.bodyLanguageFeedback
-      console.log('Body language feedback set to:', bodyLanguageFeedback)
-    } catch (error) {
-      console.error('Body language analysis error:', error)
-      // Keep default fallback feedback
-    }
-
-    // Combine filler word analysis with Bedrock Agent analysis and body language
-    // IMPORTANT: bodyLanguage must come AFTER the spread to override Bedrock's placeholder
+    // Combine filler word analysis with Bedrock Agent analysis
     const enhancedAnalysis = {
       ...analysisResult,
       fillerWords: fillerAnalysis.analysis,
-      fillerWordData: fillerAnalysis,
-      bodyLanguage: bodyLanguageFeedback  // This overrides analysisResult.bodyLanguage
+      fillerWordData: fillerAnalysis
     }
-
-    console.log('Enhanced analysis with Gemini body language:', enhancedAnalysis.bodyLanguage)
     
     return {
       transcript: transcriptionResult.text,

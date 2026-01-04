@@ -139,15 +139,15 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
             <h4 className="feedback-category-title">Delivery & Language Analysis</h4>
             <div className="feedback-content">
               {isCompleted && feedback ? (
-                <div
-                  className="delivery-analysis-text"
-                  dangerouslySetInnerHTML={{
-                    __html: feedback.bodyLanguage
-                      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                      .replace(/\n/g, '<br>')
-                      .replace(/•/g, '&bull;')
-                  }}
-                />
+                <div className="delivery-analysis-text">
+                  <span style={{
+                    fontSize: '16px',
+                    fontWeight: '500',
+                    color: feedback.bodyLanguage?.includes('✓') ? '#22c55e' : '#ef4444'
+                  }}>
+                    {feedback.bodyLanguage || '✗ Did not use hands effectively'}
+                  </span>
+                </div>
               ) : isProcessing ? (
                 <p className="processing-message">🔄 Your speech is being analyzed... Check back in a few minutes!</p>
               ) : (

@@ -301,9 +301,13 @@ export default function Results({ submissionId }) {
       {grade?.body_language_feedback && (
         <div className="bg-purple-50 rounded-lg p-4 mb-6">
           <h3 className="font-bold text-lg mb-2">📹 Delivery & Language Analysis</h3>
-          <p className="text-gray-700 whitespace-pre-wrap">
+          <span style={{
+            fontSize: '16px',
+            fontWeight: '500',
+            color: grade.body_language_feedback?.includes('✓') ? '#22c55e' : '#ef4444'
+          }}>
             {grade.body_language_feedback}
-          </p>
+          </span>
         </div>
       )}
 

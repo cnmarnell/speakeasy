@@ -31,9 +31,6 @@ withRetry(fn, options)                 // Function decorator
 #### 2. **AWS Bedrock Agent** (`src/lib/bedrockAgent.js`)
 - ✅ Bedrock proxy call (line 31-45)
 
-#### 3. **Google Gemini** (`src/lib/geminiBodyLanguageDirect.js`)
-- ✅ Gemini body language API (line 62-80)
-
 ### Impact
 - **Before:** Any rate limit (429) or server error (5xx) → Immediate failure
 - **After:** 3 retry attempts with exponential backoff → ~90% success rate on transient failures
@@ -219,7 +216,6 @@ if (error.message?.includes('already exists')) {
 | `src/lib/apiResilience.js` | ✨ Created | 200+ (new) |
 | `src/lib/deepgram.js` | 🔧 Added retry wrappers | 2 locations |
 | `src/lib/bedrockAgent.js` | 🔧 Added retry wrappers | 1 location |
-| `src/lib/geminiBodyLanguageDirect.js` | 🔧 Added retry wrappers | 1 location |
 | `src/data/supabaseData.js` | 🔧 Concurrency control + upload improvements | ~200 lines |
 | `package.json` | 📦 Added p-limit dependency | 1 line |
 
@@ -249,7 +245,7 @@ if (error.message?.includes('already exists')) {
 ### For Production
 - Monitor console logs for excessive retry warnings
 - If you see many 429 errors, consider:
-  - Upgrading API tier (Deepgram/Bedrock/Gemini)
+  - Upgrading API tier (Deepgram/Bedrock)
   - Implementing request queuing
   - Rate limiting on your own API endpoints
 

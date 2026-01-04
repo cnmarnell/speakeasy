@@ -201,6 +201,31 @@ async function processQueueItem(
     const speechContentScore = bedrockResult.contentScore ?? 2;
     const speechContentFeedback = bedrockResult.speechContent || 'Analysis completed.';
 
+    // Hand tracking analysis
+    console.log(`[Queue ${item.id}] Analyzing hand tracking...`);
+    let bodyLanguageFeedback = '✗ Did not use hands effectively'; // Default
+    try {
+      const handTrackingResponse = await fetch(`${supabaseUrl}/functions/v1/hand-tracking-analysis`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ videoUrl })
+      });
+
+      if (handTrackingResponse.ok) {
+        const handResult = await handTrackingResponse.json();
+        bodyLanguageFeedback = handResult.feedback || bodyLanguageFeedback;
+        console.log(`[Queue ${item.id}] Hand tracking: ${bodyLanguageFeedback}`);
+      } else {
+        console.warn(`[Queue ${item.id}] Hand tracking failed, using default`);
+      }
+    } catch (error) {
+      console.error(`[Queue ${item.id}] Hand tracking error:`, error);
+      // Keep default feedback
+    }
+
     // Filler word analysis
     const fillerAnalysis = analyzeFillerWords(transcript);
 
@@ -245,7 +270,7 @@ async function processQueueItem(
       grade_id: grade.id,
       filler_words_feedback: generateFillerFeedback(fillerAnalysis),
       speech_content_feedback: speechContentFeedback,
-      body_language_feedback: 'Body language analysis completed.'
+      body_language_feedback: bodyLanguageFeedback
     };
 
     if (existingFeedback) {
@@ -291,7 +316,6 @@ function analyzeFillerWords(transcript: string) {
     { word: 'uh', pattern: /\buh+\b/gi },
     { word: 'like', pattern: /\blike\b/gi },
     { word: 'you know', pattern: /\byou know\b/gi },
-    { word: 'so', pattern: /\bso\b/gi },
     { word: 'actually', pattern: /\bactually\b/gi },
     { word: 'basically', pattern: /\bbasically\b/gi }
   ];
