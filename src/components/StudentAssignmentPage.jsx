@@ -35,6 +35,7 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
   }, [assignment?.id, studentId])
   
   const isCompleted = studentStatus === "In Progress"
+  const isProcessing = studentStatus === "Processing..."
   
   // Check if assignment is still due (can re-record)
   const isDueDatePassed = assignmentData ? new Date() > new Date(assignmentData.rawDueDate) : false
@@ -72,6 +73,10 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
             <div className="transcript-content">
               {isCompleted && feedback && feedback.transcript && feedback.transcript !== "No transcript available yet." ? (
                 <p className="transcript-text">{feedback.transcript}</p>
+              ) : isProcessing ? (
+                <p className="transcript-placeholder processing-message">
+                  🔄 Your speech is being analyzed... Check back in a few minutes!
+                </p>
               ) : (
                 <p className="transcript-placeholder">
                   {isCompleted ? "Transcript processing..." : "Submit your speech to see the transcript"}
@@ -101,6 +106,8 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
                       .replace(/•/g, '&bull;')
                   }}
                 />
+              ) : isProcessing ? (
+                <p className="processing-message">🔄 Your speech is being analyzed... Check back in a few minutes!</p>
               ) : (
                 <p className="no-feedback">N/A</p>
               )}
@@ -120,6 +127,8 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
                       .replace(/•/g, '&bull;')
                   }}
                 />
+              ) : isProcessing ? (
+                <p className="processing-message">🔄 Your speech is being analyzed... Check back in a few minutes!</p>
               ) : (
                 <p className="no-feedback">N/A</p>
               )}
@@ -139,6 +148,8 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
                       .replace(/•/g, '&bull;')
                   }}
                 />
+              ) : isProcessing ? (
+                <p className="processing-message">🔄 Your speech is being analyzed... Check back in a few minutes!</p>
               ) : (
                 <p className="no-feedback">N/A</p>
               )}

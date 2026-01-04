@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { initiateSubmission, checkSubmissionStatus, uploadVideoToStorage } from '../data/supabaseData'
+import { initiateSubmission, checkSubmissionStatus, uploadVideoToStorage, triggerQueueProcessor } from '../data/supabaseData'
 
 function RecordingPage({ assignment, studentId, onBack }) {
   const [isRecording, setIsRecording] = useState(false)
@@ -100,7 +100,7 @@ function RecordingPage({ assignment, studentId, onBack }) {
 
       console.log(`Submission created with ID: ${submissionId}, status: ${status}`)
 
-      // Step 3: Start polling with 15-second timeout
+      // Step 3: Poll for completion with 15-second timeout
       const startTime = Date.now()
       const POLL_INTERVAL = 2000 // 2 seconds
       const REDIRECT_TIMEOUT = 15000 // 15 seconds
@@ -108,10 +108,13 @@ function RecordingPage({ assignment, studentId, onBack }) {
       const pollStatus = async () => {
         const elapsedTime = Date.now() - startTime
 
+        // Trigger queue processor to process pending submissions
+        triggerQueueProcessor().catch(() => {}) // Silent fail
+
         // Check if 15 seconds have elapsed
         if (elapsedTime >= REDIRECT_TIMEOUT) {
           console.log('15 seconds elapsed - processing still in progress')
-          alert('Your video is being analyzed. This is taking longer than usual - please check back shortly!')
+          alert('Video submitted! Your speech is being analyzed in the background. Check back in a few minutes for your results.')
           setIsProcessing(false)
           onBack() // Return to assignment page
           return

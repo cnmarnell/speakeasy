@@ -2621,6 +2621,7 @@
   font-size: 1rem;
   font-family: 'Source Sans Pro', sans-serif;
   background: #FFFCF5;
+  color: #1a1a1a;
   transition: all 0.3s ease;
 }
 
@@ -2709,6 +2710,45 @@
 
 .login-button:hover:not(:disabled) .button-arrow {
   transform: translateX(4px);
+}
+
+.signup-buttons {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.signup-buttons .login-button {
+  flex: 1;
+  margin-top: 0;
+  padding: 1rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+.signup-buttons .signup-student {
+  background: linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%);
+  box-shadow:
+    0 4px 14px rgba(46, 125, 50, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.signup-buttons .signup-student:hover:not(:disabled) {
+  box-shadow:
+    0 8px 20px rgba(46, 125, 50, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.signup-buttons .signup-teacher {
+  background: linear-gradient(135deg, #1565C0 0%, #0D47A1 100%);
+  box-shadow:
+    0 4px 14px rgba(21, 101, 192, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.signup-buttons .signup-teacher:hover:not(:disabled) {
+  box-shadow:
+    0 8px 20px rgba(21, 101, 192, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .login-footer {

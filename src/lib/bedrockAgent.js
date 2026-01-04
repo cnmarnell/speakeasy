@@ -28,8 +28,12 @@ export const analyzeSpeechWithBedrockAgent = async (transcript, assignmentTitle)
 
     // RETRY LOGIC APPLIED: Wrap Bedrock Agent API call with retry mechanism
     // This handles 429 (rate limits) and 5xx errors with exponential backoff
-    const response = await fetchWithRetry(() =>
-      fetch(proxyUrl, {
+    // TIMEOUT ADDED: 30-second timeout per attempt to prevent indefinite hangs
+    const response = await fetchWithRetry(() => {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 30000) // 30-second timeout
+
+      return fetch(proxyUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -39,10 +43,10 @@ export const analyzeSpeechWithBedrockAgent = async (transcript, assignmentTitle)
         body: JSON.stringify({
           transcript: transcript,
           assignmentTitle: assignmentTitle
-        })
-      }),
-      { maxAttempts: 3 }
-    )
+        }),
+        signal: controller.signal
+      }).finally(() => clearTimeout(timeout))
+    }, { maxAttempts: 3 })
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -53,19 +57,28 @@ export const analyzeSpeechWithBedrockAgent = async (transcript, assignmentTitle)
     const result = await response.json()
     console.log('Bedrock Agent analysis successful:', {
       hasContent: !!result.speechContent,
+      contentScore: result.contentScore,
       confidence: result.confidence,
       sourcesCount: result.sources?.length || 0
     })
 
+    // Use ONLY the explicit score from AI (extracted from "Final Score: x/4")
+    // No keyword-based fallback - trust the edge function's extraction or default
+    const contentScore = typeof result.contentScore === 'number' ? result.contentScore : 2
+
+    console.log('Using content score from AI:', {
+      score: contentScore,
+      source: result.sources?.[0] || 'unknown'
+    })
+
     // Return in the same format as other analysis functions for compatibility
     return {
-      speechContent: result.speechContent || 'Analysis not available', // Pure Bedrock Agent output
+      speechContent: result.speechContent || 'Analysis not available',
       confidence: result.confidence,
       sources: result.sources,
-      overallScore: calculateContentScoreFromAnalysis(result.speechContent || ''), // 3-point scale
-      // Simple delivery guidance since Bedrock Agent focuses on content analysis
+      overallScore: contentScore, // Direct from AI's "Final Score: x/4"
       bodyLanguage: 'Focus on clear articulation, confident posture, and engaging delivery. Maintain eye contact and use purposeful gestures to enhance your message.',
-      contentOrganization: result.speechContent || 'Analysis not available' // Use same content for organization
+      contentOrganization: result.speechContent || 'Analysis not available'
     }
     
   } catch (error) {
@@ -108,7 +121,7 @@ This analysis provides basic feedback. For more detailed, AI-powered insights, e
     speechContent: speechContent,
     confidence: 0.6,
     sources: ['Basic Analysis - Bedrock Agent Unavailable'],
-    overallScore: calculateContentScoreFromAnalysis(speechContent), // 3-point scale
+    overallScore: 2, // Default to 2/4 (Average) when AI unavailable
     bodyLanguage: 'Delivery Analysis: Focus on maintaining clear articulation, appropriate volume, and confident posture. Practice using vocal variety to keep your audience engaged.',
     contentOrganization: 'Structure: Organize your speech with a strong opening that captures attention, well-developed main points with supporting evidence, and a memorable conclusion.'
   }

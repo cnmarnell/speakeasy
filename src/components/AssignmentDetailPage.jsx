@@ -162,22 +162,22 @@ function AssignmentDetailPage({ assignment, onBack, onViewStudent }) {
                 {/* Component Score Breakdown */}
                 {selectedStudentFeedback.grade && (
                   <div className="component-scores">
-                    <h4>Score Breakdown (Simple Average)</h4>
+                    <h4>Score Breakdown (Weighted Average)</h4>
                     <div className="score-components">
                       <div className="score-component">
                         <span className="component-label">
-                          Speech Content (50%):
+                          Speech Content (80%):
                         </span>
                         <span className="component-score">
-                          {selectedStudentFeedback.grade.speechContentScore || 'N/A'}/{selectedStudentFeedback.grade.contentScoreMax || 3}
+                          {selectedStudentFeedback.grade.speechContentScore ?? 'N/A'}/4
                         </span>
                       </div>
                       <div className="score-component">
                         <span className="component-label">
-                          Filler Words (50%):
+                          Filler Words (20%):
                         </span>
                         <span className="component-score">
-                          {selectedStudentFeedback.grade.fillerWordScore || 'N/A'}/20
+                          {selectedStudentFeedback.grade.fillerWordScore ?? 'N/A'}/20
                         </span>
                       </div>
                     </div>
@@ -209,7 +209,15 @@ function AssignmentDetailPage({ assignment, onBack, onViewStudent }) {
                   
                   <div className="feedback-category">
                     <h4>Filler Words Analysis</h4>
-                    <p>{selectedStudentFeedback.feedback.fillerWords}</p>
+                    <div
+                      style={{ color: 'black' }}
+                      dangerouslySetInnerHTML={{
+                        __html: selectedStudentFeedback.feedback.fillerWords
+                          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                          .replace(/\n/g, '<br>')
+                          .replace(/•/g, '&bull;')
+                      }}
+                    />
                     
                     {selectedStudentFeedback.grade && (
                       <div className="filler-word-details">
@@ -244,12 +252,28 @@ function AssignmentDetailPage({ assignment, onBack, onViewStudent }) {
 
                   <div className="feedback-category">
                     <h4>Speech Content Analysis</h4>
-                    <p>{selectedStudentFeedback.feedback.speechContent}</p>
+                    <div
+                      style={{ color: 'black' }}
+                      dangerouslySetInnerHTML={{
+                        __html: selectedStudentFeedback.feedback.speechContent
+                          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                          .replace(/\n/g, '<br>')
+                          .replace(/•/g, '&bull;')
+                      }}
+                    />
                   </div>
 
                   <div className="feedback-category">
                     <h4>Delivery & Language Analysis</h4>
-                    <p>{selectedStudentFeedback.feedback.bodyLanguage}</p>
+                    <div
+                      style={{ color: 'black' }}
+                      dangerouslySetInnerHTML={{
+                        __html: selectedStudentFeedback.feedback.bodyLanguage
+                          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                          .replace(/\n/g, '<br>')
+                          .replace(/•/g, '&bull;')
+                      }}
+                    />
                   </div>
                 </div>
               )}

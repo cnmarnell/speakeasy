@@ -383,6 +383,43 @@
   min-height: 320px;
 }
 
+/* Delete Class Button */
+.delete-class-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid #dc2626;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 10;
+  padding: 0;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2);
+}
+
+.delete-class-btn:hover {
+  background: #dc2626;
+  transform: scale(1.1) rotate(8deg);
+  box-shadow: 0 4px 16px rgba(220, 38, 38, 0.4);
+}
+
+.delete-class-btn svg {
+  width: 20px;
+  height: 20px;
+  color: #dc2626;
+  transition: color 0.3s ease;
+}
+
+.delete-class-btn:hover svg {
+  color: white;
+}
+
 .class-icon {
   width: 64px;
   height: 64px;

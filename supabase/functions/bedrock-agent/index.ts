@@ -13,6 +13,7 @@ interface NovaLiteRequest {
 
 interface NovaLiteResponse {
   speechContent: string;
+  contentScore: number; // Explicit 0-3 score from AI
   confidence: number;
   sources: string[];
 }
@@ -46,14 +47,15 @@ Deno.serve(async (req: Request) => {
     if (!awsAccessKeyId || !awsSecretAccessKey || !awsRegion || !systemPrompt) {
       console.error('Missing AWS credentials or system prompt configuration');
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           speechContent: 'Configuration not complete - missing credentials or system prompt',
+          contentScore: 2,
           confidence: 0,
           sources: ['Configuration Error']
         }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
@@ -70,14 +72,15 @@ Deno.serve(async (req: Request) => {
     if (!transcript) {
       console.error('Missing transcript in request');
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           speechContent: 'Transcript is required for analysis',
+          contentScore: 2,
           confidence: 0,
           sources: ['Missing Data']
         }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
@@ -147,12 +150,13 @@ Deno.serve(async (req: Request) => {
       return new Response(
         JSON.stringify({
           speechContent: `Nova Lite API Error (${novaResponse.status}): ${errorText}`,
+          contentScore: 2,
           confidence: 0,
           sources: ['Nova Lite API Error']
         }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
@@ -170,24 +174,81 @@ Deno.serve(async (req: Request) => {
       return new Response(
         JSON.stringify({
           speechContent: 'Nova Lite returned empty response',
+          contentScore: 2,
           confidence: 0,
           sources: ['Nova Lite - Empty Response']
         }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
 
     console.log('Nova Lite response text received:', responseText.substring(0, 200) + '...');
 
-    // Return the raw Nova Lite response exactly as received
+    // Ultra-simple extraction: find "final score:" and grab the next digit
+    let extractedScore: number | null = null;
+
+    try {
+      const lowerText = responseText.toLowerCase();
+      const scoreIndex = lowerText.indexOf('final score:');
+
+      if (scoreIndex !== -1) {
+        // Get 20 characters after "final score:"
+        const afterScore = responseText.substring(scoreIndex + 13, scoreIndex + 33);
+
+        // Find first digit (0-9)
+        const match = afterScore.match(/\d/);
+
+        if (match) {
+          extractedScore = parseInt(match[0], 10);
+          console.log('✅ EXTRACTED SCORE:', extractedScore);
+        } else {
+          console.log('❌ NO DIGIT FOUND after "final score:"');
+          console.log('Text after:', afterScore);
+        }
+      } else {
+        console.log('❌ "final score:" NOT FOUND');
+        console.log('Full response:', responseText);
+      }
+    } catch (err) {
+      console.error('❌ EXTRACTION ERROR:', err);
+      console.log('Response text:', responseText);
+    }
+
+    console.log('Final score (will use 2 if null):', extractedScore);
+
+    // If no score found in "Final Score: x/4" format, try JSON format as fallback
+    if (extractedScore === null) {
+      try {
+        const jsonMatch = responseText.match(/\{[\s\S]*"score"[\s\S]*"feedback"[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsedJson = JSON.parse(jsonMatch[0]);
+          if (typeof parsedJson.score === 'number' && parsedJson.score >= 0 && parsedJson.score <= 4) {
+            extractedScore = parsedJson.score;
+            console.log('Extracted score from JSON:', extractedScore);
+          }
+        }
+      } catch (jsonError) {
+        console.log('No JSON score found, will use text-based extraction');
+      }
+    }
+
+    // Return response with extracted score (or null to trigger keyword-based fallback)
     const analysisResult: NovaLiteResponse = {
       speechContent: responseText.trim(),
-      confidence: 0.95,
-      sources: ['AWS Nova Lite Model']
+      contentScore: extractedScore !== null ? extractedScore : 2, // Default to 2 if no score found
+      confidence: extractedScore !== null ? 0.95 : 0.7,
+      sources: extractedScore !== null
+        ? ['AWS Nova Lite Model (extracted score)']
+        : ['AWS Nova Lite Model (default score)']
     };
+
+    console.log('Returning analysis:', {
+      contentScore: analysisResult.contentScore,
+      scoreSource: extractedScore !== null ? 'extracted from text' : 'default fallback'
+    });
 
     return new Response(JSON.stringify(analysisResult), {
       status: 200,
@@ -203,6 +264,7 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         speechContent: `Error processing with Nova Lite: ${error.message}`,
+        contentScore: 2, // Default fallback score
         confidence: 0,
         sources: ['Nova Lite Processing Error']
       }),

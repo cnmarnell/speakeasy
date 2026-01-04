@@ -1,38 +1,53 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { createUserProfile } from '../data/supabaseData'
 
 function LoginPage({ onLogin }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e, accountType = null) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
 
     try {
       let result
-      if (isSignUp) {
+      if (isSignUp && accountType) {
+        // Sign up flow - create auth user first
         result = await supabase.auth.signUp({
           email,
           password,
         })
+
+        if (result.error) {
+          throw result.error
+        }
+
+        // Create profile in students or teachers table
+        await createUserProfile(email, name, accountType)
+
+        if (result.data.user) {
+          onLogin(result.data.user, accountType)
+        }
       } else {
+        // Sign in flow
         result = await supabase.auth.signInWithPassword({
           email,
           password,
         })
-      }
 
-      if (result.error) {
-        throw result.error
-      }
+        if (result.error) {
+          throw result.error
+        }
 
-      if (result.data.user) {
-        onLogin(result.data.user)
+        if (result.data.user) {
+          onLogin(result.data.user)
+        }
       }
     } catch (error) {
       setError(error.message)
@@ -76,6 +91,21 @@ function LoginPage({ onLogin }) {
         )}
 
         <form onSubmit={handleSubmit} className="login-form">
+          {isSignUp && (
+            <div className="form-group">
+              <label htmlFor="name">Full Name</label>
+              <input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                disabled={isLoading}
+                placeholder="Your Name"
+              />
+            </div>
+          )}
+
           <div className="form-group">
             <label htmlFor="email">Email Address</label>
             <input
@@ -102,16 +132,41 @@ function LoginPage({ onLogin }) {
             />
           </div>
 
-          <button
-            type="submit"
-            className="login-button"
-            disabled={isLoading}
-          >
-            <span className="button-text">
-              {isLoading ? 'Please Wait...' : (isSignUp ? 'Create Account' : 'Enter')}
-            </span>
-            <span className="button-arrow">→</span>
-          </button>
+          {isSignUp ? (
+            <div className="signup-buttons">
+              <button
+                type="button"
+                className="login-button signup-student"
+                disabled={isLoading}
+                onClick={(e) => handleSubmit(e, 'student')}
+              >
+                <span className="button-text">
+                  {isLoading ? 'Please Wait...' : 'Sign up as Student'}
+                </span>
+              </button>
+              <button
+                type="button"
+                className="login-button signup-teacher"
+                disabled={isLoading}
+                onClick={(e) => handleSubmit(e, 'teacher')}
+              >
+                <span className="button-text">
+                  {isLoading ? 'Please Wait...' : 'Sign up as Teacher'}
+                </span>
+              </button>
+            </div>
+          ) : (
+            <button
+              type="submit"
+              className="login-button"
+              disabled={isLoading}
+            >
+              <span className="button-text">
+                {isLoading ? 'Please Wait...' : 'Enter'}
+              </span>
+              <span className="button-arrow">→</span>
+            </button>
+          )}
         </form>
 
         <div className="login-footer">

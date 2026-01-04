@@ -19,12 +19,6 @@ export const fillerWords = {
     'if you will', 'as it were', 'so to speak', 'in a sense', 'in a way'
   ],
 
-  // Transition fillers
-  transition: [
-    'so', 'well', 'okay', 'right', 'now', 'then', 'anyway', 'anyhow',
-    'moving on', 'next', 'furthermore', 'moreover', 'additionally', 'also'
-  ],
-
   // Confirmation seeking
   confirmation: [
     'right?', 'okay?', 'you know?', 'see?', 'understand?', 'make sense?',
@@ -37,7 +31,6 @@ export const allFillerWords = [
   ...fillerWords.basic,
   ...fillerWords.discourse,
   ...fillerWords.hesitation,
-  ...fillerWords.transition,
   ...fillerWords.confirmation
 ]
 
@@ -46,7 +39,6 @@ export const fillerWeights = {
   basic: 1.0,        // Most noticeable fillers
   discourse: 0.7,    // Moderate impact
   hesitation: 0.8,   // Noticeable but sometimes acceptable
-  transition: 0.5,   // Often acceptable in speech
   confirmation: 0.6  // Moderate impact
 }
 

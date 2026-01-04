@@ -59,8 +59,12 @@ Provide constructive, actionable feedback in 2-3 sentences that helps students i
 
     // RETRY LOGIC APPLIED: Wrap Gemini API call with retry mechanism
     // This handles 429 (rate limits) and 5xx errors with exponential backoff
-    const response = await fetchWithRetry(() =>
-      fetch(url, {
+    // TIMEOUT ADDED: 30-second timeout per attempt to prevent indefinite hangs
+    const response = await fetchWithRetry(() => {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 30000) // 30-second timeout
+
+      return fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -74,10 +78,10 @@ Provide constructive, actionable feedback in 2-3 sentences that helps students i
             maxOutputTokens: 300,
             topP: 0.9
           }
-        })
-      }),
-      { maxAttempts: 3 }
-    )
+        }),
+        signal: controller.signal
+      }).finally(() => clearTimeout(timeout))
+    }, { maxAttempts: 3 })
 
     console.log('📥 Gemini API response status:', response.status)
 

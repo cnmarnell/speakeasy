@@ -114,18 +114,22 @@ const transcribeWithDeepgramProxy = async (videoBlob) => {
 
     // RETRY LOGIC APPLIED: Wrap Deepgram proxy call with retry mechanism
     // This handles 429 (rate limits) and 5xx errors with exponential backoff
-    const response = await fetchWithRetry(() =>
-      fetch(proxyUrl, {
+    // TIMEOUT ADDED: 30-second timeout per attempt to prevent indefinite hangs
+    const response = await fetchWithRetry(() => {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 30000) // 30-second timeout
+
+      return fetch(proxyUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'audio/webm'
           // Temporarily removing auth for local development
           // 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
         },
-        body: audioBuffer
-      }),
-      { maxAttempts: 3 }
-    )
+        body: audioBuffer,
+        signal: controller.signal
+      }).finally(() => clearTimeout(timeout))
+    }, { maxAttempts: 3 })
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -171,8 +175,12 @@ const transcribeWithDeepgramDirect = async (videoUrl) => {
 
     // RETRY LOGIC APPLIED: Wrap direct Deepgram API call with retry mechanism
     // This handles 429 (rate limits) and 5xx errors with exponential backoff
-    const response = await fetchWithRetry(() =>
-      fetch('https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&filler_words=true&punctuate=true&language=en-US', {
+    // TIMEOUT ADDED: 30-second timeout per attempt to prevent indefinite hangs
+    const response = await fetchWithRetry(() => {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 30000) // 30-second timeout
+
+      return fetch('https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&filler_words=true&punctuate=true&language=en-US', {
         method: 'POST',
         headers: {
           'Authorization': `Token ${apiKey}`,
@@ -180,10 +188,10 @@ const transcribeWithDeepgramDirect = async (videoUrl) => {
         },
         body: JSON.stringify({
           url: videoUrl
-        })
-      }),
-      { maxAttempts: 3 }
-    )
+        }),
+        signal: controller.signal
+      }).finally(() => clearTimeout(timeout))
+    }, { maxAttempts: 3 })
 
     console.log('Deepgram response status:', response.status)
 

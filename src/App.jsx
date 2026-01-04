@@ -50,9 +50,27 @@ function App() {
   }, [])
 
   // Handle user login and determine role
-  const handleLogin = async (user) => {
+  const handleLogin = async (user, role = null) => {
     setUser(user)
-    
+
+    // If role is provided (from signup), use it directly
+    if (role) {
+      setUserRole(role)
+      if (role === 'student') {
+        // Fetch the student ID for the newly created profile
+        const { data: studentData } = await supabase
+          .from('students')
+          .select('id')
+          .eq('email', user.email)
+          .single()
+        if (studentData) {
+          setCurrentStudentId(studentData.id)
+        }
+      }
+      setCurrentView('dashboard')
+      return
+    }
+
     // Try to find user in students table first
     const { data: studentData } = await supabase
       .from('students')

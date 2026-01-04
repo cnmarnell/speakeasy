@@ -256,14 +256,14 @@ export default function Results({ submissionId }) {
         {/* Component Score Breakdown for Students */}
         {grade?.speech_content_score && (
           <div className="mt-4 pt-4 border-t border-green-200">
-            <p className="text-sm text-gray-600 text-center mb-3">Score Breakdown (Simple Average)</p>
+            <p className="text-sm text-gray-600 text-center mb-3">Score Breakdown (Weighted Average)</p>
             <div className="flex justify-between text-sm">
               <div className="text-center">
-                <p className="font-semibold text-gray-700">Speech Content (50%)</p>
-                <p className="text-lg font-bold text-blue-600">{grade.speech_content_score}/3</p>
+                <p className="font-semibold text-gray-700">Speech Content (80%)</p>
+                <p className="text-lg font-bold text-blue-600">{grade.speech_content_score}/4</p>
               </div>
               <div className="text-center">
-                <p className="font-semibold text-gray-700">Filler Words (50%)</p>
+                <p className="font-semibold text-gray-700">Filler Words (20%)</p>
                 <p className="text-lg font-bold text-orange-600">{grade.filler_word_score}/20</p>
               </div>
             </div>

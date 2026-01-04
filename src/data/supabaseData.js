@@ -4,7 +4,24 @@ import { analyzeSpeechWithBedrockAgent } from '../lib/bedrockAgent'
 import { analyzeFillerWords, getFillerWordScore } from '../lib/fillerWordAnalysis'
 import { extractFramesFromVideo } from '../lib/frameExtraction'
 import { analyzeBodyLanguageWithGemini } from '../lib/geminiBodyLanguageDirect'
-import pLimit from 'p-limit'
+
+// Create user profile in students or teachers table after signup
+export const createUserProfile = async (email, name, accountType) => {
+  const table = accountType === 'teacher' ? 'teachers' : 'students'
+
+  const { data, error } = await supabase
+    .from(table)
+    .insert([{ email, name }])
+    .select()
+    .single()
+
+  if (error) {
+    console.error(`Error creating ${accountType} profile:`, error)
+    throw error
+  }
+
+  return data
+}
 
 // Fetch all classes for teacher dashboard
 export const getClasses = async () => {
@@ -56,41 +73,60 @@ export const getStudentsByClass = async (className) => {
   const { data, error } = await supabase
     .from('students')
     .select(`
-      *,
+      id,
+      name,
+      email,
       class_enrollments!inner(
         classes!inner(name)
+      ),
+      submissions(
+        grades(
+          total_score
+        )
       )
     `)
     .eq('class_enrollments.classes.name', className)
     .order('name')
-  
+
   if (error) {
     console.error('Error fetching students:', error)
     return []
   }
-  
-  // CONCURRENCY CONTROL: Limit parallel database queries to prevent connection pool exhaustion
-  // Process only 5 students at a time instead of all simultaneously
-  // This prevents "Self-DDoS" when a class has 50+ students
-  const limit = pLimit(5)
 
-  const studentsWithGrades = await Promise.all(
-    data.map((student) => limit(async () => {
-      const totalGradeInfo = await calculateStudentTotalGrade(student.id)
+  // Client-side aggregation to calculate average grades
+  return data.map(student => {
+    // Extract all grade scores from submissions
+    const grades = student.submissions
+      .map(sub => sub.grades?.[0]?.total_score)
+      .filter(score => score != null)
 
+    // Handle students with no submissions
+    if (grades.length === 0) {
       return {
         id: student.id,
         name: student.name,
         email: student.email,
-        overallGrade: totalGradeInfo.letterGrade,
-        totalPoints: `${totalGradeInfo.totalGrade}/100`,
-        submissionCount: totalGradeInfo.submissionCount,
-        lastActivity: ""
+        overallGrade: 'N/A',
+        totalPoints: '0/100',
+        submissionCount: 0,
+        lastActivity: ''
       }
-    }))
-  )
-  
-  return studentsWithGrades
+    }
+
+    // Calculate average grade
+    const totalPoints = grades.reduce((sum, score) => sum + score, 0)
+    const average = Math.round(totalPoints / grades.length)
+
+    return {
+      id: student.id,
+      name: student.name,
+      email: student.email,
+      overallGrade: getLetterGrade(average),
+      totalPoints: `${average}/100`,
+      submissionCount: grades.length,
+      lastActivity: ''
+    }
+  })
 }
 
 // Fetch student grades by student ID
@@ -279,7 +315,7 @@ export const getDetailedStudentFeedback = async (assignmentId, studentId) => {
       grade: grade ? {
         totalScore: grade.total_score,
         speechContentScore: grade.speech_content_score,
-        contentScoreMax: grade.content_score_max || 3,
+        contentScoreMax: grade.content_score_max || 4,
         fillerWordCount: grade.filler_word_count,
         fillerWordsUsed: grade.filler_words_used || [],
         fillersPerMinute: grade.filler_words_per_minute || 0,
@@ -378,12 +414,15 @@ export const getStudentAssignmentStatus = async (studentId, assignmentId) => {
     .eq('student_id', studentId)
     .eq('assignment_id', assignmentId)
     .single()
-  
+
   if (!data) return "Not Started"
-  
+
   switch (data.status) {
-    case 'graded': return "In Progress" // Show as in progress so they can view feedback
-    case 'processing': return "In Progress"
+    case 'completed': return "In Progress" // NEW: Async flow completion
+    case 'graded': return "In Progress" // OLD: Sync flow completion
+    case 'pending': return "Processing..." // NEW: Queued for processing
+    case 'processing': return "Processing..." // NEW: Currently analyzing
+    case 'failed': return "Failed"
     default: return "Not Started"
   }
 }
@@ -639,7 +678,7 @@ export const processVideoWithAI = async (videoBlob, assignmentTitle) => {
       language: transcriptionResult.language,
       analysis: {
         ...enhancedAnalysis,
-        overallScore: enhancedAnalysis.overallScore || 75 // Provide fallback score
+        overallScore: enhancedAnalysis.overallScore ?? 2 // Use ?? to allow 0 (|| treats 0 as falsy!)
       },
       fillerWordAnalysis: fillerAnalysis,
       // If we got the placeholder, let's reflect that it wasn't a full AI process
@@ -920,8 +959,7 @@ export const createSubmission = async (submissionData, videoBlob = null, assignm
           await supabase
             .from('submissions')
             .update({
-              transcript: aiResult.transcript,
-              ai_processing_status: aiResult.aiProcessed ? 'completed' : 'failed'
+              transcript: aiResult.transcript
             })
             .eq('id', submission.id)
         }
@@ -958,9 +996,9 @@ export const createSubmission = async (submissionData, videoBlob = null, assignm
     
     // Calculate filler word score (0-20 scale, will be displayed as X/20)
     const fillerWordScore = Math.max(0, 20 - fillerWordCount)
-    
-    // Get speech content score from AI analysis (0-3 scale)
-    const speechContentScore = aiResult?.analysis?.overallScore || 2.0 // Default to "good" (2/3)
+
+    // Get speech content score from AI analysis (0-4 scale)
+    const speechContentScore = aiResult?.analysis?.overallScore ?? 2.0 // Use ?? to allow 0
 
     // Skip grade creation if AI processing failed
     if (finalScore === null) {
@@ -972,11 +1010,11 @@ export const createSubmission = async (submissionData, videoBlob = null, assignm
       }
     }
 
-    // Calculate simple average of both scores converted to 100-point scale
-    // Formula: ((contentScore/3) * 100 + (fillerScore/20) * 100) / 2
-    const contentPercentage = (speechContentScore / 3) * 100
+    // Calculate weighted score: 80% content, 20% filler words
+    // Formula: (contentScore/4 * 100 * 0.8) + (fillerScore/20 * 100 * 0.2)
+    const contentPercentage = (speechContentScore / 4) * 100
     const fillerPercentage = (fillerWordScore / 20) * 100
-    const averageFinalScore = Math.round((contentPercentage + fillerPercentage) / 2)
+    const averageFinalScore = Math.round((contentPercentage * 0.8) + (fillerPercentage * 0.2))
 
     // Check if grade already exists for this submission
     const { data: existingGrade, error: gradeCheckError } = await supabase
@@ -1000,7 +1038,9 @@ export const createSubmission = async (submissionData, videoBlob = null, assignm
           filler_category_breakdown: categoryBreakdown,
           filler_word_score: fillerWordScore,
           filler_word_counts: fillerWordCounts,
-          content_score_max: 3,
+          filler_word_weight: 0.2,
+          speech_content_weight: 0.8,
+          content_score_max: 4,
           graded_at: new Date().toISOString()
         })
         .eq('id', existingGrade.id)
@@ -1025,6 +1065,8 @@ export const createSubmission = async (submissionData, videoBlob = null, assignm
           filler_category_breakdown: categoryBreakdown,
           filler_word_score: fillerWordScore,
           filler_word_counts: fillerWordCounts,
+          filler_word_weight: 0.2,
+          speech_content_weight: 0.8,
           content_score_max: 3
         }])
         .select()
@@ -1122,50 +1164,110 @@ export const createSubmission = async (submissionData, videoBlob = null, assignm
 }
 
 /**
- * ASYNC SUBMISSION: Initiates submission and returns immediately
- * Creates submission record with 'pending' status and triggers background AI processing
+ * ASYNC SUBMISSION: Initiates submission and adds to processing queue
+ * Creates submission record with 'pending' status and queues for background AI processing
  * Returns submission ID without waiting for AI analysis to complete
+ *
+ * The queue system prevents API rate limiting by controlling concurrent AI calls
  */
 export const initiateSubmission = async (submissionData, videoBlob, assignmentTitle = 'Speech Assignment') => {
   try {
-    console.log('[Async Submission] Initiating submission...')
+    console.log('[Queue Submission] Initiating submission with queue system...')
 
-    // 1. Create submission with status: 'pending'
-    const { data: submission, error } = await supabase
+    // Check if submission already exists for this student and assignment
+    const { data: existingSubmission, error: checkError } = await supabase
       .from('submissions')
-      .insert([{
-        assignment_id: submissionData.assignmentId,
-        student_id: submissionData.studentId,
-        video_url: submissionData.videoUrl,
-        transcript: null,
-        status: 'pending', // NEW: Start as pending instead of 'graded'
-        submitted_at: new Date().toISOString()
-      }])
-      .select()
+      .select('id')
+      .eq('assignment_id', submissionData.assignmentId)
+      .eq('student_id', submissionData.studentId)
       .single()
 
-    if (error) throw error
+    let submission
 
-    console.log(`[Async Submission] Submission created with ID: ${submission.id}`)
+    if (existingSubmission) {
+      // Update existing submission
+      console.log(`[Queue Submission] Updating existing submission ${existingSubmission.id}`)
+      const { data: updatedSubmission, error: updateError } = await supabase
+        .from('submissions')
+        .update({
+          video_url: submissionData.videoUrl,
+          transcript: null,
+          status: 'pending',
+          submitted_at: new Date().toISOString(),
+          processing_started_at: null,
+          processing_completed_at: null,
+          error_message: null
+        })
+        .eq('id', existingSubmission.id)
+        .select()
+        .single()
 
-    // 2. Trigger background AI processing (fire-and-forget)
-    runBackgroundAI(submission.id, videoBlob, assignmentTitle)
-      .catch(err => {
-        console.error('[Async Submission] Background AI processing failed:', err)
-        // Update submission status to 'failed'
-        supabase.from('submissions').update({
-          status: 'failed',
-          error_message: err.message
-        }).eq('id', submission.id)
-      })
+      if (updateError) throw updateError
+      submission = updatedSubmission
 
-    // 3. Return submission ID immediately
+      // Remove any existing queue entries for this submission
+      await supabase
+        .from('submission_queue')
+        .delete()
+        .eq('submission_id', existingSubmission.id)
+    } else {
+      // Create new submission
+      console.log('[Queue Submission] Creating new submission')
+      const { data: newSubmission, error: insertError } = await supabase
+        .from('submissions')
+        .insert([{
+          assignment_id: submissionData.assignmentId,
+          student_id: submissionData.studentId,
+          video_url: submissionData.videoUrl,
+          transcript: null,
+          status: 'pending',
+          submitted_at: new Date().toISOString()
+        }])
+        .select()
+        .single()
+
+      if (insertError) throw insertError
+      submission = newSubmission
+    }
+
+    console.log(`[Queue Submission] Submission created with ID: ${submission.id}`)
+
+    // Add to queue for controlled background processing
+    const { error: queueError } = await supabase
+      .from('submission_queue')
+      .insert([{
+        submission_id: submission.id,
+        assignment_title: assignmentTitle,
+        video_url: submissionData.videoUrl,
+        priority: 0, // Can be increased for priority assignments
+        status: 'pending'
+      }])
+
+    if (queueError) {
+      console.error('[Queue Submission] Failed to add to queue:', queueError)
+      // Don't throw - submission is saved, just queue insert failed
+      // Fall back to direct processing
+      console.log('[Queue Submission] Falling back to direct processing...')
+      runBackgroundAI(submission.id, videoBlob, assignmentTitle)
+        .catch(err => {
+          console.error('[Queue Submission] Fallback processing failed:', err)
+          supabase.from('submissions').update({
+            status: 'failed',
+            error_message: err.message
+          }).eq('id', submission.id)
+        })
+    } else {
+      console.log(`[Queue Submission] Added to queue for submission ${submission.id}`)
+    }
+
+    // Return submission ID immediately
     return {
       submissionId: submission.id,
-      status: 'pending'
+      status: 'pending',
+      queued: !queueError
     }
   } catch (error) {
-    console.error('[Async Submission] Error initiating submission:', error)
+    console.error('[Queue Submission] Error initiating submission:', error)
     throw error
   }
 }
@@ -1187,11 +1289,9 @@ const runBackgroundAI = async (submissionId, videoBlob, assignmentTitle) => {
     // Run AI processing (reuse existing processVideoWithAI function)
     const aiResult = await processVideoWithAI(videoBlob, assignmentTitle)
 
-    // Update submission with AI results
+    // Update submission with transcript
     await supabase.from('submissions').update({
-      transcript: aiResult.transcript,
-      ai_processing_status: aiResult.aiProcessed ? 'completed' : 'failed',
-      processing_completed_at: new Date().toISOString()
+      transcript: aiResult.transcript
     }).eq('id', submissionId)
 
     // Only create grade if AI processing succeeded
@@ -1199,7 +1299,8 @@ const runBackgroundAI = async (submissionId, videoBlob, assignmentTitle) => {
       console.warn(`[Background AI] AI processing failed for submission ${submissionId} - no grade created`)
       await supabase.from('submissions').update({
         status: 'failed',
-        error_message: 'AI analysis failed - please resubmit'
+        error_message: 'AI analysis failed - please resubmit',
+        processing_completed_at: new Date().toISOString()
       }).eq('id', submissionId)
       return
     }
@@ -1222,28 +1323,77 @@ const runBackgroundAI = async (submissionId, videoBlob, assignmentTitle) => {
       })
     }
 
-    // Calculate scores
+    // Calculate scores with weighted formula: 80% content, 20% filler words
     const fillerWordScore = Math.max(0, 20 - fillerWordCount)
-    const speechContentScore = aiResult?.analysis?.overallScore || 2.0
-    const contentPercentage = (speechContentScore / 3) * 100
+    const speechContentScore = aiResult?.analysis?.overallScore ?? 2.0 // Use ?? to allow 0
+    const contentPercentage = (speechContentScore / 4) * 100
     const fillerPercentage = (fillerWordScore / 20) * 100
-    const averageFinalScore = Math.round((contentPercentage + fillerPercentage) / 2)
+    const averageFinalScore = Math.round((contentPercentage * 0.8) + (fillerPercentage * 0.2))
 
-    // Create grade record
-    const { data: grade, error: gradeError } = await supabase.from('grades').insert([{
-      submission_id: submissionId,
-      total_score: averageFinalScore,
-      speech_content_score: speechContentScore,
-      filler_word_count: fillerWordCount,
-      filler_words_used: fillerWordsUsed,
-      filler_words_per_minute: fillersPerMinute,
-      filler_category_breakdown: categoryBreakdown,
-      filler_word_score: fillerWordScore,
-      filler_word_counts: fillerWordCounts,
-      content_score_max: 3
-    }]).select().single()
+    // Detailed logging for debugging
+    console.log('=== GRADE CALCULATION DEBUG ===')
+    console.log('Speech Content Score:', speechContentScore, '/ 4')
+    console.log('Filler Word Score:', fillerWordScore, '/ 20')
+    console.log('Content Percentage:', contentPercentage, '% (weight: 80%)')
+    console.log('Filler Percentage:', fillerPercentage, '% (weight: 20%)')
+    console.log('Calculation:', `(${contentPercentage} * 0.8) + (${fillerPercentage} * 0.2) = ${(contentPercentage * 0.8) + (fillerPercentage * 0.2)}`)
+    console.log('Final Score (rounded):', averageFinalScore, '/ 100')
+    console.log('===============================')
 
-    if (gradeError) throw gradeError
+    // Check if grade already exists for this submission (prevent duplicates)
+    const { data: existingGrade, error: existingGradeError } = await supabase
+      .from('grades')
+      .select('id')
+      .eq('submission_id', submissionId)
+      .single()
+
+    let grade
+    if (existingGrade) {
+      // Update existing grade
+      console.log(`[Background AI] Updating existing grade for submission ${submissionId}`)
+      const { data: updatedGrade, error: gradeUpdateError } = await supabase
+        .from('grades')
+        .update({
+          total_score: averageFinalScore,
+          speech_content_score: speechContentScore,
+          filler_word_count: fillerWordCount,
+          filler_words_used: fillerWordsUsed,
+          filler_words_per_minute: fillersPerMinute,
+          filler_category_breakdown: categoryBreakdown,
+          filler_word_score: fillerWordScore,
+          filler_word_counts: fillerWordCounts,
+          filler_word_weight: 0.2,
+          speech_content_weight: 0.8,
+          content_score_max: 4,
+          graded_at: new Date().toISOString()
+        })
+        .eq('id', existingGrade.id)
+        .select()
+        .single()
+
+      if (gradeUpdateError) throw gradeUpdateError
+      grade = updatedGrade
+    } else {
+      // Create new grade record
+      console.log(`[Background AI] Creating new grade for submission ${submissionId}`)
+      const { data: newGrade, error: gradeError } = await supabase.from('grades').insert([{
+        submission_id: submissionId,
+        total_score: averageFinalScore,
+        speech_content_score: speechContentScore,
+        filler_word_count: fillerWordCount,
+        filler_words_used: fillerWordsUsed,
+        filler_words_per_minute: fillersPerMinute,
+        filler_category_breakdown: categoryBreakdown,
+        filler_word_score: fillerWordScore,
+        filler_word_counts: fillerWordCounts,
+        filler_word_weight: 0.2,
+        speech_content_weight: 0.8,
+        content_score_max: 3
+      }]).select().single()
+
+      if (gradeError) throw gradeError
+      grade = newGrade
+    }
 
     // Generate feedback
     const generateFillerFeedback = () => {
@@ -1280,17 +1430,37 @@ const runBackgroundAI = async (submissionId, videoBlob, assignmentTitle) => {
       body_language: aiResult.analysis.bodyLanguage || "Delivery analysis completed."
     }
 
-    // Create feedback record
-    await supabase.from('feedback').insert([{
-      grade_id: grade.id,
-      filler_words_feedback: feedbackTexts.filler_words,
-      speech_content_feedback: feedbackTexts.speech_content,
-      body_language_feedback: feedbackTexts.body_language
-    }])
+    // Check if feedback already exists for this grade (prevent duplicates)
+    const { data: existingFeedback, error: existingFeedbackError } = await supabase
+      .from('feedback')
+      .select('id')
+      .eq('grade_id', grade.id)
+      .single()
+
+    if (existingFeedback) {
+      // Update existing feedback
+      console.log(`[Background AI] Updating existing feedback for grade ${grade.id}`)
+      await supabase.from('feedback').update({
+        filler_words_feedback: feedbackTexts.filler_words,
+        speech_content_feedback: feedbackTexts.speech_content,
+        body_language_feedback: feedbackTexts.body_language,
+        created_at: new Date().toISOString()
+      }).eq('id', existingFeedback.id)
+    } else {
+      // Create new feedback record
+      console.log(`[Background AI] Creating new feedback for grade ${grade.id}`)
+      await supabase.from('feedback').insert([{
+        grade_id: grade.id,
+        filler_words_feedback: feedbackTexts.filler_words,
+        speech_content_feedback: feedbackTexts.speech_content,
+        body_language_feedback: feedbackTexts.body_language
+      }])
+    }
 
     // Update submission to 'completed'
     await supabase.from('submissions').update({
-      status: 'completed'
+      status: 'completed',
+      processing_completed_at: new Date().toISOString()
     }).eq('id', submissionId)
 
     console.log(`[Background AI] Successfully completed processing for submission ${submissionId}`)
@@ -1319,6 +1489,150 @@ export const checkSubmissionStatus = async (submissionId) => {
 
   if (error) throw error
   return data
+}
+
+/**
+ * QUEUE MANAGEMENT: Trigger the queue processor Edge Function
+ * Call this periodically (e.g., every 5 seconds) to process pending submissions
+ * The queue processor handles concurrency control (max 5 concurrent)
+ */
+export const triggerQueueProcessor = async () => {
+  try {
+    const { data, error } = await supabase.functions.invoke('queue-processor', {
+      method: 'POST'
+    })
+
+    if (error) {
+      console.error('[Queue] Failed to trigger processor:', error)
+      return { success: false, error: error.message }
+    }
+
+    console.log('[Queue] Processor triggered:', data)
+    return { success: true, ...data }
+  } catch (error) {
+    console.error('[Queue] Error triggering processor:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/**
+ * QUEUE MANAGEMENT: Get queue statistics
+ * Returns counts of pending, processing, completed, and failed items
+ */
+export const getQueueStats = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('submission_queue')
+      .select('status')
+
+    if (error) throw error
+
+    const stats = {
+      pending: 0,
+      processing: 0,
+      completed: 0,
+      failed: 0,
+      total: data.length
+    }
+
+    data.forEach(item => {
+      if (stats.hasOwnProperty(item.status)) {
+        stats[item.status]++
+      }
+    })
+
+    return stats
+  } catch (error) {
+    console.error('[Queue] Error fetching stats:', error)
+    return null
+  }
+}
+
+/**
+ * QUEUE MANAGEMENT: Get queue items for a specific submission
+ * Useful for checking if a submission is queued and its position
+ */
+export const getQueueItemForSubmission = async (submissionId) => {
+  try {
+    const { data, error } = await supabase
+      .from('submission_queue')
+      .select('*')
+      .eq('submission_id', submissionId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+      throw error
+    }
+
+    return data
+  } catch (error) {
+    console.error('[Queue] Error fetching queue item:', error)
+    return null
+  }
+}
+
+/**
+ * QUEUE MANAGEMENT: Retry a failed submission
+ * Resets the queue item to pending status for reprocessing
+ */
+export const retryFailedSubmission = async (submissionId) => {
+  try {
+    // Reset submission status
+    await supabase
+      .from('submissions')
+      .update({
+        status: 'pending',
+        error_message: null,
+        processing_started_at: null,
+        processing_completed_at: null
+      })
+      .eq('id', submissionId)
+
+    // Reset or create queue entry
+    const { data: existingQueue } = await supabase
+      .from('submission_queue')
+      .select('id')
+      .eq('submission_id', submissionId)
+      .single()
+
+    if (existingQueue) {
+      await supabase
+        .from('submission_queue')
+        .update({
+          status: 'pending',
+          attempts: 0,
+          error_message: null,
+          processing_started_at: null,
+          completed_at: null
+        })
+        .eq('id', existingQueue.id)
+    } else {
+      // Get submission details for queue entry
+      const { data: submission } = await supabase
+        .from('submissions')
+        .select('video_url, assignments(title)')
+        .eq('id', submissionId)
+        .single()
+
+      await supabase
+        .from('submission_queue')
+        .insert([{
+          submission_id: submissionId,
+          video_url: submission?.video_url,
+          assignment_title: submission?.assignments?.title,
+          status: 'pending',
+          priority: 1 // Higher priority for retries
+        }])
+    }
+
+    console.log(`[Queue] Submission ${submissionId} queued for retry`)
+    return { success: true }
+  } catch (error) {
+    console.error('[Queue] Error retrying submission:', error)
+    return { success: false, error: error.message }
+  }
 }
 
 // Get assignments for student dashboard
@@ -1388,7 +1702,7 @@ export const getAssignmentsForStudent = async (studentId) => {
 // Get assignments for a specific class for a student
 export const getAssignmentsForStudentInClass = async (studentId, classId) => {
   try {
-    // Get assignments for the specific class
+    // Query 1: Fetch all assignments for the class
     const { data: assignments, error: assignmentsError } = await supabase
       .from('assignments')
       .select(`
@@ -1409,40 +1723,43 @@ export const getAssignmentsForStudentInClass = async (studentId, classId) => {
       throw assignmentsError
     }
 
-    // CONCURRENCY CONTROL: Limit parallel assignment queries to prevent connection pool exhaustion
-    const limit = pLimit(5)
+    // Query 2: Fetch ALL submissions for this student in bulk (single query)
+    const { data: submissions } = await supabase
+      .from('submissions')
+      .select('assignment_id, status')
+      .eq('student_id', studentId)
+      .in('assignment_id', assignments.map(a => a.id))
 
-    // Process each assignment to get submission status
-    const processedAssignments = await Promise.all(
-      assignments.map((assignment) => limit(async () => {
-        // Get submission status for this student
-        const { data: submission } = await supabase
-          .from('submissions')
-          .select('status')
-          .eq('assignment_id', assignment.id)
-          .eq('student_id', studentId)
-          .single()
-
-        return {
-          id: assignment.id,
-          title: assignment.title,
-          description: assignment.description,
-          className: assignment.classes.name,
-          dueDate: assignment.due_date ? new Date(assignment.due_date).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-          }) : null,
-          rawDueDate: assignment.due_date,
-          status: submission ?
-            (submission.status === 'completed' ? 'completed' : 'in_progress') :
-            'not_started',
-          maxDuration: assignment.max_duration_seconds ? Math.floor(assignment.max_duration_seconds / 60) : null
-        }
-      }))
+    // Create lookup map for O(1) access
+    const submissionMap = new Map(
+      submissions?.map(sub => [sub.assignment_id, sub.status]) || []
     )
 
-    return processedAssignments
+    // Map assignments with their submission status
+    return assignments.map(assignment => {
+      const submissionStatus = submissionMap.get(assignment.id)
+
+      return {
+        id: assignment.id,
+        title: assignment.title,
+        description: assignment.description,
+        className: assignment.classes.name,
+        dueDate: assignment.due_date
+          ? new Date(assignment.due_date).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            })
+          : null,
+        rawDueDate: assignment.due_date,
+        status: submissionStatus
+          ? (submissionStatus === 'completed' ? 'completed' : 'in_progress')
+          : 'not_started',
+        maxDuration: assignment.max_duration_seconds
+          ? Math.floor(assignment.max_duration_seconds / 60)
+          : null
+      }
+    })
   } catch (error) {
     console.error('Error fetching student assignments for class:', error)
     return []
@@ -1562,48 +1879,7 @@ export const getStudentsByTeacher = async (teacherEmail) => {
 }
 
 // GRADING FUNCTIONS
-
-// Calculate total grade for a student (average of all their submission grades)
-export const calculateStudentTotalGrade = async (studentId) => {
-  try {
-    const { data, error } = await supabase
-      .from('grades')
-      .select(`
-        total_score,
-        submissions!inner(student_id)
-      `)
-      .eq('submissions.student_id', studentId)
-
-    if (error) {
-      throw error
-    }
-
-    if (!data || data.length === 0) {
-      return {
-        totalGrade: 0,
-        letterGrade: 'N/A',
-        submissionCount: 0
-      }
-    }
-
-    const totalPoints = data.reduce((sum, grade) => sum + (grade.total_score || 0), 0)
-    const average = Math.round(totalPoints / data.length)
-
-    return {
-      totalGrade: average,
-      letterGrade: getLetterGrade(average),
-      submissionCount: data.length
-    }
-  } catch (error) {
-    console.error('Error calculating student total grade:', error)
-    return {
-      totalGrade: 0,
-      letterGrade: 'N/A',
-      submissionCount: 0
-    }
-  }
-}
-
+// Note: calculateStudentTotalGrade has been removed and integrated into getStudentsByClass for better performance
 
 // CLASS CREATION AND ENROLLMENT FUNCTIONS
 
@@ -1639,6 +1915,153 @@ export const createClass = async (classData, teacherEmail) => {
     return newClass
   } catch (error) {
     console.error('Error creating class:', error)
+    throw error
+  }
+}
+
+// Delete a class and all related data
+export const deleteClass = async (classId) => {
+  try {
+    console.log('Deleting class:', classId)
+
+    // Step 1: Get all assignments for this class
+    const { data: assignments, error: assignmentsSelectError } = await supabase
+      .from('assignments')
+      .select('id')
+      .eq('class_id', classId)
+
+    if (assignmentsSelectError) {
+      console.error('Error fetching assignments:', assignmentsSelectError)
+      throw assignmentsSelectError
+    }
+
+    console.log('Found assignments:', assignments?.length || 0)
+
+    if (assignments && assignments.length > 0) {
+      const assignmentIds = assignments.map(a => a.id)
+
+      // Step 2: Get all submissions for these assignments
+      const { data: submissions, error: submissionsSelectError } = await supabase
+        .from('submissions')
+        .select('id')
+        .in('assignment_id', assignmentIds)
+
+      if (submissionsSelectError) {
+        console.error('Error fetching submissions:', submissionsSelectError)
+        throw submissionsSelectError
+      }
+
+      console.log('Found submissions:', submissions?.length || 0)
+
+      if (submissions && submissions.length > 0) {
+        const submissionIds = submissions.map(s => s.id)
+
+        // Step 3: Get all grades for these submissions
+        const { data: grades, error: gradesSelectError } = await supabase
+          .from('grades')
+          .select('id')
+          .in('submission_id', submissionIds)
+
+        if (gradesSelectError) {
+          console.error('Error fetching grades:', gradesSelectError)
+          throw gradesSelectError
+        }
+
+        console.log('Found grades:', grades?.length || 0)
+
+        if (grades && grades.length > 0) {
+          const gradeIds = grades.map(g => g.id)
+
+          // Step 4: Delete feedback first
+          const { error: feedbackError } = await supabase
+            .from('feedback')
+            .delete()
+            .in('grade_id', gradeIds)
+
+          if (feedbackError) {
+            console.error('Error deleting feedback:', feedbackError)
+            throw feedbackError
+          }
+          console.log('Feedback deleted')
+
+          // Step 5: Delete grades
+          const { error: gradesError } = await supabase
+            .from('grades')
+            .delete()
+            .in('submission_id', submissionIds)
+
+          if (gradesError) {
+            console.error('Error deleting grades:', gradesError)
+            throw gradesError
+          }
+          console.log('Grades deleted')
+        }
+
+        // Step 6: Delete submissions
+        const { error: submissionsError } = await supabase
+          .from('submissions')
+          .delete()
+          .in('assignment_id', assignmentIds)
+
+        if (submissionsError) {
+          console.error('Error deleting submissions:', submissionsError)
+          throw submissionsError
+        }
+        console.log('Submissions deleted')
+      }
+
+      // Step 7: Delete assignments
+      const { error: assignmentsError } = await supabase
+        .from('assignments')
+        .delete()
+        .eq('class_id', classId)
+
+      if (assignmentsError) {
+        console.error('Error deleting assignments:', assignmentsError)
+        throw assignmentsError
+      }
+      console.log('Assignments deleted')
+    }
+
+    // Step 8: Delete class enrollments
+    const { error: enrollmentsError } = await supabase
+      .from('class_enrollments')
+      .delete()
+      .eq('class_id', classId)
+
+    if (enrollmentsError) {
+      console.error('Error deleting class enrollments:', enrollmentsError)
+      throw enrollmentsError
+    }
+    console.log('Class enrollments deleted')
+
+    // Step 8.5: Clear primary_class_id for students whose primary class is being deleted
+    const { error: studentUpdateError } = await supabase
+      .from('students')
+      .update({ primary_class_id: null })
+      .eq('primary_class_id', classId)
+
+    if (studentUpdateError) {
+      console.error('Error clearing student primary_class_id:', studentUpdateError)
+      throw studentUpdateError
+    }
+    console.log('Student primary_class_id references cleared')
+
+    // Step 9: Finally delete the class
+    const { error: classError } = await supabase
+      .from('classes')
+      .delete()
+      .eq('id', classId)
+
+    if (classError) {
+      console.error('Error deleting class:', classError)
+      throw classError
+    }
+
+    console.log('Class deleted successfully')
+    return { success: true }
+  } catch (error) {
+    console.error('Error deleting class:', error)
     throw error
   }
 }
