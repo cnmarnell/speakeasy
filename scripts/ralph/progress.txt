@@ -78,3 +78,17 @@ Thread: https://ampcode.com/threads/T-019bad7e-2d7e-705b-a7b5-0b6da4ba0f26
   - Prompt explicitly instructs LLM to return ONLY valid JSON with exact schema
   - Include partial points instruction and "do not teach or rewrite" guidance
 ---
+
+## 2026-01-11 10:15 - US-007
+Thread: https://ampcode.com/threads/T-019bad81-2469-7610-aea3-2b63a754b9ee
+- Created POST /api/evaluate Edge Function that calls Claude via AWS Bedrock
+- Files changed: supabase/functions/evaluate/index.ts
+- **Learnings for future iterations:**
+  - Import shared modules with relative path: `from "../_shared/evaluationPrompt.ts"`
+  - AWS Signature V4 code can be duplicated per-function (no shared utils for crypto helpers)
+  - Use Claude 3 Haiku for evaluations: `anthropic.claude-3-haiku-20240307-v1:0/invoke`
+  - temperature 0.3 keeps JSON output more consistent
+  - dry_run parameter skips database storage for calibration/testing
+  - Handle fallback mode: if JSON parse fails, store raw_response and set is_fallback=true
+  - student_id is optional; can be null for dry_run/calibration calls
+---
