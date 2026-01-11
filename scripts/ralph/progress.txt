@@ -6,6 +6,8 @@ Started: Sun Jan 11 09:26:49 EST 2026
 - Use `IF NOT EXISTS` for CREATE TABLE/INDEX statements
 - Enable RLS on new tables and add appropriate policies
 - Build passes even with pre-existing lint errors in test files
+- Edge functions in supabase/functions/ use Deno.serve() with manual HTTP method routing
+- Import Supabase client in Edge Functions: `import { createClient } from "https://esm.sh/@supabase/supabase-js@2"`
 ---
 
 ## 2026-01-11 09:27 - US-001
@@ -39,4 +41,26 @@ Thread: https://ampcode.com/threads/T-019bad77-3c2c-73b8-afbf-e0d932c90e90
   - evaluations table uses is_fallback boolean and raw_response for handling unparseable LLM responses
   - Both tables CASCADE delete from parent records (student/rubric for evaluations, evaluation/criterion for scores)
   - Added indexes for common query patterns (student_id, rubric_id, created_at DESC)
+---
+
+## 2026-01-11 09:33 - US-004
+Thread: https://ampcode.com/threads/T-019bad79-68ff-760c-9dbb-f81e4012ac54
+- Added rubric_id nullable FK column to assignments table
+- Files changed: supabase/migrations/20260111093333_add_rubric_id_to_assignments.sql
+- **Learnings for future iterations:**
+  - Use ON DELETE SET NULL for optional FK relationships (allows rubric deletion without breaking assignments)
+  - ALTER TABLE ADD COLUMN IF NOT EXISTS is idempotent
+---
+
+## 2026-01-11 09:45 - US-005
+Thread: https://ampcode.com/threads/T-019bad7a-c23f-7673-a0e9-0700d1f65ab7
+- Created rubrics CRUD API Edge Function with all endpoints: GET (list/single), POST, PUT, DELETE
+- Files changed: supabase/functions/rubrics/index.ts
+- **Learnings for future iterations:**
+  - Supabase Edge Functions use `Deno.serve()` pattern with manual method routing
+  - Use `createClient` from `https://esm.sh/@supabase/supabase-js@2` for Deno
+  - CORS headers must be set on all responses and OPTIONS must return early
+  - Get user from auth token via `supabase.auth.getUser(token)`, then look up teacher by email
+  - For PUT operations: delete all criteria and re-insert (full replacement) for simplicity
+  - Validate rubric must have ≥1 criterion and each criterion max_points ≥1
 ---
