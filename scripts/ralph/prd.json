@@ -198,8 +198,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 12,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added rubricId to NewAssignmentModal state and form, fetches rubrics via supabase.functions.invoke('rubrics') in ClassPage, passes rubrics prop to modal, createAssignment now saves rubric_id"
     },
     {
       "id": "US-013",

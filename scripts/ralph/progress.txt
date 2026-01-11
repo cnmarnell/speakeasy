@@ -149,3 +149,16 @@ Thread: https://ampcode.com/threads/T-019bad94-2430-7507-8a28-376c1134b210
   - Buttons disabled at boundaries with appropriate disabled state styling
   - Order persists to DB via array index in handleSubmit's criteria.map((c, idx) => ({ order: idx }))
 ---
+
+## 2026-01-11 - US-012
+Thread: https://ampcode.com/threads/T-019bad96-d39c-7159-85ba-75a1cdeefd83
+- Added rubric dropdown to NewAssignmentModal for selecting evaluation rubrics
+- ClassPage fetches professor's rubrics via supabase.functions.invoke('rubrics')
+- createAssignment now saves rubric_id to assignments table
+- Files changed: src/components/NewAssignmentModal.jsx, src/components/ClassPage.jsx, src/data/supabaseData.js
+- **Learnings for future iterations:**
+  - NewAssignmentModal receives rubrics as a prop (array of rubric objects with criteria)
+  - Dropdown shows rubric name with criteria count and total points for easy selection
+  - rubricId is optional - empty string means no rubric, converted to null on save
+  - ClassPage already imports supabase directly for functions.invoke calls
+---
