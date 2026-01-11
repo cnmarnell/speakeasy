@@ -122,3 +122,17 @@ Thread: https://ampcode.com/threads/T-019bad90-385f-733d-9a10-c72e58868a31
   - API calls: POST rubrics (create) or PUT rubrics/:id (update)
   - Form validation: name required, min 1 criterion, each criterion needs name and max_points >= 1
 ---
+
+## 2026-01-11 - US-010
+Thread: https://ampcode.com/threads/T-019bad92-51ca-71a8-bfcb-8c6b73c33a27
+- Verified edit rubric form functionality (already implemented in previous iterations)
+- Edit button on RubricsPage opens RubricFormPage pre-populated with rubric data
+- Criteria array is populated from rubric.criteria in useState initializer
+- Add/remove criteria functionality works with handleAddCriterion and handleRemoveCriterion
+- Save calls PUT API with rubric ID, shows success/error alerts
+- Files verified: src/components/RubricFormPage.jsx, src/components/RubricsPage.jsx, src/App.jsx
+- **Learnings for future iterations:**
+  - RubricFormPage uses `isEditing = !!rubric` pattern to detect edit mode
+  - Form pre-population happens in useState initializers with rubric prop
+  - App.jsx uses selectedRubric state to pass rubric data between pages
+---
