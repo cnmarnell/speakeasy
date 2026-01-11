@@ -176,3 +176,15 @@ Thread: https://ampcode.com/threads/T-019bad99-e199-77df-ab76-e9dff593a10d
   - Fetch evaluation_scores with rubric_criteria join to get criterion names
   - Results.jsx queries evaluations by student_id with latest first (order by created_at DESC, limit 1)
 ---
+
+## 2026-01-11 - US-014
+Thread: https://ampcode.com/threads/T-019bad9e-7723-728f-acae-e1f26287571b
+- Verified fallback display functionality was already implemented in US-013
+- StudentEvaluationCard.jsx lines 31-48 handle fallback mode: warning banner, raw_response display, early return
+- Results.jsx lines 142-150 correctly map is_fallback to fallback prop and pass raw_response
+- Build passes successfully
+- Files verified: src/components/StudentEvaluationCard.jsx, src/components/Results.jsx
+- **Learnings for future iterations:**
+  - Fallback handling was bundled with StudentEvaluationCard creation (good pattern for atomic features)
+  - CSS for fallback (.fallback-warning, .raw-response-text) already styled with theatrical theme
+---
