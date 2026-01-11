@@ -188,3 +188,18 @@ Thread: https://ampcode.com/threads/T-019bad9e-7723-728f-acae-e1f26287571b
   - Fallback handling was bundled with StudentEvaluationCard creation (good pattern for atomic features)
   - CSS for fallback (.fallback-warning, .raw-response-text) already styled with theatrical theme
 ---
+
+## 2026-01-11 - US-015
+Thread: https://ampcode.com/threads/T-019bada0-d4b9-7151-8b85-a777b3cd67ed
+- Created RubricCalibrationModal component for testing rubrics against sample transcripts
+- Added "Test Rubric" button to RubricFormPage header (visible only in edit mode)
+- Modal includes: large transcript textarea, Run Evaluation button, Clear Results button
+- Calls /api/evaluate with dry_run: true to prevent database storage
+- Displays results using StudentEvaluationCard (same format as student view)
+- Files changed: src/components/RubricCalibrationModal.jsx, src/components/RubricCalibrationModal.css, src/components/RubricFormPage.jsx, src/components/RubricFormPage.css
+- **Learnings for future iterations:**
+  - Use dry_run: true parameter for calibration/test evaluations to skip database storage
+  - Modal overlay uses onClick={onClose} with e.stopPropagation() on inner content to close on outside click
+  - Reuse StudentEvaluationCard for consistent evaluation display across contexts
+  - Test Rubric button uses green color scheme (#22c55e) to distinguish from primary maroon actions
+---
