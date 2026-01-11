@@ -416,6 +416,48 @@
   letter-spacing: 0.05em;
 }
 
+.criterion-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.reorder-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reorder-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 18px;
+  background: rgba(212, 175, 55, 0.1);
+  color: #D4AF37;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.reorder-btn:hover:not(:disabled) {
+  background: rgba(212, 175, 55, 0.2);
+  border-color: #D4AF37;
+  color: #8B1538;
+}
+
+.reorder-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.reorder-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
 .remove-criterion-btn {
   display: flex;
   align-items: center;

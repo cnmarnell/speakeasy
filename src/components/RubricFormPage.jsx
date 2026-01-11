@@ -40,6 +40,24 @@ const RubricFormPage = ({ user, rubric, onBack, onSave }) => {
     setError('')
   }
 
+  const handleMoveCriterionUp = (index) => {
+    if (index === 0) return
+    const newCriteria = [...criteria]
+    const temp = newCriteria[index - 1]
+    newCriteria[index - 1] = { ...newCriteria[index], order: index - 1 }
+    newCriteria[index] = { ...temp, order: index }
+    setCriteria(newCriteria)
+  }
+
+  const handleMoveCriterionDown = (index) => {
+    if (index === criteria.length - 1) return
+    const newCriteria = [...criteria]
+    const temp = newCriteria[index + 1]
+    newCriteria[index + 1] = { ...newCriteria[index], order: index + 1 }
+    newCriteria[index] = { ...temp, order: index }
+    setCriteria(newCriteria)
+  }
+
   const handleCriterionChange = (index, field, value) => {
     const newCriteria = [...criteria]
     newCriteria[index] = { ...newCriteria[index], [field]: value }
@@ -251,18 +269,44 @@ const RubricFormPage = ({ user, rubric, onBack, onSave }) => {
                 <div key={criterion.id} className="criterion-card">
                   <div className="criterion-header">
                     <span className="criterion-number">Criterion {index + 1}</span>
-                    <button
-                      type="button"
-                      className="remove-criterion-btn"
-                      onClick={() => handleRemoveCriterion(index)}
-                      disabled={criteria.length <= 1}
-                      title={criteria.length <= 1 ? 'Rubric must have at least one criterion' : 'Remove criterion'}
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                      </svg>
-                    </button>
+                    <div className="criterion-actions">
+                      <div className="reorder-buttons">
+                        <button
+                          type="button"
+                          className="reorder-btn"
+                          onClick={() => handleMoveCriterionUp(index)}
+                          disabled={index === 0}
+                          title={index === 0 ? 'Already at top' : 'Move up'}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M18 15l-6-6-6 6"/>
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          className="reorder-btn"
+                          onClick={() => handleMoveCriterionDown(index)}
+                          disabled={index === criteria.length - 1}
+                          title={index === criteria.length - 1 ? 'Already at bottom' : 'Move down'}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M6 9l6 6 6-6"/>
+                          </svg>
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        className="remove-criterion-btn"
+                        onClick={() => handleRemoveCriterion(index)}
+                        disabled={criteria.length <= 1}
+                        title={criteria.length <= 1 ? 'Rubric must have at least one criterion' : 'Remove criterion'}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="criterion-fields">
