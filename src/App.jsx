@@ -12,6 +12,7 @@ import StudentDetailPage from './components/StudentDetailPage'
 import StudentAssignmentPage from './components/StudentAssignmentPage'
 import RecordingPage from './components/RecordingPage'
 import RubricsPage from './components/RubricsPage'
+import RubricFormPage from './components/RubricFormPage'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -231,6 +232,22 @@ function App() {
           onBack={handleBackFromRubrics}
           onEditRubric={handleEditRubric}
           onCreateRubric={handleCreateRubric}
+        />
+      )}
+      {currentView === 'createRubric' && userRole === 'teacher' && (
+        <RubricFormPage
+          user={user}
+          rubric={null}
+          onBack={handleBackFromRubrics}
+          onSave={() => setCurrentView('rubrics')}
+        />
+      )}
+      {currentView === 'editRubric' && userRole === 'teacher' && selectedRubric && (
+        <RubricFormPage
+          user={user}
+          rubric={selectedRubric}
+          onBack={handleBackFromRubrics}
+          onSave={() => setCurrentView('rubrics')}
         />
       )}
       {currentView === 'dashboard' && userRole === 'student' && currentStudentId && (
