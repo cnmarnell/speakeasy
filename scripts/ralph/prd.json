@@ -1,0 +1,256 @@
+{
+  "project": "RubricEvaluation",
+  "branchName": "ralph/rubric-based-evaluation-system",
+  "description": "Rubric-Based Evaluation System - Replace monolithic LLM prompt with structured evaluation pipeline using database-stored rubrics and JSON output",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add rubrics and rubric_criteria tables",
+      "description": "As a developer, I need to store rubrics and their criteria in the database so they can be queried and edited independently of prompt logic.",
+      "acceptanceCriteria": [
+        "Create rubrics table with fields: id, name, description, created_by (professor user ID), created_at, updated_at",
+        "Create rubric_criteria table with fields: id, rubric_id (FK), name, description, max_points (integer), order (integer)",
+        "Foreign key cascade: deleting a rubric deletes its criteria",
+        "Run migration successfully",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Seed CAR rubric data",
+      "description": "As a developer, I need the existing CAR rubric seeded in the database so evaluations can use it immediately.",
+      "acceptanceCriteria": [
+        "Create seed script for CAR rubric with name 'CAR Framework'",
+        "Add 4 criteria: Context (1pt), Action (1pt), Result (1pt), Quantitative Data (1pt)",
+        "Each criterion has description explaining what to evaluate",
+        "Seed runs successfully without errors",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Create evaluations and evaluation_scores tables",
+      "description": "As a developer, I need to store evaluation results so scores can be retrieved, displayed, and aggregated later.",
+      "acceptanceCriteria": [
+        "Create evaluations table: id, student_id, rubric_id, transcript, total_score, max_total_score, overall_feedback, improvement_suggestions, is_fallback (boolean), raw_response (nullable), created_at",
+        "Create evaluation_scores table: id, evaluation_id (FK), criterion_id (FK), score, max_score, feedback",
+        "Foreign key cascades configured correctly",
+        "Run migration successfully",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Add rubric_id to assignments table",
+      "description": "As a developer, I need to link assignments to rubrics so student submissions use the correct evaluation criteria.",
+      "acceptanceCriteria": [
+        "Add rubric_id (FK, nullable) column to assignments table",
+        "Foreign key references rubrics table",
+        "Run migration successfully",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Create rubrics CRUD API endpoints",
+      "description": "As a professor, I want API endpoints to create, view, edit, and delete rubrics.",
+      "acceptanceCriteria": [
+        "POST /api/rubrics - Create rubric with name, description, and array of criteria",
+        "GET /api/rubrics - List all rubrics for the authenticated professor",
+        "GET /api/rubrics/:id - Get single rubric with its criteria",
+        "PUT /api/rubrics/:id - Update rubric metadata and/or criteria (full replacement)",
+        "DELETE /api/rubrics/:id - Delete rubric",
+        "Validation: rubric must have at least 1 criterion; max_points must be >= 1",
+        "Only the creating professor (or admin) can edit/delete",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Create structured evaluation prompt template",
+      "description": "As a developer, I need a prompt template that dynamically injects rubric criteria and enforces JSON output.",
+      "acceptanceCriteria": [
+        "Prompt template stored as code constant",
+        "Template accepts parameters: rubricName, criteria[], transcript",
+        "Criteria injected as numbered list with name, description, max_points",
+        "Prompt explicitly instructs: Return ONLY valid JSON with no markdown, no extra text",
+        "Defines exact JSON schema with criteria_scores array, total_score, max_total_score, overall_feedback, improvement_suggestions",
+        "Includes instruction about partial points up to max_score",
+        "Includes instruction: Do not teach or rewrite the response. Judge only what was said.",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Create evaluation API endpoint",
+      "description": "As the frontend, I need an API endpoint that accepts a transcript and rubric ID, calls Claude, and returns structured evaluation data.",
+      "acceptanceCriteria": [
+        "POST /api/evaluate with body: { transcript: string, rubric_id: uuid, dry_run?: boolean }",
+        "Fetch rubric and criteria from database",
+        "Assemble prompt using the structured template",
+        "Call Claude API with assembled prompt",
+        "Parse JSON response from Claude",
+        "If JSON parse succeeds: return parsed object with 200",
+        "If JSON parse fails: return { fallback: true, raw_response: string } with 200",
+        "If dry_run is false: store evaluation result in evaluations table",
+        "Return evaluation ID in response",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Rubrics list page in professor dashboard",
+      "description": "As a professor, I want to see a list of my rubrics in the dashboard.",
+      "acceptanceCriteria": [
+        "Add Rubrics section/link in professor dashboard navigation",
+        "Rubrics page displays list of professor's rubrics",
+        "Each rubric shows name, description, number of criteria, created date",
+        "Create Rubric button visible at top of list",
+        "Edit and Delete buttons on each rubric row",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Create rubric form",
+      "description": "As a professor, I want a form to create new rubrics with criteria.",
+      "acceptanceCriteria": [
+        "Create Rubric button opens form page or modal",
+        "Form has fields: name input, description textarea",
+        "Criteria section with dynamic list of criterion rows",
+        "Each criterion row has: name input, description textarea, max points dropdown (1-10)",
+        "Add Criterion button appends new row",
+        "Delete button on each criterion row",
+        "Save button persists to API; shows success/error toast",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Edit rubric form",
+      "description": "As a professor, I want to edit an existing rubric.",
+      "acceptanceCriteria": [
+        "Edit button on rubric row opens form pre-populated with rubric data",
+        "All criteria loaded and editable",
+        "Can add new criteria, remove existing criteria",
+        "Save button updates via PUT API; shows success/error toast",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Criteria reordering in rubric form",
+      "description": "As a professor, I want to reorder criteria in the rubric editor.",
+      "acceptanceCriteria": [
+        "Drag-to-reorder or up/down buttons on each criterion row",
+        "Order updates visually immediately on interaction",
+        "Saved order persists correctly to database",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Rubric dropdown in assignment form",
+      "description": "As a professor, I want to select a rubric when creating or editing an assignment.",
+      "acceptanceCriteria": [
+        "Assignment create/edit form includes rubric dropdown",
+        "Dropdown populated from professor's rubrics via API",
+        "Optional selection - can leave blank",
+        "Selected rubric_id saved with assignment",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Student feedback display component",
+      "description": "As a student, I want to see my evaluation results in a clear, readable format.",
+      "acceptanceCriteria": [
+        "After submitting response, show evaluation card",
+        "Display total score prominently: Score: X/Y",
+        "For each criterion, show: criterion name, score (e.g., 1/1), feedback text",
+        "Color coding: green for full points, yellow for partial, red for zero",
+        "Show Overall Feedback section with overall_feedback text",
+        "Show How to Improve section with improvement_suggestions text",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Fallback display for unparseable evaluations",
+      "description": "As a student, I want to see evaluation results even when structured grading fails.",
+      "acceptanceCriteria": [
+        "If is_fallback=true: show warning banner 'Structured grading unavailable'",
+        "Render raw_response as formatted text below the warning",
+        "Hide per-criterion breakdown when in fallback mode",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Rubric calibration modal",
+      "description": "As a professor, I want to test my rubric against sample transcripts before assigning it.",
+      "acceptanceCriteria": [
+        "Test Rubric button on rubric edit/view page",
+        "Opens modal with large textarea for sample transcript input",
+        "Run Evaluation button calls /api/evaluate with rubric ID, sample transcript, and dry_run: true",
+        "Results displayed inline in modal (same format as student view)",
+        "Professor can run multiple tests without saving",
+        "No evaluation is stored to database during calibration",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
