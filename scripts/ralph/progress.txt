@@ -136,3 +136,16 @@ Thread: https://ampcode.com/threads/T-019bad92-51ca-71a8-bfcb-8c6b73c33a27
   - Form pre-population happens in useState initializers with rubric prop
   - App.jsx uses selectedRubric state to pass rubric data between pages
 ---
+
+## 2026-01-11 - US-011
+Thread: https://ampcode.com/threads/T-019bad94-2430-7507-8a28-376c1134b210
+- Added up/down reordering buttons to criterion rows in RubricFormPage
+- Implemented handleMoveCriterionUp and handleMoveCriterionDown functions
+- Added CSS styles for reorder buttons with theatrical gold/maroon theme
+- Files changed: src/components/RubricFormPage.jsx, src/components/RubricFormPage.css
+- **Learnings for future iterations:**
+  - Reorder by swapping array positions and updating order property on both items
+  - Use early return guard (index === 0 or index === length-1) to prevent out-of-bounds
+  - Buttons disabled at boundaries with appropriate disabled state styling
+  - Order persists to DB via array index in handleSubmit's criteria.map((c, idx) => ({ order: idx }))
+---

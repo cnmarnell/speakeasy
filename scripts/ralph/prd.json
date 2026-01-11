@@ -182,8 +182,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 11,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented up/down arrow buttons in criterion header with handleMoveCriterionUp/Down functions"
     },
     {
       "id": "US-012",
