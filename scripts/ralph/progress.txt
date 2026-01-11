@@ -19,3 +19,24 @@ Thread: https://ampcode.com/threads/T-019bad73-dd14-7599-9a0c-b32f872c1ccb
   - Use CASCADE on foreign keys for criteria -> rubric relationship
   - Column named "order" needs quotes because it's a reserved keyword
 ---
+
+## 2026-01-11 09:29 - US-002
+Thread: https://ampcode.com/threads/T-019bad75-c5d4-7082-9872-7c77d057ed28
+- Created seed migration for CAR Framework rubric with 4 criteria
+- Files changed: supabase/migrations/20260111092930_seed_car_rubric.sql
+- **Learnings for future iterations:**
+  - Use DO $$ blocks with PL/pgSQL for complex seed logic
+  - Use fixed UUIDs and ON CONFLICT DO NOTHING for idempotent seeding
+  - created_by can be NULL for system-created resources
+  - Escape single quotes in SQL strings with double single quotes ('')
+---
+
+## 2026-01-11 09:31 - US-003
+Thread: https://ampcode.com/threads/T-019bad77-3c2c-73b8-afbf-e0d932c90e90
+- Created evaluations and evaluation_scores tables migration
+- Files changed: supabase/migrations/20260111093132_create_evaluations_tables.sql
+- **Learnings for future iterations:**
+  - evaluations table uses is_fallback boolean and raw_response for handling unparseable LLM responses
+  - Both tables CASCADE delete from parent records (student/rubric for evaluations, evaluation/criterion for scores)
+  - Added indexes for common query patterns (student_id, rubric_id, created_at DESC)
+---
