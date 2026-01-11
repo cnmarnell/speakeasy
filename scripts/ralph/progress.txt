@@ -8,6 +8,7 @@ Started: Sun Jan 11 09:26:49 EST 2026
 - Build passes even with pre-existing lint errors in test files
 - Edge functions in supabase/functions/ use Deno.serve() with manual HTTP method routing
 - Import Supabase client in Edge Functions: `import { createClient } from "https://esm.sh/@supabase/supabase-js@2"`
+- Shared modules for Edge Functions go in supabase/functions/_shared/ directory
 ---
 
 ## 2026-01-11 09:27 - US-001
@@ -63,4 +64,17 @@ Thread: https://ampcode.com/threads/T-019bad7a-c23f-7673-a0e9-0700d1f65ab7
   - Get user from auth token via `supabase.auth.getUser(token)`, then look up teacher by email
   - For PUT operations: delete all criteria and re-insert (full replacement) for simplicity
   - Validate rubric must have ≥1 criterion and each criterion max_points ≥1
+---
+
+## 2026-01-11 09:40 - US-006
+Thread: https://ampcode.com/threads/T-019bad7e-2d7e-705b-a7b5-0b6da4ba0f26
+- Created structured evaluation prompt template module
+- Files changed: supabase/functions/_shared/evaluationPrompt.ts
+- **Learnings for future iterations:**
+  - Shared modules for Edge Functions go in supabase/functions/_shared/
+  - Export TypeScript interfaces for types shared between Edge Functions
+  - buildEvaluationPrompt() accepts rubricName, criteria[], transcript and returns a formatted prompt
+  - parseEvaluationResponse() handles JSON parsing with fallback cleanup for markdown fences
+  - Prompt explicitly instructs LLM to return ONLY valid JSON with exact schema
+  - Include partial points instruction and "do not teach or rewrite" guidance
 ---
