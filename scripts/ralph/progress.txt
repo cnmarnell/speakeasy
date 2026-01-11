@@ -9,6 +9,11 @@ Started: Sun Jan 11 09:26:49 EST 2026
 - Edge functions in supabase/functions/ use Deno.serve() with manual HTTP method routing
 - Import Supabase client in Edge Functions: `import { createClient } from "https://esm.sh/@supabase/supabase-js@2"`
 - Shared modules for Edge Functions go in supabase/functions/_shared/ directory
+- App uses state-based routing via `currentView` state in App.jsx (not react-router)
+- TeacherDashboard and other pages receive navigation callbacks as props (onViewRubrics, onBack, etc.)
+- Call Edge Functions from frontend using `supabase.functions.invoke('function-name', { method: 'GET' })`
+- Use theatrical/speakeasy CSS design: maroon (#8B1538), gold (#D4AF37), cream (#FFF8E7) colors
+- CSS files are component-specific (e.g., RubricsPage.css for RubricsPage.jsx)
 ---
 
 ## 2026-01-11 09:27 - US-001
@@ -91,4 +96,29 @@ Thread: https://ampcode.com/threads/T-019bad81-2469-7610-aea3-2b63a754b9ee
   - dry_run parameter skips database storage for calibration/testing
   - Handle fallback mode: if JSON parse fails, store raw_response and set is_fallback=true
   - student_id is optional; can be null for dry_run/calibration calls
+---
+
+## 2026-01-11 10:30 - US-008
+Thread: https://ampcode.com/threads/T-019bad90-385f-733d-9a10-c72e58868a31
+- RubricsPage implementation was already present (verified and marked as passing)
+- Files changed: src/components/RubricsPage.jsx, src/components/RubricsPage.css
+- **Learnings for future iterations:**
+  - RubricsPage uses supabase.functions.invoke('rubrics') for API calls
+  - Cards display rubric name, description, criteria count, created date, and max points
+  - Edit/Delete action buttons included on each card
+  - Navigation uses onBack, onEditRubric, onCreateRubric callback props
+---
+
+## 2026-01-11 10:35 - US-009
+Thread: https://ampcode.com/threads/T-019bad90-385f-733d-9a10-c72e58868a31
+- Created RubricFormPage component for create/edit rubrics
+- Files changed: src/components/RubricFormPage.jsx, src/components/RubricFormPage.css, src/App.jsx
+- **Learnings for future iterations:**
+  - Form uses isEditing boolean to switch between create/edit modes
+  - Criteria are stored in state array with temp IDs for new criteria
+  - handleCriterionChange() updates individual criterion fields
+  - handleAddCriterion() appends with order = criteria.length
+  - handleRemoveCriterion() reorders remaining criteria after removal
+  - API calls: POST rubrics (create) or PUT rubrics/:id (update)
+  - Form validation: name required, min 1 criterion, each criterion needs name and max_points >= 1
 ---
