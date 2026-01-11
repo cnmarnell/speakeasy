@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import { checkSubmissionStatus } from '../data/supabaseData'
+import StudentEvaluationCard from './StudentEvaluationCard'
 
 export default function Results({ submissionId }) {
   const [loading, setLoading] = useState(true)
   const [submission, setSubmission] = useState(null)
   const [grade, setGrade] = useState(null)
+  const [evaluation, setEvaluation] = useState(null)
   const [pollingActive, setPollingActive] = useState(false)
 
   useEffect(() => {
@@ -102,6 +104,51 @@ export default function Results({ submissionId }) {
         }
 
         setGrade(gradeWithFeedback)
+      }
+
+      // Fetch rubric-based evaluation if available (for student_id linked to this submission)
+      if (sub.student_id) {
+        const { data: evalData, error: evalError } = await supabase
+          .from('evaluations')
+          .select(`
+            *,
+            evaluation_scores(
+              id,
+              criterion_id,
+              score,
+              max_score,
+              feedback,
+              rubric_criteria(
+                id,
+                name
+              )
+            )
+          `)
+          .eq('student_id', sub.student_id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (!evalError && evalData) {
+          // Transform evaluation_scores to match StudentEvaluationCard expected format
+          const criteriaScores = evalData.evaluation_scores?.map(es => ({
+            criterion_id: es.criterion_id,
+            criterion_name: es.rubric_criteria?.name || 'Unknown Criterion',
+            score: es.score,
+            max_score: es.max_score,
+            feedback: es.feedback
+          })) || []
+
+          setEvaluation({
+            criteria_scores: criteriaScores,
+            total_score: evalData.total_score,
+            max_total_score: evalData.max_total_score,
+            overall_feedback: evalData.overall_feedback,
+            improvement_suggestions: evalData.improvement_suggestions,
+            fallback: evalData.is_fallback,
+            raw_response: evalData.raw_response
+          })
+        }
       }
 
       setLoading(false)
@@ -242,6 +289,11 @@ export default function Results({ submissionId }) {
       <h1 className="text-3xl font-bold text-orange-600 mb-6">
         Your Speech Results
       </h1>
+
+      {/* Rubric-based Evaluation (if available) */}
+      {evaluation && (
+        <StudentEvaluationCard evaluation={evaluation} />
+      )}
 
       {/* Score */}
       <div className="bg-green-50 border-2 border-green-500 rounded-lg p-6 mb-6">

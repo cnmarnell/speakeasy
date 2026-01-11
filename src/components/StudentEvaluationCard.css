@@ -1,0 +1,439 @@
+/* StudentEvaluationCard - Theatrical Speakeasy Design */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700,900&family=Source+Sans+Pro:wght@400,600,700&display=swap');
+
+.student-evaluation-card {
+  background: #FFF8E7;
+  border: 2px solid #D4AF37;
+  border-radius: 12px;
+  padding: 2rem;
+  margin: 1.5rem 0;
+  box-shadow:
+    0 8px 24px rgba(139, 21, 56, 0.1),
+    0 0 0 4px rgba(212, 175, 55, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.student-evaluation-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #8B1538 0%, #D4AF37 50%, #8B1538 100%);
+}
+
+/* Header */
+.evaluation-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+.evaluation-icon {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #8B1538 0%, #6B0F2A 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(139, 21, 56, 0.2);
+}
+
+.evaluation-icon svg {
+  width: 28px;
+  height: 28px;
+  color: #D4AF37;
+}
+
+.evaluation-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.75rem;
+  font-weight: 900;
+  color: #8B1538;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+/* Total Score Section */
+.total-score-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  background: linear-gradient(135deg, rgba(139, 21, 56, 0.03) 0%, rgba(212, 175, 55, 0.08) 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(212, 175, 55, 0.2);
+}
+
+.total-score-ring {
+  position: relative;
+  width: 140px;
+  height: 140px;
+}
+
+.score-circle {
+  width: 100%;
+  height: 100%;
+}
+
+.score-circle-bg {
+  stroke: rgba(212, 175, 55, 0.2);
+}
+
+.score-circle-fill {
+  transition: stroke-dasharray 0.8s ease;
+}
+
+.score-circle-fill.score-full {
+  stroke: #22c55e;
+}
+
+.score-circle-fill.score-partial {
+  stroke: #D4AF37;
+}
+
+.score-circle-fill.score-zero {
+  stroke: #ef4444;
+}
+
+.score-circle-fill.score-neutral {
+  stroke: #9ca3af;
+}
+
+.score-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.score-value {
+  font-family: 'Playfair Display', serif;
+  font-size: 2.5rem;
+  font-weight: 900;
+  color: #8B1538;
+}
+
+.score-separator {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 1.5rem;
+  color: #6B6B6B;
+}
+
+.score-max {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #6B6B6B;
+}
+
+.total-score-label {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #6B6B6B;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 0.75rem;
+}
+
+/* Section Titles */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #8B1538;
+  margin: 0 0 1rem 0;
+}
+
+.section-icon {
+  width: 24px;
+  height: 24px;
+  color: #D4AF37;
+}
+
+/* Criteria Section */
+.criteria-section {
+  margin-bottom: 2rem;
+}
+
+.criteria-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.criterion-row {
+  background: white;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 8px;
+  padding: 1.25rem;
+  transition: all 0.2s ease;
+}
+
+.criterion-row:hover {
+  border-color: #D4AF37;
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.15);
+}
+
+.criterion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.criterion-name {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.criterion-score {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+}
+
+.criterion-score.score-full {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+}
+
+.criterion-score.score-partial {
+  background: rgba(212, 175, 55, 0.15);
+  color: #a16207;
+}
+
+.criterion-score.score-zero {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+
+.criterion-score.score-neutral {
+  background: rgba(156, 163, 175, 0.15);
+  color: #6b7280;
+}
+
+.criterion-progress {
+  height: 6px;
+  background: rgba(212, 175, 55, 0.15);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.criterion-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.criterion-progress-fill.score-full {
+  background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+}
+
+.criterion-progress-fill.score-partial {
+  background: linear-gradient(90deg, #D4AF37 0%, #B8960C 100%);
+}
+
+.criterion-progress-fill.score-zero {
+  background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
+}
+
+.criterion-progress-fill.score-neutral {
+  background: #9ca3af;
+}
+
+.criterion-feedback {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 0.95rem;
+  color: #4a4a4a;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Feedback Sections */
+.feedback-section {
+  padding: 1.25rem;
+  border-radius: 8px;
+  margin-bottom: 1.25rem;
+}
+
+.feedback-section:last-child {
+  margin-bottom: 0;
+}
+
+.overall-feedback-section {
+  background: linear-gradient(135deg, rgba(139, 21, 56, 0.05) 0%, rgba(139, 21, 56, 0.02) 100%);
+  border: 1px solid rgba(139, 21, 56, 0.1);
+}
+
+.improvement-section {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, rgba(212, 175, 55, 0.05) 100%);
+  border: 1px solid rgba(212, 175, 55, 0.2);
+}
+
+.feedback-text {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 1rem;
+  color: #1a1a2e;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Fallback Warning */
+.fallback-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.15) 0%, rgba(234, 179, 8, 0.08) 100%);
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.warning-icon {
+  width: 32px;
+  height: 32px;
+  color: #ca8a04;
+  flex-shrink: 0;
+}
+
+.warning-content {
+  flex: 1;
+}
+
+.warning-title {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #854d0e;
+  margin: 0 0 0.5rem 0;
+}
+
+.warning-text {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 0.9rem;
+  color: #854d0e;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.fallback-response {
+  background: white;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+
+.raw-response-text {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 0.95rem;
+  color: #1a1a2e;
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .student-evaluation-card {
+    padding: 1.5rem;
+    margin: 1rem 0;
+  }
+
+  .evaluation-title {
+    font-size: 1.5rem;
+  }
+
+  .evaluation-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .evaluation-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .total-score-ring {
+    width: 120px;
+    height: 120px;
+  }
+
+  .score-value {
+    font-size: 2rem;
+  }
+
+  .section-title {
+    font-size: 1.1rem;
+  }
+
+  .criterion-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .criterion-score {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .student-evaluation-card {
+    padding: 1rem;
+    border-radius: 8px;
+  }
+
+  .evaluation-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .total-score-section {
+    padding: 1rem;
+  }
+
+  .total-score-ring {
+    width: 100px;
+    height: 100px;
+  }
+
+  .score-value {
+    font-size: 1.75rem;
+  }
+
+  .score-max {
+    font-size: 1.25rem;
+  }
+
+  .criterion-row {
+    padding: 1rem;
+  }
+
+  .feedback-section {
+    padding: 1rem;
+  }
+}
