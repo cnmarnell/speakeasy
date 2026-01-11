@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import RubricCalibrationModal from './RubricCalibrationModal'
 import './RubricFormPage.css'
 
 const RubricFormPage = ({ user, rubric, onBack, onSave }) => {
@@ -20,6 +21,7 @@ const RubricFormPage = ({ user, rubric, onBack, onSave }) => {
   )
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [showCalibrationModal, setShowCalibrationModal] = useState(false)
 
   const handleAddCriterion = () => {
     const newOrder = criteria.length
@@ -189,6 +191,18 @@ const RubricFormPage = ({ user, rubric, onBack, onSave }) => {
               <span className="stat-value">{totalMaxPoints}</span>
               <span className="stat-label">Max Points</span>
             </div>
+            {isEditing && (
+              <button
+                type="button"
+                className="test-rubric-btn"
+                onClick={() => setShowCalibrationModal(true)}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                Test Rubric
+              </button>
+            )}
           </div>
         </div>
 
@@ -372,6 +386,13 @@ const RubricFormPage = ({ user, rubric, onBack, onSave }) => {
           </div>
         </form>
       </div>
+
+      {showCalibrationModal && rubric && (
+        <RubricCalibrationModal
+          rubric={rubric}
+          onClose={() => setShowCalibrationModal(false)}
+        />
+      )}
     </div>
   )
 }
