@@ -1,3 +1,21 @@
 # Ralph Progress Log
 Started: Sun Jan 11 09:26:49 EST 2026
+
+## Codebase Patterns
+- Migrations use SQL files in supabase/migrations/ with YYYYMMDDHHMMSS_ prefix
+- Use `IF NOT EXISTS` for CREATE TABLE/INDEX statements
+- Enable RLS on new tables and add appropriate policies
+- Build passes even with pre-existing lint errors in test files
+---
+
+## 2026-01-11 09:27 - US-001
+Thread: https://ampcode.com/threads/T-019bad73-dd14-7599-9a0c-b32f872c1ccb
+- Implemented rubrics and rubric_criteria tables migration
+- Files changed: supabase/migrations/20260111092739_create_rubrics_tables.sql
+- **Learnings for future iterations:**
+  - Supabase migrations use plain SQL files with timestamp prefixes
+  - Teachers table is referenced as `teachers(id)` for foreign keys
+  - RLS policies need to be enabled and configured for each table
+  - Use CASCADE on foreign keys for criteria -> rubric relationship
+  - Column named "order" needs quotes because it's a reserved keyword
 ---
