@@ -162,3 +162,17 @@ Thread: https://ampcode.com/threads/T-019bad96-d39c-7159-85ba-75a1cdeefd83
   - rubricId is optional - empty string means no rubric, converted to null on save
   - ClassPage already imports supabase directly for functions.invoke calls
 ---
+
+## 2026-01-11 - US-013
+Thread: https://ampcode.com/threads/T-019bad99-e199-77df-ab76-e9dff593a10d
+- Created StudentEvaluationCard component for displaying rubric-based evaluation results
+- Features: circular score display with SVG ring, color-coded criteria rows (green/yellow/red), progress bars
+- Integrated into Results.jsx - fetches evaluation data from evaluations + evaluation_scores tables
+- Added fallback display for when structured grading fails (shows raw_response)
+- Files changed: src/components/StudentEvaluationCard.jsx, src/components/StudentEvaluationCard.css, src/components/Results.jsx
+- **Learnings for future iterations:**
+  - StudentEvaluationCard expects evaluation object with criteria_scores array, total_score, max_total_score, overall_feedback, improvement_suggestions, fallback, raw_response
+  - Color coding uses getScoreColor() helper: ratio >= 1 = green, ratio >= 0.5 = yellow, ratio < 0.5 = red
+  - Fetch evaluation_scores with rubric_criteria join to get criterion names
+  - Results.jsx queries evaluations by student_id with latest first (order by created_at DESC, limit 1)
+---
