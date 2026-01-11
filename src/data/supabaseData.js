@@ -753,7 +753,8 @@ export const createAssignment = async (assignmentData) => {
         title: assignmentData.title,
         description: assignmentData.description,
         max_duration_seconds: assignmentData.maxDuration || 60,
-        due_date: assignmentData.dueDate
+        due_date: assignmentData.dueDate,
+        rubric_id: assignmentData.rubricId || null
       }])
       .select()
       .single()

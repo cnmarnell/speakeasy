@@ -1,11 +1,12 @@
 import { useState } from 'react'
 
-function NewAssignmentModal({ isOpen, onClose, onSubmit }) {
+function NewAssignmentModal({ isOpen, onClose, onSubmit, rubrics = [] }) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     startDate: '',
-    dueDate: ''
+    dueDate: '',
+    rubricId: ''
   })
 
   const handleInputChange = (e) => {
@@ -23,7 +24,8 @@ function NewAssignmentModal({ isOpen, onClose, onSubmit }) {
       title: '',
       description: '',
       startDate: '',
-      dueDate: ''
+      dueDate: '',
+      rubricId: ''
     })
     onClose()
   }
@@ -33,7 +35,8 @@ function NewAssignmentModal({ isOpen, onClose, onSubmit }) {
       title: '',
       description: '',
       startDate: '',
-      dueDate: ''
+      dueDate: '',
+      rubricId: ''
     })
     onClose()
   }
@@ -96,6 +99,24 @@ function NewAssignmentModal({ isOpen, onClose, onSubmit }) {
               className="form-input"
               required
             />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="rubricId" className="form-label">Evaluation Rubric (Optional)</label>
+            <select
+              id="rubricId"
+              name="rubricId"
+              value={formData.rubricId}
+              onChange={handleInputChange}
+              className="form-input"
+            >
+              <option value="">No rubric selected</option>
+              {rubrics.map(rubric => (
+                <option key={rubric.id} value={rubric.id}>
+                  {rubric.name} ({rubric.criteria?.length || 0} criteria, {rubric.criteria?.reduce((sum, c) => sum + (c.max_points || 0), 0) || 0} pts)
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="form-buttons">
