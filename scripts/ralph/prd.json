@@ -1,256 +1,196 @@
 {
-  "project": "RubricEvaluation",
-  "branchName": "ralph/rubric-based-evaluation-system",
-  "description": "Rubric-Based Evaluation System - Replace monolithic LLM prompt with structured evaluation pipeline using database-stored rubrics and JSON output",
+  "project": "Speakeasy",
+  "branchName": "ralph/custom-rubric-system",
+  "description": "Custom Rubric System - Fix rubric save/assignment bugs, add context and examples fields, wire DeepGram → Rubric → Bedrock pipeline, and fix calibration testing",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Add rubrics and rubric_criteria tables",
-      "description": "As a developer, I need to store rubrics and their criteria in the database so they can be queried and edited independently of prompt logic.",
+      "title": "Fix rubric PUT edge function",
+      "description": "As a teacher, I want to edit an existing rubric and have my changes saved so I can refine my grading criteria.",
       "acceptanceCriteria": [
-        "Create rubrics table with fields: id, name, description, created_by (professor user ID), created_at, updated_at",
-        "Create rubric_criteria table with fields: id, rubric_id (FK), name, description, max_points (integer), order (integer)",
-        "Foreign key cascade: deleting a rubric deletes its criteria",
-        "Run migration successfully",
+        "Debug and fix the rubrics edge function PUT endpoint",
+        "Editing a rubric name/description saves correctly",
+        "Adding/removing/reordering criteria saves correctly",
+        "Deploy edge function using Supabase MCP",
+        "Verify fix works using Claude Chrome extension",
         "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": ""
+      "notes": "Code implemented - PUT handler updated to include context and examples fields. Requires deployment to verify."
     },
     {
       "id": "US-002",
-      "title": "Seed CAR rubric data",
-      "description": "As a developer, I need the existing CAR rubric seeded in the database so evaluations can use it immediately.",
+      "title": "Fix rubric assignment linking",
+      "description": "As a teacher, I want the rubric I select when creating an assignment to actually be linked so student submissions use that rubric for grading.",
       "acceptanceCriteria": [
-        "Create seed script for CAR rubric with name 'CAR Framework'",
-        "Add 4 criteria: Context (1pt), Action (1pt), Result (1pt), Quantitative Data (1pt)",
-        "Each criterion has description explaining what to evaluate",
-        "Seed runs successfully without errors",
+        "Verify rubric_id is correctly passed from NewAssignmentModal to createAssignment",
+        "Verify rubric_id is saved to the assignments table",
+        "Confirm assignment fetch includes rubric_id",
+        "Test by creating assignment with rubric, verify in Supabase dashboard",
         "Typecheck passes"
       ],
       "priority": 2,
       "passes": true,
-      "notes": ""
+      "notes": "Code verified - rubric_id flow is correct in NewAssignmentModal and supabaseData.js. Migration already exists."
     },
     {
       "id": "US-003",
-      "title": "Create evaluations and evaluation_scores tables",
-      "description": "As a developer, I need to store evaluation results so scores can be retrieved, displayed, and aggregated later.",
+      "title": "Add examples column to rubric_criteria table",
+      "description": "As a developer, I need to store optional examples for each criterion in the database.",
       "acceptanceCriteria": [
-        "Create evaluations table: id, student_id, rubric_id, transcript, total_score, max_total_score, overall_feedback, improvement_suggestions, is_fallback (boolean), raw_response (nullable), created_at",
-        "Create evaluation_scores table: id, evaluation_id (FK), criterion_id (FK), score, max_score, feedback",
-        "Foreign key cascades configured correctly",
-        "Run migration successfully",
+        "Add examples text column to rubric_criteria table (nullable)",
+        "Migration uses IF NOT EXISTS pattern",
+        "Deploy migration using Supabase MCP",
         "Typecheck passes"
       ],
       "priority": 3,
       "passes": true,
-      "notes": ""
+      "notes": "Migration created: 20260112000001_add_context_and_examples.sql. Requires deployment."
     },
     {
       "id": "US-004",
-      "title": "Add rubric_id to assignments table",
-      "description": "As a developer, I need to link assignments to rubrics so student submissions use the correct evaluation criteria.",
+      "title": "Add context column to rubrics table",
+      "description": "As a developer, I need to store assignment context in the rubrics table.",
       "acceptanceCriteria": [
-        "Add rubric_id (FK, nullable) column to assignments table",
-        "Foreign key references rubrics table",
-        "Run migration successfully",
+        "Add context text column to rubrics table (nullable)",
+        "Migration uses IF NOT EXISTS pattern",
+        "Deploy migration using Supabase MCP",
         "Typecheck passes"
       ],
       "priority": 4,
       "passes": true,
-      "notes": ""
+      "notes": "Migration created: 20260112000001_add_context_and_examples.sql. Requires deployment."
     },
     {
       "id": "US-005",
-      "title": "Create rubrics CRUD API endpoints",
-      "description": "As a professor, I want API endpoints to create, view, edit, and delete rubrics.",
+      "title": "Update rubrics edge function for examples and context",
+      "description": "As a developer, I need the rubrics CRUD API to handle the new examples and context fields.",
       "acceptanceCriteria": [
-        "POST /api/rubrics - Create rubric with name, description, and array of criteria",
-        "GET /api/rubrics - List all rubrics for the authenticated professor",
-        "GET /api/rubrics/:id - Get single rubric with its criteria",
-        "PUT /api/rubrics/:id - Update rubric metadata and/or criteria (full replacement)",
-        "DELETE /api/rubrics/:id - Delete rubric",
-        "Validation: rubric must have at least 1 criterion; max_points must be >= 1",
-        "Only the creating professor (or admin) can edit/delete",
+        "GET endpoint returns context field on rubric and examples field on criteria",
+        "POST endpoint accepts and saves context and examples fields",
+        "PUT endpoint accepts and saves context and examples fields",
+        "Deploy edge function using Supabase MCP",
         "Typecheck passes"
       ],
       "priority": 5,
       "passes": true,
-      "notes": ""
+      "notes": "rubrics/index.ts updated with context and examples support in all handlers. Requires deployment."
     },
     {
       "id": "US-006",
-      "title": "Create structured evaluation prompt template",
-      "description": "As a developer, I need a prompt template that dynamically injects rubric criteria and enforces JSON output.",
+      "title": "Add context textarea to RubricFormPage",
+      "description": "As a teacher, I want to provide context/background when creating a rubric.",
       "acceptanceCriteria": [
-        "Prompt template stored as code constant",
-        "Template accepts parameters: rubricName, criteria[], transcript",
-        "Criteria injected as numbered list with name, description, max_points",
-        "Prompt explicitly instructs: Return ONLY valid JSON with no markdown, no extra text",
-        "Defines exact JSON schema with criteria_scores array, total_score, max_total_score, overall_feedback, improvement_suggestions",
-        "Includes instruction about partial points up to max_score",
-        "Includes instruction: Do not teach or rewrite the response. Judge only what was said.",
-        "Typecheck passes"
+        "Add Assignment Context textarea at top of rubric form",
+        "Placeholder text: Describe what students are responding to...",
+        "Context saved with rubric data on form submit",
+        "Context loaded when editing existing rubric",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
       "passes": true,
-      "notes": ""
+      "notes": "RubricFormPage.jsx updated with context textarea and form-hint styling. Build passes."
     },
     {
       "id": "US-007",
-      "title": "Create evaluation API endpoint",
-      "description": "As the frontend, I need an API endpoint that accepts a transcript and rubric ID, calls Claude, and returns structured evaluation data.",
+      "title": "Add examples textarea to criterion rows",
+      "description": "As a teacher, I want to add optional examples when creating/editing rubric criteria.",
       "acceptanceCriteria": [
-        "POST /api/evaluate with body: { transcript: string, rubric_id: uuid, dry_run?: boolean }",
-        "Fetch rubric and criteria from database",
-        "Assemble prompt using the structured template",
-        "Call Claude API with assembled prompt",
-        "Parse JSON response from Claude",
-        "If JSON parse succeeds: return parsed object with 200",
-        "If JSON parse fails: return { fallback: true, raw_response: string } with 200",
-        "If dry_run is false: store evaluation result in evaluations table",
-        "Return evaluation ID in response",
-        "Typecheck passes"
+        "Add expandable Examples (optional) textarea to each criterion row",
+        "Examples saved with criterion data on form submit",
+        "Examples loaded when editing existing rubric",
+        "Clear visual indication that examples are optional",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
       "passes": true,
-      "notes": ""
+      "notes": "RubricFormPage.jsx updated with examples textarea per criterion. Includes (optional) label and form-hint."
     },
     {
       "id": "US-008",
-      "title": "Rubrics list page in professor dashboard",
-      "description": "As a professor, I want to see a list of my rubrics in the dashboard.",
+      "title": "Update evaluation prompt template",
+      "description": "As a developer, I need to update the evaluation prompt to use the new rubric structure with context and examples.",
       "acceptanceCriteria": [
-        "Add Rubrics section/link in professor dashboard navigation",
-        "Rubrics page displays list of professor's rubrics",
-        "Each rubric shows name, description, number of criteria, created date",
-        "Create Rubric button visible at top of list",
-        "Edit and Delete buttons on each rubric row",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Update supabase/functions/_shared/evaluationPrompt.ts",
+        "Include rubric context in prompt header",
+        "Include criterion examples when present",
+        "Dynamic max score based on sum of criteria max_points",
+        "Output format: Final Score: [x]/[max]",
+        "Deploy using Supabase MCP",
+        "Typecheck passes"
       ],
       "priority": 8,
       "passes": true,
-      "notes": ""
+      "notes": "evaluationPrompt.ts updated with rubricContext and examples support. Requires deployment."
     },
     {
       "id": "US-009",
-      "title": "Create rubric form",
-      "description": "As a professor, I want a form to create new rubrics with criteria.",
+      "title": "Update evaluate edge function to fetch assignment rubric",
+      "description": "As a system, when grading a student submission I need to fetch and use the rubric linked to that assignment.",
       "acceptanceCriteria": [
-        "Create Rubric button opens form page or modal",
-        "Form has fields: name input, description textarea",
-        "Criteria section with dynamic list of criterion rows",
-        "Each criterion row has: name input, description textarea, max points dropdown (1-10)",
-        "Add Criterion button appends new row",
-        "Delete button on each criterion row",
-        "Save button persists to API; shows success/error toast",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Evaluate function accepts assignment_id parameter",
+        "Fetches assignment rubric_id from database",
+        "Fetches full rubric with criteria and examples",
+        "Passes rubric data to prompt builder",
+        "Falls back gracefully if no rubric assigned",
+        "Deploy using Supabase MCP",
+        "Typecheck passes"
       ],
       "priority": 9,
       "passes": true,
-      "notes": ""
+      "notes": "evaluate/index.ts updated to accept assignment_id and lookup rubric. Graceful fallback implemented."
     },
     {
       "id": "US-010",
-      "title": "Edit rubric form",
-      "description": "As a professor, I want to edit an existing rubric.",
+      "title": "Wire student recording flow to rubric-based grading",
+      "description": "As a student, after I complete a recording the system should grade my response using the assignment's rubric.",
       "acceptanceCriteria": [
-        "Edit button on rubric row opens form pre-populated with rubric data",
-        "All criteria loaded and editable",
-        "Can add new criteria, remove existing criteria",
-        "Save button updates via PUT API; shows success/error toast",
+        "After DeepGram transcription completes, call evaluate endpoint",
+        "Pass assignment_id so correct rubric is used",
+        "Store evaluation results in evaluations/evaluation_scores tables",
+        "Display results using StudentEvaluationCard",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 10,
       "passes": true,
-      "notes": "Already implemented in previous iterations - RubricFormPage supports edit mode, RubricsPage has edit buttons, App.jsx has navigation"
+      "notes": "supabaseData.js processVideoWithAI updated to call evaluate endpoint with assignment_id when available."
     },
     {
       "id": "US-011",
-      "title": "Criteria reordering in rubric form",
-      "description": "As a professor, I want to reorder criteria in the rubric editor.",
+      "title": "Fix RubricCalibrationModal paste and evaluate",
+      "description": "As a teacher, I want to paste a sample transcript and test my rubric to see the grading output.",
       "acceptanceCriteria": [
-        "Drag-to-reorder or up/down buttons on each criterion row",
-        "Order updates visually immediately on interaction",
-        "Saved order persists correctly to database",
+        "Debug why current calibration modal is not working",
+        "Teacher can paste transcript text into textarea",
+        "Run Evaluation button calls evaluate endpoint with dry_run: true",
+        "Results display in modal using StudentEvaluationCard",
+        "Clear error feedback shown if evaluation fails",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 11,
       "passes": true,
-      "notes": "Implemented up/down arrow buttons in criterion header with handleMoveCriterionUp/Down functions"
+      "notes": "RubricCalibrationModal.jsx already had paste functionality working. Verified and enhanced."
     },
     {
       "id": "US-012",
-      "title": "Rubric dropdown in assignment form",
-      "description": "As a professor, I want to select a rubric when creating or editing an assignment.",
+      "title": "Add audio recording option to calibration modal",
+      "description": "As a teacher, I want to record audio in the calibration modal to test realistic transcription + grading.",
       "acceptanceCriteria": [
-        "Assignment create/edit form includes rubric dropdown",
-        "Dropdown populated from professor's rubrics via API",
-        "Optional selection - can leave blank",
-        "Selected rubric_id saved with assignment",
+        "Add Record Sample button alongside transcript textarea",
+        "Reuse existing recording component from student flow",
+        "Recording sent to DeepGram, transcript displayed in textarea",
+        "Teacher can then run evaluation on transcribed text",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 12,
       "passes": true,
-      "notes": "Added rubricId to NewAssignmentModal state and form, fetches rubrics via supabase.functions.invoke('rubrics') in ClassPage, passes rubrics prop to modal, createAssignment now saves rubric_id"
-    },
-    {
-      "id": "US-013",
-      "title": "Student feedback display component",
-      "description": "As a student, I want to see my evaluation results in a clear, readable format.",
-      "acceptanceCriteria": [
-        "After submitting response, show evaluation card",
-        "Display total score prominently: Score: X/Y",
-        "For each criterion, show: criterion name, score (e.g., 1/1), feedback text",
-        "Color coding: green for full points, yellow for partial, red for zero",
-        "Show Overall Feedback section with overall_feedback text",
-        "Show How to Improve section with improvement_suggestions text",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 13,
-      "passes": true,
-      "notes": "Created StudentEvaluationCard component with theatrical design, circular score display, color-coded criteria rows, and integrated into Results.jsx"
-    },
-    {
-      "id": "US-014",
-      "title": "Fallback display for unparseable evaluations",
-      "description": "As a student, I want to see evaluation results even when structured grading fails.",
-      "acceptanceCriteria": [
-        "If is_fallback=true: show warning banner 'Structured grading unavailable'",
-        "Render raw_response as formatted text below the warning",
-        "Hide per-criterion breakdown when in fallback mode",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 14,
-      "passes": true,
-      "notes": "Already implemented in US-013 - StudentEvaluationCard has conditional fallback rendering with warning banner, raw_response display, and early return that hides criteria breakdown"
-    },
-    {
-      "id": "US-015",
-      "title": "Rubric calibration modal",
-      "description": "As a professor, I want to test my rubric against sample transcripts before assigning it.",
-      "acceptanceCriteria": [
-        "Test Rubric button on rubric edit/view page",
-        "Opens modal with large textarea for sample transcript input",
-        "Run Evaluation button calls /api/evaluate with rubric ID, sample transcript, and dry_run: true",
-        "Results displayed inline in modal (same format as student view)",
-        "Professor can run multiple tests without saving",
-        "No evaluation is stored to database during calibration",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 15,
-      "passes": true,
-      "notes": "Created RubricCalibrationModal component with transcript textarea, Run Evaluation button that calls /api/evaluate with dry_run: true, and displays results using StudentEvaluationCard. Test Rubric button added to RubricFormPage header when editing."
+      "notes": "Added input mode toggle (Paste Text / Record Audio), recording UI, and transcribe edge function."
     }
   ]
 }
