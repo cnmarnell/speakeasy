@@ -156,14 +156,19 @@ async function handlePost(
     return errorResponse(validationError);
   }
 
+  // Build rubric data object - only include context if provided (backward compatible)
+  const rubricData: Record<string, unknown> = {
+    name: body.name.trim(),
+    description: body.description?.trim() || null,
+    created_by: teacherId,
+  };
+  if (body.context !== undefined) {
+    rubricData.context = body.context?.trim() || null;
+  }
+
   const { data: rubric, error: rubricError } = await supabase
     .from('rubrics')
-    .insert({
-      name: body.name.trim(),
-      description: body.description?.trim() || null,
-      context: body.context?.trim() || null,
-      created_by: teacherId,
-    })
+    .insert(rubricData)
     .select()
     .single();
 
@@ -172,14 +177,20 @@ async function handlePost(
     return errorResponse('Failed to create rubric', 500);
   }
 
-  const criteriaToInsert = body.criteria.map((c, idx) => ({
-    rubric_id: rubric.id,
-    name: c.name.trim(),
-    description: c.description?.trim() || null,
-    examples: c.examples?.trim() || null,
-    max_points: c.max_points,
-    order: c.order ?? idx,
-  }));
+  // Build criteria data - only include examples if provided (backward compatible)
+  const criteriaToInsert = body.criteria.map((c, idx) => {
+    const criterionData: Record<string, unknown> = {
+      rubric_id: rubric.id,
+      name: c.name.trim(),
+      description: c.description?.trim() || null,
+      max_points: c.max_points,
+      order: c.order ?? idx,
+    };
+    if (c.examples !== undefined) {
+      criterionData.examples = c.examples?.trim() || null;
+    }
+    return criterionData;
+  });
 
   const { data: criteria, error: criteriaError } = await supabase
     .from('rubric_criteria')
@@ -220,13 +231,18 @@ async function handlePut(
     return errorResponse(validationError);
   }
 
+  // Build update object - only include context if provided (backward compatible)
+  const updateData: Record<string, unknown> = {
+    name: body.name.trim(),
+    description: body.description?.trim() || null,
+  };
+  if (body.context !== undefined) {
+    updateData.context = body.context?.trim() || null;
+  }
+
   const { error: updateError } = await supabase
     .from('rubrics')
-    .update({
-      name: body.name.trim(),
-      description: body.description?.trim() || null,
-      context: body.context?.trim() || null,
-    })
+    .update(updateData)
     .eq('id', rubricId);
 
   if (updateError) {
@@ -244,14 +260,20 @@ async function handlePut(
     return errorResponse('Failed to update criteria', 500);
   }
 
-  const criteriaToInsert = body.criteria.map((c, idx) => ({
-    rubric_id: rubricId,
-    name: c.name.trim(),
-    description: c.description?.trim() || null,
-    examples: c.examples?.trim() || null,
-    max_points: c.max_points,
-    order: c.order ?? idx,
-  }));
+  // Build criteria data - only include examples if provided (backward compatible)
+  const criteriaToInsert = body.criteria.map((c, idx) => {
+    const criterionData: Record<string, unknown> = {
+      rubric_id: rubricId,
+      name: c.name.trim(),
+      description: c.description?.trim() || null,
+      max_points: c.max_points,
+      order: c.order ?? idx,
+    };
+    if (c.examples !== undefined) {
+      criterionData.examples = c.examples?.trim() || null;
+    }
+    return criterionData;
+  });
 
   const { data: criteria, error: insertError } = await supabase
     .from('rubric_criteria')
