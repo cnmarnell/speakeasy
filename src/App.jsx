@@ -11,8 +11,6 @@ import AssignmentDetailPage from './components/AssignmentDetailPage'
 import StudentDetailPage from './components/StudentDetailPage'
 import StudentAssignmentPage from './components/StudentAssignmentPage'
 import RecordingPage from './components/RecordingPage'
-import RubricsPage from './components/RubricsPage'
-import RubricFormPage from './components/RubricFormPage'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -25,7 +23,6 @@ function App() {
   const [selectedStudentAssignment, setSelectedStudentAssignment] = useState(null)
   const [currentStudentId, setCurrentStudentId] = useState(null)
   const [selectedStudentClass, setSelectedStudentClass] = useState(null)
-  const [selectedRubric, setSelectedRubric] = useState(null)
 
   // Check for existing session on app load
   useEffect(() => {
@@ -182,26 +179,6 @@ function App() {
     setCurrentView('studentAssignment')
   }
 
-  // Rubric navigation handlers
-  const handleViewRubrics = () => {
-    setCurrentView('rubrics')
-  }
-
-  const handleBackFromRubrics = () => {
-    setSelectedRubric(null)
-    setCurrentView('dashboard')
-  }
-
-  const handleEditRubric = (rubric) => {
-    setSelectedRubric(rubric)
-    setCurrentView('editRubric')
-  }
-
-  const handleCreateRubric = () => {
-    setSelectedRubric(null)
-    setCurrentView('createRubric')
-  }
-
   // Show loading spinner
   if (isLoading) {
     return (
@@ -220,34 +197,9 @@ function App() {
     <>
       <Header user={user} userRole={userRole} onLogout={handleLogout} />
       {currentView === 'dashboard' && userRole === 'teacher' && (
-        <TeacherDashboard 
+        <TeacherDashboard
           user={user}
           onClassSelect={(classItem) => handleEnterClass(classItem.name)}
-          onViewRubrics={handleViewRubrics}
-        />
-      )}
-      {currentView === 'rubrics' && userRole === 'teacher' && (
-        <RubricsPage
-          user={user}
-          onBack={handleBackFromRubrics}
-          onEditRubric={handleEditRubric}
-          onCreateRubric={handleCreateRubric}
-        />
-      )}
-      {currentView === 'createRubric' && userRole === 'teacher' && (
-        <RubricFormPage
-          user={user}
-          rubric={null}
-          onBack={handleBackFromRubrics}
-          onSave={() => setCurrentView('rubrics')}
-        />
-      )}
-      {currentView === 'editRubric' && userRole === 'teacher' && selectedRubric && (
-        <RubricFormPage
-          user={user}
-          rubric={selectedRubric}
-          onBack={handleBackFromRubrics}
-          onSave={() => setCurrentView('rubrics')}
         />
       )}
       {currentView === 'dashboard' && userRole === 'student' && currentStudentId && (

@@ -3,7 +3,7 @@ import { getClassesWithCodes, createClass, deleteClass } from '../data/supabaseD
 import ClassCreation from './ClassCreation'
 import './TeacherDashboard.css'
 
-const TeacherDashboard = ({ user, onClassSelect, onViewRubrics }) => {
+const TeacherDashboard = ({ user, onClassSelect }) => {
   const [classes, setClasses] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -180,18 +180,6 @@ const TeacherDashboard = ({ user, onClassSelect, onViewRubrics }) => {
                 <span className="stat-label">Total Theaters</span>
               </div>
             </div>
-            <button
-              className="rubrics-nav-btn"
-              onClick={onViewRubrics}
-            >
-              <svg className="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
-                <rect x="9" y="3" width="6" height="4" rx="1"/>
-                <path d="M9 12h6"/>
-                <path d="M9 16h6"/>
-              </svg>
-              Rubrics
-            </button>
             <button
               className="create-class-btn"
               onClick={() => setShowCreateClass(true)}

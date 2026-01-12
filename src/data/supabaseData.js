@@ -637,55 +637,12 @@ export const processVideoWithAI = async (videoBlob, assignmentTitle, assignmentI
     console.log('Step 2: Analyzing filler words...')
     const fillerAnalysis = analyzeFillerWords(transcriptionResult.text)
 
-    // Step 3: Try rubric-based evaluation if assignment has a rubric
-    let analysisResult = null
-    let rubricEvaluation = null
-
-    if (assignmentId) {
-      console.log('Step 3: Checking for rubric-based evaluation...')
-      try {
-        // Call the evaluate endpoint with assignment_id
-        const evalResponse = await supabase.functions.invoke('evaluate', {
-          method: 'POST',
-          body: {
-            transcript: transcriptionResult.text,
-            assignment_id: assignmentId,
-            dry_run: true // Don't persist evaluation - we're just getting the scores
-          }
-        })
-
-        if (!evalResponse.error && evalResponse.data) {
-          console.log('Rubric-based evaluation succeeded!')
-          rubricEvaluation = evalResponse.data
-
-          // Convert rubric evaluation to the expected format
-          const totalScore = rubricEvaluation.total_score
-          const maxTotalScore = rubricEvaluation.max_total_score
-          const normalizedScore = Math.round((totalScore / maxTotalScore) * 4) // Convert to 0-4 scale
-
-          analysisResult = {
-            speechContent: rubricEvaluation.overall_feedback,
-            overallScore: normalizedScore,
-            rubricScores: rubricEvaluation.criteria_scores,
-            improvementSuggestions: rubricEvaluation.improvement_suggestions,
-            isRubricBased: true
-          }
-        } else {
-          console.log('Rubric-based evaluation not available (no rubric or error):', evalResponse.error?.message)
-        }
-      } catch (evalError) {
-        console.warn('Rubric evaluation failed, falling back to Bedrock Agent:', evalError.message)
-      }
-    }
-
-    // Fall back to Bedrock Agent if rubric evaluation didn't work
-    if (!analysisResult) {
-      console.log('Step 3: Analyzing speech content with Bedrock Agent...')
-      analysisResult = await analyzeSpeechWithBedrockAgent(
-        transcriptionResult.text,
-        assignmentTitle
-      )
-    }
+    // Step 3: Analyze speech content with Bedrock Agent
+    console.log('Step 3: Analyzing speech content with Bedrock Agent...')
+    const analysisResult = await analyzeSpeechWithBedrockAgent(
+      transcriptionResult.text,
+      assignmentTitle
+    )
 
     // Combine filler word analysis with Bedrock Agent analysis
     const enhancedAnalysis = {
@@ -703,7 +660,6 @@ export const processVideoWithAI = async (videoBlob, assignmentTitle, assignmentI
         overallScore: enhancedAnalysis.overallScore ?? 2 // Use ?? to allow 0 (|| treats 0 as falsy!)
       },
       fillerWordAnalysis: fillerAnalysis,
-      rubricEvaluation: rubricEvaluation, // Include full rubric evaluation if available
       // If we got the placeholder, let's reflect that it wasn't a full AI process
       aiProcessed: analysisResult.speechContent !== "We are fixing this."
     }
@@ -797,8 +753,7 @@ export const createAssignment = async (assignmentData) => {
         title: assignmentData.title,
         description: assignmentData.description,
         max_duration_seconds: assignmentData.maxDuration || 60,
-        due_date: assignmentData.dueDate,
-        rubric_id: assignmentData.rubricId || null
+        due_date: assignmentData.dueDate
       }])
       .select()
       .single()
@@ -1311,7 +1266,6 @@ const runBackgroundAI = async (submissionId, videoBlob, assignmentTitle, assignm
     }).eq('id', submissionId)
 
     // Run AI processing (reuse existing processVideoWithAI function)
-    // Pass assignmentId for rubric-based evaluation if available
     const aiResult = await processVideoWithAI(videoBlob, assignmentTitle, assignmentId)
 
     // Update submission with transcript

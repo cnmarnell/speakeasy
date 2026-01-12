@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import NewAssignmentModal from './NewAssignmentModal'
 import { getAssignmentsByClass, getStudentsByClass, createAssignment, deleteAssignment } from '../data/supabaseData'
-import { supabase } from '../lib/supabase'
 
 function ClassPage({ className, onBack, onViewAssignment, onViewStudent }) {
   const [activeTab, setActiveTab] = useState('assignments')
@@ -9,7 +8,6 @@ function ClassPage({ className, onBack, onViewAssignment, onViewStudent }) {
   const [revealedStudentGrades, setRevealedStudentGrades] = useState({})
   const [assignments, setAssignments] = useState([])
   const [students, setStudents] = useState([])
-  const [rubrics, setRubrics] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -21,14 +19,6 @@ function ClassPage({ className, onBack, onViewAssignment, onViewStudent }) {
         ])
         setAssignments(assignmentData)
         setStudents(studentData)
-
-        // Fetch rubrics for the dropdown
-        const response = await supabase.functions.invoke('rubrics', {
-          method: 'GET',
-        })
-        if (!response.error && response.data) {
-          setRubrics(response.data)
-        }
       } catch (error) {
         console.error('Error fetching class data:', error)
       } finally {
@@ -52,8 +42,7 @@ function ClassPage({ className, onBack, onViewAssignment, onViewStudent }) {
       const newAssignment = await createAssignment({
         ...assignmentData,
         className: className,
-        dueDate: assignmentData.dueDate ? new Date(assignmentData.dueDate).toISOString() : null,
-        rubricId: assignmentData.rubricId || null
+        dueDate: assignmentData.dueDate ? new Date(assignmentData.dueDate).toISOString() : null
       })
       
       console.log('New assignment created:', newAssignment)
@@ -219,11 +208,10 @@ function ClassPage({ className, onBack, onViewAssignment, onViewStudent }) {
         Back to Dashboard
       </button>
 
-      <NewAssignmentModal 
+      <NewAssignmentModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         onSubmit={handleSubmitAssignment}
-        rubrics={rubrics}
       />
     </div>
   )
