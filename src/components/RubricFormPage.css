@@ -364,6 +364,13 @@
   min-height: 80px;
 }
 
+.form-hint {
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
 .form-group select {
   cursor: pointer;
   appearance: none;

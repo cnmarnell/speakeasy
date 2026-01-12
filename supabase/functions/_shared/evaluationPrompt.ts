@@ -9,12 +9,14 @@ export interface RubricCriterion {
   id: string;
   name: string;
   description: string | null;
+  examples: string | null;
   max_points: number;
   order: number;
 }
 
 export interface EvaluationPromptParams {
   rubricName: string;
+  rubricContext?: string | null;
   criteria: RubricCriterion[];
   transcript: string;
 }
@@ -40,15 +42,21 @@ export interface EvaluationResult {
  * The prompt instructs the LLM to return ONLY valid JSON matching the EvaluationResult schema.
  */
 export function buildEvaluationPrompt(params: EvaluationPromptParams): string {
-  const { rubricName, criteria, transcript } = params;
+  const { rubricName, rubricContext, criteria, transcript } = params;
 
   const criteriaList = criteria
     .sort((a, b) => a.order - b.order)
     .map((c, idx) => {
-      const desc = c.description ? `: ${c.description}` : '';
-      return `${idx + 1}. **${c.name}** (max ${c.max_points} point${c.max_points !== 1 ? 's' : ''})${desc}`;
+      let criterionText = `${idx + 1}. **${c.name}** (max ${c.max_points} point${c.max_points !== 1 ? 's' : ''})`;
+      if (c.description) {
+        criterionText += `\n   Description: ${c.description}`;
+      }
+      if (c.examples) {
+        criterionText += `\n   Examples: ${c.examples}`;
+      }
+      return criterionText;
     })
-    .join('\n');
+    .join('\n\n');
 
   const criteriaScoresExample = criteria
     .slice(0, 2)
@@ -74,9 +82,18 @@ export function buildEvaluationPrompt(params: EvaluationPromptParams): string {
     2
   );
 
+  // Build the context section if provided
+  const contextSection = rubricContext
+    ? `## Assignment Context
+
+${rubricContext}
+
+`
+    : '';
+
   return `You are an evaluation assistant grading a spoken response using the "${rubricName}" rubric.
 
-## Rubric Criteria
+${contextSection}## Rubric Criteria
 
 ${criteriaList}
 

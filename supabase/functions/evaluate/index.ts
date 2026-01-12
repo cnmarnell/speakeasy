@@ -15,7 +15,8 @@ const corsHeaders = {
 
 interface EvaluateRequest {
   transcript: string;
-  rubric_id: string;
+  rubric_id?: string;
+  assignment_id?: string;
   dry_run?: boolean;
   student_id?: string;
 }
@@ -203,19 +204,40 @@ Deno.serve(async (req: Request) => {
     }
 
     const body: EvaluateRequest = await req.json();
-    const { transcript, rubric_id, dry_run = false, student_id } = body;
+    const { transcript, dry_run = false, student_id } = body;
+    let { rubric_id, assignment_id } = body;
 
     if (!transcript || transcript.trim().length === 0) {
       return errorResponse('transcript is required');
     }
 
+    // If assignment_id is provided but rubric_id is not, fetch rubric_id from assignment
+    if (assignment_id && !rubric_id) {
+      const { data: assignment, error: assignmentError } = await supabase
+        .from('assignments')
+        .select('rubric_id')
+        .eq('id', assignment_id)
+        .single();
+
+      if (assignmentError || !assignment) {
+        return errorResponse('Assignment not found', 404);
+      }
+
+      if (!assignment.rubric_id) {
+        return errorResponse('Assignment does not have a rubric assigned', 400);
+      }
+
+      rubric_id = assignment.rubric_id;
+    }
+
     if (!rubric_id) {
-      return errorResponse('rubric_id is required');
+      return errorResponse('rubric_id or assignment_id is required');
     }
 
     console.log('Evaluate request:', {
       transcriptLength: transcript.length,
       rubric_id,
+      assignment_id: assignment_id || 'not provided',
       dry_run,
       student_id: student_id || 'not provided'
     });
@@ -244,12 +266,14 @@ Deno.serve(async (req: Request) => {
       id: c.id,
       name: c.name,
       description: c.description,
+      examples: c.examples || null,
       max_points: c.max_points,
       order: c.order,
     }));
 
     const prompt = buildEvaluationPrompt({
       rubricName: rubric.name,
+      rubricContext: rubric.context || null,
       criteria: typedCriteria,
       transcript,
     });

@@ -121,6 +121,157 @@
   margin-bottom: 1.5rem;
 }
 
+/* Input Mode Toggle */
+.input-mode-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  padding: 0.25rem;
+  background: rgba(212, 175, 55, 0.1);
+  border-radius: 8px;
+}
+
+.mode-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #6B6B6B;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-btn:hover {
+  color: #8B1538;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.mode-btn.active {
+  background: white;
+  color: #8B1538;
+  border-color: rgba(212, 175, 55, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.mode-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Recording Section */
+.recording-section {
+  padding: 1rem 0;
+}
+
+.recording-controls {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.btn-start-recording,
+.btn-stop-recording {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 2rem;
+  border: 2px solid;
+  border-radius: 50px;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-start-recording {
+  background: linear-gradient(135deg, #8B1538 0%, #6B0F2A 100%);
+  color: white;
+  border-color: #D4AF37;
+  box-shadow: 0 4px 16px rgba(139, 21, 56, 0.25);
+}
+
+.btn-start-recording:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(139, 21, 56, 0.35);
+}
+
+.btn-start-recording svg {
+  width: 24px;
+  height: 24px;
+}
+
+.btn-stop-recording {
+  background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+  color: white;
+  border-color: #dc3545;
+  box-shadow: 0 4px 16px rgba(220, 53, 69, 0.25);
+  animation: pulse-recording 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-recording {
+  0%, 100% {
+    box-shadow: 0 4px 16px rgba(220, 53, 69, 0.25);
+  }
+  50% {
+    box-shadow: 0 4px 24px rgba(220, 53, 69, 0.45);
+  }
+}
+
+.btn-stop-recording svg {
+  width: 20px;
+  height: 20px;
+}
+
+.recording-indicator {
+  width: 12px;
+  height: 12px;
+  background: #ff4444;
+  border-radius: 50%;
+  animation: blink 1s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.transcribing-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 2rem;
+  background: rgba(212, 175, 55, 0.1);
+  border: 2px solid rgba(212, 175, 55, 0.3);
+  border-radius: 50px;
+  color: #8B1538;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.transcribing-status .spinner-small {
+  border-color: rgba(139, 21, 56, 0.3);
+  border-top-color: #8B1538;
+}
+
+.recording-hint {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 0.85rem;
+  color: #6B6B6B;
+  text-align: center;
+  margin: 0.75rem 0 1.5rem 0;
+  font-style: italic;
+}
+
 .transcript-label {
   display: flex;
   align-items: center;

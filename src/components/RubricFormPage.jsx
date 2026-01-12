@@ -8,16 +8,18 @@ const RubricFormPage = ({ user, rubric, onBack, onSave }) => {
 
   const [name, setName] = useState(rubric?.name || '')
   const [description, setDescription] = useState(rubric?.description || '')
+  const [context, setContext] = useState(rubric?.context || '')
   const [criteria, setCriteria] = useState(
     rubric?.criteria?.length > 0
       ? rubric.criteria.map((c, idx) => ({
           id: c.id || `temp-${idx}`,
           name: c.name,
           description: c.description || '',
+          examples: c.examples || '',
           max_points: c.max_points,
           order: c.order ?? idx
         }))
-      : [{ id: 'temp-0', name: '', description: '', max_points: 1, order: 0 }]
+      : [{ id: 'temp-0', name: '', description: '', examples: '', max_points: 1, order: 0 }]
   )
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -27,7 +29,7 @@ const RubricFormPage = ({ user, rubric, onBack, onSave }) => {
     const newOrder = criteria.length
     setCriteria([
       ...criteria,
-      { id: `temp-${Date.now()}`, name: '', description: '', max_points: 1, order: newOrder }
+      { id: `temp-${Date.now()}`, name: '', description: '', examples: '', max_points: 1, order: newOrder }
     ])
   }
 
@@ -98,9 +100,11 @@ const RubricFormPage = ({ user, rubric, onBack, onSave }) => {
       const payload = {
         name: name.trim(),
         description: description.trim() || null,
+        context: context.trim() || null,
         criteria: criteria.map((c, idx) => ({
           name: c.name.trim(),
           description: c.description?.trim() || null,
+          examples: c.examples?.trim() || null,
           max_points: parseInt(c.max_points, 10),
           order: idx
         }))
@@ -253,6 +257,18 @@ const RubricFormPage = ({ user, rubric, onBack, onSave }) => {
                 rows={3}
               />
             </div>
+
+            <div className="form-group">
+              <label htmlFor="rubric-context">Assignment Context</label>
+              <textarea
+                id="rubric-context"
+                value={context}
+                onChange={(e) => setContext(e.target.value)}
+                placeholder="Describe what students are responding to (e.g., 'Explain a time you showed leadership in a group project...')"
+                rows={4}
+              />
+              <p className="form-hint">Provide context about the assignment to help the AI evaluator understand what students are being asked to do.</p>
+            </div>
           </div>
 
           <div className="form-section criteria-section">
@@ -343,6 +359,17 @@ const RubricFormPage = ({ user, rubric, onBack, onSave }) => {
                         placeholder="What should be evaluated for this criterion..."
                         rows={2}
                       />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Examples (optional)</label>
+                      <textarea
+                        value={criterion.examples}
+                        onChange={(e) => handleCriterionChange(index, 'examples', e.target.value)}
+                        placeholder="Examples of good/bad responses for this criterion (e.g., 'Good: Clearly stated the challenge faced...')"
+                        rows={2}
+                      />
+                      <p className="form-hint">Provide examples to help the AI understand what good and poor responses look like.</p>
                     </div>
 
                     <div className="form-group max-points-group">

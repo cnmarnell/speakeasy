@@ -620,10 +620,10 @@ export const getSubmissionVideoUrl = async (submissionId) => {
 // AI ANALYSIS FUNCTIONS
 
 // Process video with AI analysis
-export const processVideoWithAI = async (videoBlob, assignmentTitle) => {
+export const processVideoWithAI = async (videoBlob, assignmentTitle, assignmentId = null) => {
   try {
     console.log('Starting AI analysis pipeline...')
-    
+
     // Step 1: Transcribe audio with Deepgram (testing direct API)
     console.log('Step 1: Transcribing audio...')
     const transcriptionResult = await transcribeWithDeepgram(videoBlob)
@@ -636,13 +636,56 @@ export const processVideoWithAI = async (videoBlob, assignmentTitle) => {
     // Step 2: Analyze filler words in transcript
     console.log('Step 2: Analyzing filler words...')
     const fillerAnalysis = analyzeFillerWords(transcriptionResult.text)
-    
-    // Step 3: Analyze speech content with AWS Bedrock Agent
-    console.log('Step 3: Analyzing speech content with Bedrock Agent...')
-    const analysisResult = await analyzeSpeechWithBedrockAgent(
-      transcriptionResult.text,
-      assignmentTitle
-    )
+
+    // Step 3: Try rubric-based evaluation if assignment has a rubric
+    let analysisResult = null
+    let rubricEvaluation = null
+
+    if (assignmentId) {
+      console.log('Step 3: Checking for rubric-based evaluation...')
+      try {
+        // Call the evaluate endpoint with assignment_id
+        const evalResponse = await supabase.functions.invoke('evaluate', {
+          method: 'POST',
+          body: {
+            transcript: transcriptionResult.text,
+            assignment_id: assignmentId,
+            dry_run: true // Don't persist evaluation - we're just getting the scores
+          }
+        })
+
+        if (!evalResponse.error && evalResponse.data) {
+          console.log('Rubric-based evaluation succeeded!')
+          rubricEvaluation = evalResponse.data
+
+          // Convert rubric evaluation to the expected format
+          const totalScore = rubricEvaluation.total_score
+          const maxTotalScore = rubricEvaluation.max_total_score
+          const normalizedScore = Math.round((totalScore / maxTotalScore) * 4) // Convert to 0-4 scale
+
+          analysisResult = {
+            speechContent: rubricEvaluation.overall_feedback,
+            overallScore: normalizedScore,
+            rubricScores: rubricEvaluation.criteria_scores,
+            improvementSuggestions: rubricEvaluation.improvement_suggestions,
+            isRubricBased: true
+          }
+        } else {
+          console.log('Rubric-based evaluation not available (no rubric or error):', evalResponse.error?.message)
+        }
+      } catch (evalError) {
+        console.warn('Rubric evaluation failed, falling back to Bedrock Agent:', evalError.message)
+      }
+    }
+
+    // Fall back to Bedrock Agent if rubric evaluation didn't work
+    if (!analysisResult) {
+      console.log('Step 3: Analyzing speech content with Bedrock Agent...')
+      analysisResult = await analyzeSpeechWithBedrockAgent(
+        transcriptionResult.text,
+        assignmentTitle
+      )
+    }
 
     // Combine filler word analysis with Bedrock Agent analysis
     const enhancedAnalysis = {
@@ -650,7 +693,7 @@ export const processVideoWithAI = async (videoBlob, assignmentTitle) => {
       fillerWords: fillerAnalysis.analysis,
       fillerWordData: fillerAnalysis
     }
-    
+
     return {
       transcript: transcriptionResult.text,
       duration: transcriptionResult.duration,
@@ -660,6 +703,7 @@ export const processVideoWithAI = async (videoBlob, assignmentTitle) => {
         overallScore: enhancedAnalysis.overallScore ?? 2 // Use ?? to allow 0 (|| treats 0 as falsy!)
       },
       fillerWordAnalysis: fillerAnalysis,
+      rubricEvaluation: rubricEvaluation, // Include full rubric evaluation if available
       // If we got the placeholder, let's reflect that it wasn't a full AI process
       aiProcessed: analysisResult.speechContent !== "We are fixing this."
     }
@@ -1228,7 +1272,7 @@ export const initiateSubmission = async (submissionData, videoBlob, assignmentTi
       // Don't throw - submission is saved, just queue insert failed
       // Fall back to direct processing
       console.log('[Queue Submission] Falling back to direct processing...')
-      runBackgroundAI(submission.id, videoBlob, assignmentTitle)
+      runBackgroundAI(submission.id, videoBlob, assignmentTitle, submissionData.assignmentId)
         .catch(err => {
           console.error('[Queue Submission] Fallback processing failed:', err)
           supabase.from('submissions').update({
@@ -1256,7 +1300,7 @@ export const initiateSubmission = async (submissionData, videoBlob, assignmentTi
  * BACKGROUND AI PROCESSING: Runs asynchronously without blocking frontend
  * This function executes AI analysis and updates submission status when complete
  */
-const runBackgroundAI = async (submissionId, videoBlob, assignmentTitle) => {
+const runBackgroundAI = async (submissionId, videoBlob, assignmentTitle, assignmentId = null) => {
   try {
     console.log(`[Background AI] Starting processing for submission ${submissionId}`)
 
@@ -1267,7 +1311,8 @@ const runBackgroundAI = async (submissionId, videoBlob, assignmentTitle) => {
     }).eq('id', submissionId)
 
     // Run AI processing (reuse existing processVideoWithAI function)
-    const aiResult = await processVideoWithAI(videoBlob, assignmentTitle)
+    // Pass assignmentId for rubric-based evaluation if available
+    const aiResult = await processVideoWithAI(videoBlob, assignmentTitle, assignmentId)
 
     // Update submission with transcript
     await supabase.from('submissions').update({

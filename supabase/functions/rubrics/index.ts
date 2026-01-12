@@ -13,11 +13,13 @@ interface Criterion {
   description?: string;
   max_points: number;
   order: number;
+  examples?: string;
 }
 
 interface RubricInput {
   name: string;
   description?: string;
+  context?: string;
   criteria: Criterion[];
 }
 
@@ -25,6 +27,7 @@ interface RubricRow {
   id: string;
   name: string;
   description: string | null;
+  context: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -35,6 +38,7 @@ interface CriterionRow {
   rubric_id: string;
   name: string;
   description: string | null;
+  examples: string | null;
   max_points: number;
   order: number;
   created_at: string;
@@ -157,6 +161,7 @@ async function handlePost(
     .insert({
       name: body.name.trim(),
       description: body.description?.trim() || null,
+      context: body.context?.trim() || null,
       created_by: teacherId,
     })
     .select()
@@ -171,6 +176,7 @@ async function handlePost(
     rubric_id: rubric.id,
     name: c.name.trim(),
     description: c.description?.trim() || null,
+    examples: c.examples?.trim() || null,
     max_points: c.max_points,
     order: c.order ?? idx,
   }));
@@ -219,6 +225,7 @@ async function handlePut(
     .update({
       name: body.name.trim(),
       description: body.description?.trim() || null,
+      context: body.context?.trim() || null,
     })
     .eq('id', rubricId);
 
@@ -241,6 +248,7 @@ async function handlePut(
     rubric_id: rubricId,
     name: c.name.trim(),
     description: c.description?.trim() || null,
+    examples: c.examples?.trim() || null,
     max_points: c.max_points,
     order: c.order ?? idx,
   }));
