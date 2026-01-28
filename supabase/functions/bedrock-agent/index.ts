@@ -11,11 +11,221 @@ interface NovaLiteRequest {
   assignmentTitle: string;
 }
 
+// Structured JSON output format for grading
+interface GradingCriterion {
+  score: 0 | 1;
+  explanation: string;
+}
+
+interface StructuredGradingResponse {
+  context: GradingCriterion;
+  action: GradingCriterion;
+  result: GradingCriterion;
+  quantitative: GradingCriterion;
+  total: number;
+  improvement: string;
+  example_perfect_response: string;
+}
+
 interface NovaLiteResponse {
   speechContent: string;
-  contentScore: number; // Explicit 0-3 score from AI
+  contentScore: number;
   confidence: number;
   sources: string[];
+  structuredGrading?: StructuredGradingResponse;
+}
+
+// JSON output instruction to append to system prompt
+const JSON_OUTPUT_INSTRUCTION = `
+
+IMPORTANT: You MUST respond with ONLY a valid JSON object in the following exact format. Do not include any text before or after the JSON.
+
+{
+  "context": {
+    "score": 0 or 1,
+    "explanation": "Brief explanation of why this criterion was or was not met"
+  },
+  "action": {
+    "score": 0 or 1,
+    "explanation": "Brief explanation of why this criterion was or was not met"
+  },
+  "result": {
+    "score": 0 or 1,
+    "explanation": "Brief explanation of why this criterion was or was not met"
+  },
+  "quantitative": {
+    "score": 0 or 1,
+    "explanation": "Brief explanation of why this criterion was or was not met"
+  },
+  "total": <sum of all scores, 0-4>,
+  "improvement": "Specific suggestions on how to improve the response to achieve 4/4",
+  "example_perfect_response": "An example of a perfect elevator pitch response for this assignment"
+}
+
+CRITICAL RULES:
+1. Each score MUST be 0 or 1 (not 0.5 or any other value)
+2. The "total" MUST equal the sum of all four criterion scores
+3. If your explanation says the criterion was "not met", "missing", "lacks", or "did not include", the score MUST be 0
+4. If your explanation says the criterion was "met", "included", "demonstrated", or "present", the score MUST be 1
+5. Be consistent: your score must match your explanation
+6. Respond with ONLY the JSON object, no additional text`;
+
+// Validate that scores match explanations
+function validateAndCorrectScores(grading: StructuredGradingResponse): StructuredGradingResponse {
+  const negativeIndicators = [
+    'not met', 'not include', 'did not', 'does not', 'lacks', 'missing',
+    'no mention', 'absent', 'failed to', 'without', 'unclear', 'vague',
+    'not provide', 'not demonstrate', 'not present', 'not evident',
+    'could not find', 'unable to identify', 'not addressed'
+  ];
+  
+  const positiveIndicators = [
+    'met', 'included', 'demonstrated', 'present', 'provided', 'clear',
+    'evident', 'showed', 'displayed', 'mentioned', 'addressed', 'stated',
+    'described', 'explained', 'identified'
+  ];
+
+  function shouldBeZero(explanation: string): boolean {
+    const lowerExplanation = explanation.toLowerCase();
+    return negativeIndicators.some(indicator => lowerExplanation.includes(indicator));
+  }
+
+  function shouldBeOne(explanation: string): boolean {
+    const lowerExplanation = explanation.toLowerCase();
+    // Only return true if positive indicators exist AND no negative indicators
+    const hasPositive = positiveIndicators.some(indicator => lowerExplanation.includes(indicator));
+    const hasNegative = negativeIndicators.some(indicator => lowerExplanation.includes(indicator));
+    return hasPositive && !hasNegative;
+  }
+
+  // Check and correct each criterion
+  const criteria: (keyof Pick<StructuredGradingResponse, 'context' | 'action' | 'result' | 'quantitative'>)[] = 
+    ['context', 'action', 'result', 'quantitative'];
+  
+  let correctedTotal = 0;
+  const corrected = { ...grading };
+
+  for (const criterion of criteria) {
+    const item = corrected[criterion];
+    const originalScore = item.score;
+    
+    // Check for mismatch: score is 1 but explanation indicates failure
+    if (item.score === 1 && shouldBeZero(item.explanation)) {
+      console.log(`⚠️ Score/explanation mismatch detected for ${criterion}:`);
+      console.log(`   Score: ${item.score}, Explanation: "${item.explanation.substring(0, 100)}..."`);
+      console.log(`   Auto-correcting score from 1 to 0`);
+      item.score = 0;
+    }
+    // Check for mismatch: score is 0 but explanation clearly indicates success
+    else if (item.score === 0 && shouldBeOne(item.explanation)) {
+      // Only correct if the explanation is CLEARLY positive (no negative indicators)
+      console.log(`⚠️ Score/explanation mismatch detected for ${criterion}:`);
+      console.log(`   Score: ${item.score}, Explanation: "${item.explanation.substring(0, 100)}..."`);
+      console.log(`   Auto-correcting score from 0 to 1`);
+      item.score = 1;
+    }
+
+    correctedTotal += item.score;
+    
+    if (originalScore !== item.score) {
+      console.log(`✅ Corrected ${criterion} score: ${originalScore} → ${item.score}`);
+    }
+  }
+
+  // Correct total if it doesn't match sum
+  if (corrected.total !== correctedTotal) {
+    console.log(`⚠️ Total mismatch: reported ${corrected.total}, calculated ${correctedTotal}`);
+    corrected.total = correctedTotal;
+  }
+
+  return corrected;
+}
+
+// Parse JSON response with fallback handling
+function parseStructuredResponse(responseText: string): StructuredGradingResponse | null {
+  try {
+    // First, try to find JSON in the response (in case there's extra text)
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.log('❌ No JSON object found in response');
+      return null;
+    }
+
+    const jsonStr = jsonMatch[0];
+    const parsed = JSON.parse(jsonStr);
+
+    // Validate required fields
+    const requiredFields = ['context', 'action', 'result', 'quantitative', 'total', 'improvement', 'example_perfect_response'];
+    for (const field of requiredFields) {
+      if (!(field in parsed)) {
+        console.log(`❌ Missing required field: ${field}`);
+        return null;
+      }
+    }
+
+    // Validate criterion structure
+    const criteria = ['context', 'action', 'result', 'quantitative'];
+    for (const criterion of criteria) {
+      if (typeof parsed[criterion]?.score !== 'number' || 
+          typeof parsed[criterion]?.explanation !== 'string') {
+        console.log(`❌ Invalid structure for criterion: ${criterion}`);
+        return null;
+      }
+      // Normalize score to 0 or 1
+      parsed[criterion].score = parsed[criterion].score >= 0.5 ? 1 : 0;
+    }
+
+    // Validate and correct scores based on explanations
+    const validated = validateAndCorrectScores(parsed as StructuredGradingResponse);
+
+    console.log('✅ Successfully parsed and validated structured response');
+    return validated;
+
+  } catch (error) {
+    console.error('❌ JSON parse error:', error);
+    return null;
+  }
+}
+
+// Legacy fallback: extract score from text format
+function extractLegacyScore(responseText: string): number | null {
+  const lowerText = responseText.toLowerCase();
+  const scoreIndex = lowerText.indexOf('final score:');
+
+  if (scoreIndex !== -1) {
+    const afterScore = responseText.substring(scoreIndex + 13, scoreIndex + 33);
+    const match = afterScore.match(/\d/);
+    if (match) {
+      return parseInt(match[0], 10);
+    }
+  }
+  return null;
+}
+
+// Generate human-readable feedback from structured response
+function generateFeedbackText(grading: StructuredGradingResponse): string {
+  const criteriaNames = {
+    context: 'Context',
+    action: 'Action',
+    result: 'Result',
+    quantitative: 'Quantitative'
+  };
+
+  let feedback = `## Elevator Pitch Evaluation\n\n`;
+  feedback += `**Total Score: ${grading.total}/4**\n\n`;
+  feedback += `### Criteria Breakdown\n\n`;
+
+  for (const [key, name] of Object.entries(criteriaNames)) {
+    const criterion = grading[key as keyof typeof criteriaNames];
+    const icon = criterion.score === 1 ? '✅' : '❌';
+    feedback += `**${name}:** ${icon} ${criterion.score}/1\n`;
+    feedback += `${criterion.explanation}\n\n`;
+  }
+
+  feedback += `### How to Improve\n\n${grading.improvement}\n\n`;
+  feedback += `### Example Perfect Response\n\n${grading.example_perfect_response}`;
+
+  return feedback;
 }
 
 Deno.serve(async (req: Request) => {
@@ -85,13 +295,13 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Combine system prompt with transcript
-    const combinedPrompt = `${systemPrompt}\n\ntranscript: ${transcript}`;
+    // Combine system prompt with JSON instruction and transcript
+    const enhancedPrompt = `${systemPrompt}${JSON_OUTPUT_INSTRUCTION}\n\ntranscript: ${transcript}`;
 
-    console.log('Calling Nova Lite with system prompt and transcript...', {
+    console.log('Calling Nova Lite with structured JSON prompt...', {
       systemPromptLength: systemPrompt.length,
       transcriptLength: transcript.length,
-      combinedLength: combinedPrompt.length
+      totalLength: enhancedPrompt.length
     });
 
     // AWS Bedrock Runtime API endpoint for Nova Lite
@@ -103,11 +313,11 @@ Deno.serve(async (req: Request) => {
       messages: [
         {
           role: "user",
-          content: [{ text: combinedPrompt }]
+          content: [{ text: enhancedPrompt }]
         }
       ],
       inferenceConfig: {
-        maxTokens: 1000,
+        maxTokens: 1500, // Increased for JSON response
         temperature: 0.1,
         topP: 0.9
       }
@@ -185,69 +395,51 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log('Nova Lite response text received:', responseText.substring(0, 200) + '...');
+    console.log('Nova Lite response text:', responseText.substring(0, 300) + '...');
 
-    // Ultra-simple extraction: find "final score:" and grab the next digit
-    let extractedScore: number | null = null;
+    // Try to parse as structured JSON first
+    const structuredGrading = parseStructuredResponse(responseText);
 
-    try {
-      const lowerText = responseText.toLowerCase();
-      const scoreIndex = lowerText.indexOf('final score:');
+    let analysisResult: NovaLiteResponse;
 
-      if (scoreIndex !== -1) {
-        // Get 20 characters after "final score:"
-        const afterScore = responseText.substring(scoreIndex + 13, scoreIndex + 33);
+    if (structuredGrading) {
+      // Successfully parsed structured JSON
+      console.log('✅ Using structured JSON grading:', {
+        total: structuredGrading.total,
+        context: structuredGrading.context.score,
+        action: structuredGrading.action.score,
+        result: structuredGrading.result.score,
+        quantitative: structuredGrading.quantitative.score
+      });
 
-        // Find first digit (0-9)
-        const match = afterScore.match(/\d/);
+      const feedbackText = generateFeedbackText(structuredGrading);
 
-        if (match) {
-          extractedScore = parseInt(match[0], 10);
-          console.log('✅ EXTRACTED SCORE:', extractedScore);
-        } else {
-          console.log('❌ NO DIGIT FOUND after "final score:"');
-          console.log('Text after:', afterScore);
-        }
-      } else {
-        console.log('❌ "final score:" NOT FOUND');
-        console.log('Full response:', responseText);
-      }
-    } catch (err) {
-      console.error('❌ EXTRACTION ERROR:', err);
-      console.log('Response text:', responseText);
+      analysisResult = {
+        speechContent: feedbackText,
+        contentScore: structuredGrading.total,
+        confidence: 0.98, // High confidence for structured parsing
+        sources: ['AWS Nova Lite Model (structured JSON)'],
+        structuredGrading: structuredGrading
+      };
+    } else {
+      // Fallback to legacy text parsing
+      console.log('⚠️ Falling back to legacy text parsing');
+      const legacyScore = extractLegacyScore(responseText);
+
+      analysisResult = {
+        speechContent: responseText.trim(),
+        contentScore: legacyScore !== null ? legacyScore : 2,
+        confidence: legacyScore !== null ? 0.85 : 0.6,
+        sources: legacyScore !== null 
+          ? ['AWS Nova Lite Model (legacy text extraction)']
+          : ['AWS Nova Lite Model (default fallback)']
+      };
     }
-
-    console.log('Final score (will use 2 if null):', extractedScore);
-
-    // If no score found in "Final Score: x/4" format, try JSON format as fallback
-    if (extractedScore === null) {
-      try {
-        const jsonMatch = responseText.match(/\{[\s\S]*"score"[\s\S]*"feedback"[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsedJson = JSON.parse(jsonMatch[0]);
-          if (typeof parsedJson.score === 'number' && parsedJson.score >= 0 && parsedJson.score <= 4) {
-            extractedScore = parsedJson.score;
-            console.log('Extracted score from JSON:', extractedScore);
-          }
-        }
-      } catch (jsonError) {
-        console.log('No JSON score found, will use text-based extraction');
-      }
-    }
-
-    // Return response with extracted score (or null to trigger keyword-based fallback)
-    const analysisResult: NovaLiteResponse = {
-      speechContent: responseText.trim(),
-      contentScore: extractedScore !== null ? extractedScore : 2, // Default to 2 if no score found
-      confidence: extractedScore !== null ? 0.95 : 0.7,
-      sources: extractedScore !== null
-        ? ['AWS Nova Lite Model (extracted score)']
-        : ['AWS Nova Lite Model (default score)']
-    };
 
     console.log('Returning analysis:', {
       contentScore: analysisResult.contentScore,
-      scoreSource: extractedScore !== null ? 'extracted from text' : 'default fallback'
+      confidence: analysisResult.confidence,
+      isStructured: !!structuredGrading
     });
 
     return new Response(JSON.stringify(analysisResult), {

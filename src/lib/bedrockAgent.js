@@ -2,6 +2,22 @@
 import { supabase } from '../supabaseClient'
 import { fetchWithRetry } from './apiResilience'
 
+/**
+ * Structured grading response format from the AI
+ * @typedef {Object} GradingCriterion
+ * @property {0|1} score - Binary score for the criterion
+ * @property {string} explanation - Explanation for the score
+ * 
+ * @typedef {Object} StructuredGradingResponse
+ * @property {GradingCriterion} context - Context/situation criterion
+ * @property {GradingCriterion} action - Action taken criterion
+ * @property {GradingCriterion} result - Result/outcome criterion
+ * @property {GradingCriterion} quantitative - Quantitative data criterion
+ * @property {number} total - Total score (0-4)
+ * @property {string} improvement - How to improve the response
+ * @property {string} example_perfect_response - Example of a perfect response
+ */
+
 // Analyze speech content using AWS Bedrock Agent
 export const analyzeSpeechWithBedrockAgent = async (transcript, assignmentTitle) => {
   try {
@@ -55,20 +71,30 @@ export const analyzeSpeechWithBedrockAgent = async (transcript, assignmentTitle)
     }
 
     const result = await response.json()
+    
+    // Check if we have structured grading response
+    const hasStructuredGrading = !!result.structuredGrading
+    
     console.log('Bedrock Agent analysis successful:', {
       hasContent: !!result.speechContent,
       contentScore: result.contentScore,
       confidence: result.confidence,
+      hasStructuredGrading: hasStructuredGrading,
       sourcesCount: result.sources?.length || 0
     })
 
-    // Use ONLY the explicit score from AI (extracted from "Final Score: x/4")
-    // No keyword-based fallback - trust the edge function's extraction or default
+    // Use the score from the structured response or fallback to contentScore
     const contentScore = typeof result.contentScore === 'number' ? result.contentScore : 2
 
     console.log('Using content score from AI:', {
       score: contentScore,
-      source: result.sources?.[0] || 'unknown'
+      source: hasStructuredGrading ? 'structured JSON' : (result.sources?.[0] || 'unknown'),
+      structuredBreakdown: hasStructuredGrading ? {
+        context: result.structuredGrading.context.score,
+        action: result.structuredGrading.action.score,
+        result: result.structuredGrading.result.score,
+        quantitative: result.structuredGrading.quantitative.score
+      } : null
     })
 
     // Return in the same format as other analysis functions for compatibility
@@ -76,9 +102,11 @@ export const analyzeSpeechWithBedrockAgent = async (transcript, assignmentTitle)
       speechContent: result.speechContent || 'Analysis not available',
       confidence: result.confidence,
       sources: result.sources,
-      overallScore: contentScore, // Direct from AI's "Final Score: x/4"
+      overallScore: contentScore,
       bodyLanguage: 'Focus on clear articulation, confident posture, and engaging delivery. Maintain eye contact and use purposeful gestures to enhance your message.',
-      contentOrganization: result.speechContent || 'Analysis not available'
+      contentOrganization: result.speechContent || 'Analysis not available',
+      // Include structured grading data if available for detailed breakdowns
+      structuredGrading: result.structuredGrading || null
     }
     
   } catch (error) {
@@ -123,54 +151,44 @@ This analysis provides basic feedback. For more detailed, AI-powered insights, e
     sources: ['Basic Analysis - Bedrock Agent Unavailable'],
     overallScore: 2, // Default to 2/4 (Average) when AI unavailable
     bodyLanguage: 'Delivery Analysis: Focus on maintaining clear articulation, appropriate volume, and confident posture. Practice using vocal variety to keep your audience engaged.',
-    contentOrganization: 'Structure: Organize your speech with a strong opening that captures attention, well-developed main points with supporting evidence, and a memorable conclusion.'
+    contentOrganization: 'Structure: Organize your speech with a strong opening that captures attention, well-developed main points with supporting evidence, and a memorable conclusion.',
+    structuredGrading: null
   }
 }
 
-// Calculate content score from analysis text (3-point scale)
-const calculateContentScoreFromAnalysis = (analysisText) => {
-  const lowerText = analysisText.toLowerCase()
+/**
+ * Extract detailed criterion breakdown from structured grading
+ * @param {Object} result - Analysis result with potential structuredGrading
+ * @returns {Array|null} Array of criterion results or null
+ */
+export const getGradingBreakdown = (result) => {
+  if (!result?.structuredGrading) return null
   
-  // Excellent indicators (3 points)
-  const excellentWords = ['excellent', 'outstanding', 'exceptional', 'superb', 'masterful', 'compelling', 'sophisticated']
-  const goodWords = ['good', 'strong', 'clear', 'well-organized', 'effective', 'appropriate', 'solid']
-  const fairWords = ['adequate', 'satisfactory', 'basic', 'simple', 'consider']
-  const poorWords = ['poor', 'weak', 'unclear', 'disorganized', 'needs improvement', 'lacks', 'confusing', 'difficult']
-  
-  let score = 2 // Start with good/adequate base
-  
-  // Check for excellent indicators
-  if (excellentWords.some(word => lowerText.includes(word))) {
-    score = 3
-  }
-  // Check for good indicators  
-  else if (goodWords.some(word => lowerText.includes(word))) {
-    score = 2
-  }
-  // Check for fair indicators
-  else if (fairWords.some(word => lowerText.includes(word))) {
-    score = 1
-  }
-  // Check for poor indicators
-  else if (poorWords.some(word => lowerText.includes(word))) {
-    score = 0
-  }
-  
-  // Content quality indicators
-  const hasExamples = /example|specific|detail|evidence|support/i.test(analysisText)
-  const hasStructure = /organized|structure|flow|transition|clear.*point/i.test(analysisText)
-  const hasClarity = /clear|understand|coherent|focused/i.test(analysisText)
-  const hasDepth = /substantial|develop|thorough|comprehensive/i.test(analysisText)
-  
-  // Bonus adjustments for content quality
-  if (hasExamples && hasStructure && hasClarity && hasDepth && score < 3) {
-    score = Math.min(3, score + 1)
-  } else if ((hasExamples && hasStructure) || (hasClarity && hasDepth)) {
-    score = Math.min(3, score + 0.5)
-  }
-  
-  // Ensure score is within 0-3 bounds and round to nearest 0.5
-  return Math.max(0, Math.min(3, Math.round(score * 2) / 2))
+  const { structuredGrading } = result
+  return [
+    { name: 'Context', score: structuredGrading.context.score, explanation: structuredGrading.context.explanation },
+    { name: 'Action', score: structuredGrading.action.score, explanation: structuredGrading.action.explanation },
+    { name: 'Result', score: structuredGrading.result.score, explanation: structuredGrading.result.explanation },
+    { name: 'Quantitative', score: structuredGrading.quantitative.score, explanation: structuredGrading.quantitative.explanation }
+  ]
+}
+
+/**
+ * Get improvement suggestions from structured grading
+ * @param {Object} result - Analysis result with potential structuredGrading
+ * @returns {string|null} Improvement suggestions or null
+ */
+export const getImprovementSuggestions = (result) => {
+  return result?.structuredGrading?.improvement || null
+}
+
+/**
+ * Get example perfect response from structured grading
+ * @param {Object} result - Analysis result with potential structuredGrading
+ * @returns {string|null} Example perfect response or null
+ */
+export const getExamplePerfectResponse = (result) => {
+  return result?.structuredGrading?.example_perfect_response || null
 }
 
 // Test function for development
