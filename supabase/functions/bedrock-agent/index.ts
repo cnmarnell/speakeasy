@@ -68,7 +68,19 @@ CRITICAL RULES:
 3. If your explanation says the criterion was "not met", "missing", "lacks", or "did not include", the score MUST be 0
 4. If your explanation says the criterion was "met", "included", "demonstrated", or "present", the score MUST be 1
 5. Be consistent: your score must match your explanation
-6. Respond with ONLY the JSON object, no additional text`;
+6. Respond with ONLY the JSON object, no additional text
+
+STRICT GRADING STANDARDS (BE HARSH):
+- Context (0/1): Requires a REAL situation with specifics (who, what, where, when, problem faced). Generic statements like "here's a test" or "I want to talk about X" = 0. Meta-commentary about the exercise itself = 0.
+- Action (0/1): Requires SPECIFIC steps taken with strong action verbs (led, built, designed, implemented, negotiated, created). Simply saying "I did a test" or "I worked on it" = 0. Must describe HOW they solved the problem.
+- Result (0/1): Requires CONCRETE outcomes. What changed? What improved? "It went well" or "it worked" = 0. Must have measurable or observable impact.
+- Quantitative (0/1): Requires at least ONE specific number, percentage, dollar amount, time frame, or metric. No numbers at all = 0.
+
+DO NOT give points for:
+- Vague or generic statements
+- Meta-commentary about the assignment ("this is a test", "let me try this")
+- Incomplete thoughts or partial answers
+- Intentions without actions ("I wanted to..." without "I did...")`;
 
 // Validate that scores match explanations
 function validateAndCorrectScores(grading: StructuredGradingResponse): StructuredGradingResponse {
