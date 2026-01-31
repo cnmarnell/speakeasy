@@ -180,7 +180,53 @@ async function processQueueItem(
     console.log(`[Queue ${item.id}] Transcript: "${transcript.substring(0, 100)}..."`);
 
     if (!transcript || transcript.trim().length === 0) {
-      throw new Error('Empty transcript - video may have no audio');
+      console.log(`[Queue ${item.id}] Empty transcript — no speech detected`);
+
+      // Update submission with empty transcript
+      await supabase.from('submissions').update({ transcript: '', status: 'completed', processing_completed_at: new Date().toISOString() }).eq('id', item.submission_id);
+
+      // Create grade with 0 score
+      const { data: existingGrade } = await supabase.from('grades').select('id').eq('submission_id', item.submission_id).single();
+      const zeroGradeData = {
+        submission_id: item.submission_id,
+        total_score: 0,
+        speech_content_score: 0,
+        filler_word_count: 0,
+        filler_words_used: [],
+        filler_word_score: 0,
+        filler_word_counts: {},
+        graded_at: new Date().toISOString()
+      };
+
+      let grade;
+      if (existingGrade) {
+        const { data } = await supabase.from('grades').update(zeroGradeData).eq('id', existingGrade.id).select().single();
+        grade = data;
+      } else {
+        const { data } = await supabase.from('grades').insert([zeroGradeData]).select().single();
+        grade = data;
+      }
+
+      // Create feedback explaining the issue
+      const { data: existingFeedback } = await supabase.from('feedback').select('id').eq('grade_id', grade.id).single();
+      const noSpeechFeedback = {
+        grade_id: grade.id,
+        filler_words_feedback: 'No speech detected in the recording.',
+        speech_content_feedback: 'No speech was detected in your recording. Please make sure your microphone is working and try again. Speak clearly and at a normal volume.',
+        body_language_feedback: 'Unable to evaluate — no speech detected.'
+      };
+
+      if (existingFeedback) {
+        await supabase.from('feedback').update(noSpeechFeedback).eq('id', existingFeedback.id);
+      } else {
+        await supabase.from('feedback').insert([noSpeechFeedback]);
+      }
+
+      // Mark queue item completed
+      await supabase.from('submission_queue').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', item.id);
+
+      result.success = true;
+      return result;
     }
 
     // Update submission with transcript
