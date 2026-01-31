@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { buildCARPrompt } from "../_shared/carPrompt.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,52 +36,8 @@ interface NovaLiteResponse {
   structuredGrading?: StructuredGradingResponse;
 }
 
-// JSON output instruction to append to system prompt
-const JSON_OUTPUT_INSTRUCTION = `
-
-IMPORTANT: You MUST respond with ONLY a valid JSON object in the following exact format. Do not include any text before or after the JSON.
-
-{
-  "context": {
-    "score": 0 or 1,
-    "explanation": "Brief explanation of why this criterion was or was not met"
-  },
-  "action": {
-    "score": 0 or 1,
-    "explanation": "Brief explanation of why this criterion was or was not met"
-  },
-  "result": {
-    "score": 0 or 1,
-    "explanation": "Brief explanation of why this criterion was or was not met"
-  },
-  "quantitative": {
-    "score": 0 or 1,
-    "explanation": "Brief explanation of why this criterion was or was not met"
-  },
-  "total": <sum of all scores, 0-4>,
-  "improvement": "Specific suggestions on how to improve the response to achieve 4/4",
-  "example_perfect_response": "An example of a perfect elevator pitch response for this assignment"
-}
-
-CRITICAL RULES:
-1. Each score MUST be 0 or 1 (not 0.5 or any other value)
-2. The "total" MUST equal the sum of all four criterion scores
-3. If your explanation says the criterion was "not met", "missing", "lacks", or "did not include", the score MUST be 0
-4. If your explanation says the criterion was "met", "included", "demonstrated", or "present", the score MUST be 1
-5. Be consistent: your score must match your explanation
-6. Respond with ONLY the JSON object, no additional text
-
-STRICT GRADING STANDARDS (BE HARSH):
-- Context (0/1): Requires a REAL situation with specifics (who, what, where, when, problem faced). Generic statements like "here's a test" or "I want to talk about X" = 0. Meta-commentary about the exercise itself = 0.
-- Action (0/1): Requires SPECIFIC steps taken with strong action verbs (led, built, designed, implemented, negotiated, created). Simply saying "I did a test" or "I worked on it" = 0. Must describe HOW they solved the problem.
-- Result (0/1): Requires CONCRETE outcomes. What changed? What improved? "It went well" or "it worked" = 0. Must have measurable or observable impact.
-- Quantitative (0/1): Requires at least ONE specific number, percentage, dollar amount, time frame, or metric. No numbers at all = 0.
-
-DO NOT give points for:
-- Vague or generic statements
-- Meta-commentary about the assignment ("this is a test", "let me try this")
-- Incomplete thoughts or partial answers
-- Intentions without actions ("I wanted to..." without "I did...")`;
+// System prompt is now in _shared/carPrompt.ts — single source of truth
+// No more secrets, no more mystery. Edit carPrompt.ts to change grading.
 
 // Validate that scores match explanations
 function validateAndCorrectScores(grading: StructuredGradingResponse): StructuredGradingResponse {
@@ -264,13 +221,14 @@ Deno.serve(async (req: Request) => {
     const awsAccessKeyId = Deno.env.get('AWS_ACCESS_KEY_ID');
     const awsSecretAccessKey = Deno.env.get('AWS_SECRET_ACCESS_KEY');
     const awsRegion = Deno.env.get('AWS_REGION');
-    const systemPrompt = Deno.env.get('ELEVATOR_PITCH_SYSTEM_PROMPT');
-
-    if (!awsAccessKeyId || !awsSecretAccessKey || !awsRegion || !systemPrompt) {
-      console.error('Missing AWS credentials or system prompt configuration');
+    // System prompt now lives in code, not a secret
+    // Old secret ELEVATOR_PITCH_SYSTEM_PROMPT is no longer needed
+    
+    if (!awsAccessKeyId || !awsSecretAccessKey || !awsRegion) {
+      console.error('Missing AWS credentials');
       return new Response(
         JSON.stringify({
-          speechContent: 'Configuration not complete - missing credentials or system prompt',
+          speechContent: 'Configuration not complete - missing AWS credentials',
           contentScore: 2,
           confidence: 0,
           sources: ['Configuration Error']
@@ -307,13 +265,12 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Combine system prompt with JSON instruction and transcript
-    const enhancedPrompt = `${systemPrompt}${JSON_OUTPUT_INSTRUCTION}\n\ntranscript: ${transcript}`;
+    // Build prompt from single source of truth (carPrompt.ts)
+    const enhancedPrompt = buildCARPrompt(transcript);
 
-    console.log('Calling Nova Lite with structured JSON prompt...', {
-      systemPromptLength: systemPrompt.length,
-      transcriptLength: transcript.length,
-      totalLength: enhancedPrompt.length
+    console.log('Calling Nova Lite with CAR prompt...', {
+      promptLength: enhancedPrompt.length,
+      transcriptLength: transcript.length
     });
 
     // AWS Bedrock Runtime API endpoint for Nova Lite
