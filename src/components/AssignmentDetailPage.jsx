@@ -3,7 +3,6 @@ import { getStudentProgressForAssignment, getDetailedStudentFeedback } from '../
 import VideoPlayer from './VideoPlayer'
 
 function AssignmentDetailPage({ assignment, onBack, onViewStudent }) {
-  const [revealedStudentGrades, setRevealedStudentGrades] = useState({})
   const [studentProgressData, setStudentProgressData] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedStudentFeedback, setSelectedStudentFeedback] = useState(null)
@@ -19,7 +18,6 @@ function AssignmentDetailPage({ assignment, onBack, onViewStudent }) {
 
         const progressData = await getStudentProgressForAssignment(assignment.id)
         
-        // Convert to format expected by UI
         const formattedData = progressData.map(progress => ({
           id: progress.studentId,
           name: progress.name,
@@ -42,13 +40,6 @@ function AssignmentDetailPage({ assignment, onBack, onViewStudent }) {
     }
   }, [assignment])
 
-  const toggleStudentGradeReveal = (studentId) => {
-    setRevealedStudentGrades(prev => ({
-      ...prev,
-      [studentId]: !prev[studentId]
-    }))
-  }
-
   const viewStudentFeedback = async (studentId) => {
     setFeedbackLoading(true)
     try {
@@ -66,15 +57,50 @@ function AssignmentDetailPage({ assignment, onBack, onViewStudent }) {
     setSelectedStudentFeedback(null)
   }
 
+  // Compute assignment stats
+  const totalStudents = studentProgressData.length
+  const submittedCount = studentProgressData.filter(s => s.status !== 'Not Started').length
+  const gradedCount = studentProgressData.filter(s => s.status === 'Graded' || s.status === 'Finished').length
+  const notStartedCount = studentProgressData.filter(s => s.status === 'Not Started').length
+  
+  const gradesWithScores = studentProgressData
+    .map(s => {
+      const match = s.grade?.match(/(\d+)/)
+      return match ? parseInt(match[1]) : null
+    })
+    .filter(g => g !== null)
+  
+  const avgScore = gradesWithScores.length > 0
+    ? Math.round(gradesWithScores.reduce((a, b) => a + b, 0) / gradesWithScores.length)
+    : 0
+  const submissionRate = totalStudents > 0
+    ? Math.round((submittedCount / totalStudents) * 100)
+    : 0
+
+  const getStatusClass = (status) => {
+    const s = status?.toLowerCase().replace(' ', '-')
+    if (s === 'graded' || s === 'finished') return 'adp-status-graded'
+    if (s === 'submitted' || s === 'in-progress') return 'adp-status-submitted'
+    if (s === 'not-started') return 'adp-status-notstarted'
+    return 'adp-status-submitted'
+  }
+
   if (loading) {
-    return <div className="assignment-detail-page">Loading...</div>
+    return (
+      <div className="assignment-detail-page adp-redesign">
+        <div className="cp-loading">
+          <div className="cp-spinner"></div>
+          <p>Loading assignment data...</p>
+        </div>
+      </div>
+    )
   }
 
   if (!assignment) {
     return (
-      <div className="assignment-detail-page">
+      <div className="assignment-detail-page adp-redesign">
         <h2>Assignment not found</h2>
-        <button className="back-btn" onClick={onBack}>
+        <button className="cp-back-btn-inline" onClick={onBack}>
           Back to Class
         </button>
       </div>
@@ -82,59 +108,94 @@ function AssignmentDetailPage({ assignment, onBack, onViewStudent }) {
   }
 
   return (
-    <div className="assignment-detail-page">
-      <div className="assignment-detail-header">
-        <h2 className="assignment-detail-title">{assignment.title}</h2>
-        <p className="assignment-detail-description">{assignment.description}</p>
-        <p className="assignment-detail-due">Due: {assignment.dueDate}</p>
-      </div>
-
-      <div className="student-progress-section">
-        <h3 className="section-title">Student Progress</h3>
-        <div className="student-progress-list">
-          {studentProgressData.map(student => (
-            <div key={student.id} className="student-progress-card">
-              <div className="student-progress-info" onClick={() => onViewStudent(student)}>
-                <h4 className="student-progress-name">{student.name}</h4>
-                <p className="student-progress-email">{student.email}</p>
-              </div>
-              <div className="student-progress-details">
-                <span className={`progress-status ${student.status.toLowerCase().replace(' ', '-')}`}>
-                  {student.status}
-                </span>
-                <div className="assignment-grade-section">
-                  <button 
-                    className="assignment-grade-reveal-btn"
-                    onClick={() => toggleStudentGradeReveal(student.id)}
-                  >
-                    {revealedStudentGrades[student.id] ? "Hide Grade" : "Show Grade"}
-                  </button>
-                  {revealedStudentGrades[student.id] && (
-                    <span className="assignment-student-grade">
-                      Grade: {student.grade}
-                    </span>
-                  )}
-                </div>
-                {student.status !== 'Not Started' && (
-                  <button 
-                    className="view-feedback-btn"
-                    onClick={() => viewStudentFeedback(student.id)}
-                    disabled={feedbackLoading}
-                  >
-                    {feedbackLoading ? 'Loading...' : 'View Feedback'}
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
+    <div className="assignment-detail-page adp-redesign">
+      {/* Header */}
+      <div className="adp-header">
+        <button className="adp-back-btn" onClick={onBack}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          Back to Class
+        </button>
+        <div className="adp-header-info">
+          <h2 className="adp-title">{assignment.title}</h2>
+          {assignment.description && (
+            <p className="adp-description">{assignment.description}</p>
+          )}
+          <div className="adp-due">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="adp-due-icon">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            Due: {assignment.dueDate || 'No due date'}
+          </div>
         </div>
       </div>
 
-      <button className="back-btn" onClick={onBack}>
-        Back to Class
-      </button>
+      {/* Stats Cards */}
+      <div className="adp-stats-row">
+        <div className="adp-stat-card adp-stat-avg">
+          <span className="adp-stat-value">{avgScore}%</span>
+          <span className="adp-stat-label">Average Score</span>
+        </div>
+        <div className="adp-stat-card adp-stat-rate">
+          <span className="adp-stat-value">{submissionRate}%</span>
+          <span className="adp-stat-label">Submission Rate</span>
+        </div>
+        <div className="adp-stat-card adp-stat-graded">
+          <span className="adp-stat-value">{gradedCount}/{totalStudents}</span>
+          <span className="adp-stat-label">Graded</span>
+        </div>
+        <div className="adp-stat-card adp-stat-pending">
+          <span className="adp-stat-value">{notStartedCount}</span>
+          <span className="adp-stat-label">Not Started</span>
+        </div>
+      </div>
 
-      {/* Teacher Feedback Modal */}
+      {/* Student Progress List */}
+      <div className="adp-progress-section">
+        <h3 className="adp-section-title">Student Progress</h3>
+        <div className="adp-progress-list">
+          {studentProgressData.length === 0 ? (
+            <div className="cp-empty-state">
+              <p>No students enrolled in this assignment yet.</p>
+            </div>
+          ) : (
+            studentProgressData.map(student => (
+              <div key={student.id} className="adp-student-row">
+                <div className="adp-student-info" onClick={() => onViewStudent(student)}>
+                  <div className="adp-student-avatar">
+                    {student.name ? student.name.charAt(0).toUpperCase() : '?'}
+                  </div>
+                  <div className="adp-student-details">
+                    <span className="adp-student-name">{student.name}</span>
+                    <span className="adp-student-email">{student.email}</span>
+                  </div>
+                </div>
+                <div className="adp-student-right">
+                  <span className={`adp-status-badge ${getStatusClass(student.status)}`}>
+                    {student.status}
+                  </span>
+                  <span className="adp-student-grade">{student.grade || 'N/A'}</span>
+                  {student.status !== 'Not Started' && (
+                    <button 
+                      className="adp-view-btn"
+                      onClick={() => viewStudentFeedback(student.id)}
+                      disabled={feedbackLoading}
+                    >
+                      {feedbackLoading ? 'Loading...' : 'View'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Teacher Feedback Modal (kept as-is) */}
       {selectedStudentFeedback && (
         <div className="modal-overlay" onClick={closeFeedbackModal}>
           <div className="modal-content teacher-feedback-modal" onClick={(e) => e.stopPropagation()}>
@@ -159,7 +220,6 @@ function AssignmentDetailPage({ assignment, onBack, onViewStudent }) {
                   )}
                 </div>
                 
-                {/* Component Score Breakdown */}
                 {selectedStudentFeedback.grade && (
                   <div className="component-scores">
                     <h4>Score Breakdown (Weighted Average)</h4>
