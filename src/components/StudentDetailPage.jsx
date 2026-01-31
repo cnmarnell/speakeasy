@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { getStudentGradesById, getDetailedStudentFeedback } from '../data/supabaseData'
 import VideoPlayer from './VideoPlayer'
 
-function StudentDetailPage({ student, onBack, className }) {
+function StudentDetailPage({ student, onBack }) {
   const [studentGrades, setStudentGrades] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedStudentFeedback, setSelectedStudentFeedback] = useState(null)
@@ -24,16 +24,10 @@ function StudentDetailPage({ student, onBack, className }) {
   }, [student.id])
 
   if (loading) {
-    return (
-      <div className="student-detail-page sdp-redesign">
-        <div className="cp-loading">
-          <div className="cp-spinner"></div>
-          <p>Loading student data...</p>
-        </div>
-      </div>
-    )
+    return <div className="student-detail-page">Loading...</div>
   }
   
+  // Use grades directly since they already contain assignment information
   const assignmentGrades = studentGrades.map(grade => ({
     id: grade.assignmentId,
     assignmentName: grade.assignmentName,
@@ -43,6 +37,7 @@ function StudentDetailPage({ student, onBack, className }) {
     status: grade.status
   }))
 
+  // Calculate total grade
   const gradedAssignments = assignmentGrades.filter(assignment => assignment.status === "Graded")
   const totalPoints = gradedAssignments.reduce((sum, assignment) => sum + assignment.points, 0)
   const totalMaxPoints = gradedAssignments.reduce((sum, assignment) => sum + assignment.maxPoints, 0)
@@ -65,7 +60,6 @@ function StudentDetailPage({ student, onBack, className }) {
   }
 
   const totalLetterGrade = getLetterGrade(totalPercentage)
-  const totalSubmissions = assignmentGrades.filter(a => a.status !== 'Not Submitted').length
 
   const viewAssignmentFeedback = async (assignmentId) => {
     setFeedbackLoading(true)
@@ -83,93 +77,59 @@ function StudentDetailPage({ student, onBack, className }) {
     setSelectedStudentFeedback(null)
   }
 
-  const getGradeColor = (percentage) => {
-    if (percentage >= 90) return '#22c55e'
-    if (percentage >= 80) return '#3b82f6'
-    if (percentage >= 70) return '#f59e0b'
-    if (percentage >= 60) return '#f97316'
-    return '#ef4444'
-  }
-
   return (
-    <div className="student-detail-page sdp-redesign">
-      {/* Back Button */}
-      <button className="sdp-back-btn" onClick={onBack}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M19 12H5M12 19l-7-7 7-7"/>
-        </svg>
-        {className ? `Back to ${className}` : 'Back'}
-      </button>
-
-      {/* Student Overview Card */}
-      <div className="sdp-overview-card">
-        <div className="sdp-overview-left">
-          <div className="sdp-avatar-large">
-            {student.name ? student.name.charAt(0).toUpperCase() : '?'}
-          </div>
-          <div className="sdp-student-info">
-            <h2 className="sdp-student-name">{student.name}</h2>
-            <p className="sdp-student-email">{student.email}</p>
-          </div>
-        </div>
-        <div className="sdp-overview-stats">
-          <div className="sdp-grade-circle" style={{ borderColor: getGradeColor(totalPercentage) }}>
-            <span className="sdp-grade-letter" style={{ color: getGradeColor(totalPercentage) }}>{totalLetterGrade}</span>
-            <span className="sdp-grade-pct">{totalPercentage}%</span>
-          </div>
-          <div className="sdp-overview-numbers">
-            <div className="sdp-overview-stat">
-              <span className="sdp-overview-stat-value">{totalPoints}/{totalMaxPoints}</span>
-              <span className="sdp-overview-stat-label">Total Points</span>
-            </div>
-            <div className="sdp-overview-stat">
-              <span className="sdp-overview-stat-value">{totalSubmissions}</span>
-              <span className="sdp-overview-stat-label">Submissions</span>
-            </div>
-            <div className="sdp-overview-stat">
-              <span className="sdp-overview-stat-value">{gradedAssignments.length}</span>
-              <span className="sdp-overview-stat-label">Graded</span>
-            </div>
-          </div>
-        </div>
+    <div className="student-detail-page">
+      <div className="student-detail-header">
+        <h2 className="student-detail-title">{student.name}</h2>
+        <p className="student-detail-email">{student.email}</p>
       </div>
 
-      {/* Assignments List */}
-      <div className="sdp-assignments-section">
-        <h3 className="sdp-section-title">Assignment Grades</h3>
-        <div className="sdp-assignments-list">
-          {assignmentGrades.length === 0 ? (
-            <div className="cp-empty-state">
-              <p>No assignments found for this student.</p>
-            </div>
-          ) : (
-            assignmentGrades.map(assignment => (
-              <div
-                key={assignment.id}
-                className="sdp-assignment-row"
-                onClick={() => assignment.status === 'Graded' && viewAssignmentFeedback(assignment.id)}
-                style={{ cursor: assignment.status === 'Graded' ? 'pointer' : 'default' }}
-              >
-                <div className="sdp-assignment-info">
-                  <h4 className="sdp-assignment-name">{assignment.assignmentName}</h4>
-                  <span className={`sdp-assignment-status ${
-                    assignment.status === 'Graded' ? 'sdp-status-graded' : 'sdp-status-notsubmitted'
-                  }`}>
-                    {assignment.status}
-                  </span>
-                </div>
-                <div className="sdp-assignment-score">
-                  <span className="sdp-score-grade">{assignment.grade}</span>
-                  <span className="sdp-score-points">{assignment.points}/{assignment.maxPoints}</span>
-                  {assignment.status === 'Graded' && (
-                    <span className="sdp-view-hint">Click to view feedback</span>
-                  )}
-                </div>
+      <div className="assignments-grades-section">
+        <h3 className="section-title">Assignment Grades</h3>
+        <div className="assignments-grades-list">
+          {assignmentGrades.map(assignment => (
+            <div
+              key={assignment.id}
+              className="assignment-grade-card"
+              onClick={() => assignment.status === 'Graded' && viewAssignmentFeedback(assignment.id)}
+              style={{ cursor: assignment.status === 'Graded' ? 'pointer' : 'default' }}
+            >
+              <div className="assignment-grade-info">
+                <h4 className="assignment-grade-name">{assignment.assignmentName}</h4>
+                <span className={`assignment-grade-status ${assignment.status.toLowerCase().replace(' ', '-')}`}>
+                  {assignment.status}
+                </span>
               </div>
-            ))
-          )}
+              <div className="assignment-grade-details">
+                <span className="assignment-grade-value">{assignment.grade}</span>
+                <span className="assignment-grade-points">
+                  {assignment.points}/{assignment.maxPoints}
+                </span>
+                {assignment.status === 'Graded' && (
+                  <span className="view-feedback-hint" style={{ fontSize: '0.8rem', color: '#007BFF' }}>
+                    Click to view feedback
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
+
+      <div className="total-grade-section">
+        <div className="total-grade-card">
+          <h3 className="total-grade-title">Total Grade</h3>
+          <div className="total-grade-info">
+            <span className="total-grade-letter">{totalLetterGrade}</span>
+            <span className="total-grade-percentage">{totalPercentage}%</span>
+            <span className="total-grade-points">{totalPoints}/{totalMaxPoints} points</span>
+          </div>
+        </div>
+      </div>
+
+      <button className="back-btn" onClick={onBack}>
+        Back
+      </button>
 
       {/* Loading indicator */}
       {feedbackLoading && (
@@ -180,7 +140,7 @@ function StudentDetailPage({ student, onBack, className }) {
         </div>
       )}
 
-      {/* Teacher Feedback Modal (kept as-is) */}
+      {/* Teacher Feedback Modal */}
       {selectedStudentFeedback && (
         <div className="modal-overlay" onClick={closeFeedbackModal}>
           <div className="modal-content teacher-feedback-modal" onClick={(e) => e.stopPropagation()}>
@@ -190,6 +150,7 @@ function StudentDetailPage({ student, onBack, className }) {
             </div>
 
             <div className="teacher-feedback-content">
+              {/* Grade Summary */}
               <div className="grade-summary">
                 <h3>Grade Summary</h3>
                 <div className="grade-details">
@@ -204,18 +165,23 @@ function StudentDetailPage({ student, onBack, className }) {
                   )}
                 </div>
 
+                {/* Component Score Breakdown */}
                 {selectedStudentFeedback.grade && (
                   <div className="component-scores">
                     <h4>Score Breakdown (Weighted Average)</h4>
                     <div className="score-components">
                       <div className="score-component">
-                        <span className="component-label">Speech Content (80%):</span>
+                        <span className="component-label">
+                          Speech Content (80%):
+                        </span>
                         <span className="component-score">
                           {selectedStudentFeedback.grade.speechContentScore ?? 'N/A'}/4
                         </span>
                       </div>
                       <div className="score-component">
-                        <span className="component-label">Filler Words (20%):</span>
+                        <span className="component-label">
+                          Filler Words (20%):
+                        </span>
                         <span className="component-score">
                           {selectedStudentFeedback.grade.fillerWordScore ?? 'N/A'}/20
                         </span>
@@ -225,6 +191,7 @@ function StudentDetailPage({ student, onBack, className }) {
                 )}
               </div>
 
+              {/* Transcript */}
               <div className="teacher-transcript-section">
                 <h3>Speech Transcript</h3>
                 <div className="teacher-transcript-content">
@@ -241,6 +208,7 @@ function StudentDetailPage({ student, onBack, className }) {
                 )}
               </div>
 
+              {/* AI Feedback */}
               {selectedStudentFeedback.feedback && (
                 <div className="teacher-feedback-analysis">
                   <h3>AI Analysis & Feedback</h3>
@@ -316,6 +284,7 @@ function StudentDetailPage({ student, onBack, className }) {
                 </div>
               )}
 
+              {/* Video Player */}
               {selectedStudentFeedback.submission?.videoUrl && (
                 <div className="teacher-video-section">
                   <h3>Student Video</h3>

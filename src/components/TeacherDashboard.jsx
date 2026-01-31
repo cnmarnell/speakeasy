@@ -177,7 +177,7 @@ const TeacherDashboard = ({ user, onClassSelect }) => {
                   </svg>
                 </div>
                 <span className="stat-value">{classes.length}</span>
-                <span className="stat-label">Total Classes</span>
+                <span className="stat-label">Total Theaters</span>
               </div>
             </div>
             <button
