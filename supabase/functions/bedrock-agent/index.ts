@@ -45,25 +45,36 @@ function validateAndCorrectScores(grading: StructuredGradingResponse): Structure
     'not met', 'not include', 'did not', 'does not', 'lacks', 'missing',
     'no mention', 'absent', 'failed to', 'without', 'unclear', 'vague',
     'not provide', 'not demonstrate', 'not present', 'not evident',
-    'could not find', 'unable to identify', 'not addressed'
+    'could not find', 'unable to identify', 'not addressed',
+    'no concrete', 'no specific', 'no numerical', 'no measurable',
+    'no real', 'no action', 'no context', 'no result', 'no outcome',
+    'not mentioned', 'not described', 'not included', 'were not',
+    'was not', 'wasn\'t', 'weren\'t', 'no evidence', 'not measurable',
+    'did not provide', 'did not include', 'did not describe',
+    'did not mention', 'not a real'
   ];
   
   const positiveIndicators = [
     'met', 'included', 'demonstrated', 'present', 'provided', 'clear',
     'evident', 'showed', 'displayed', 'mentioned', 'addressed', 'stated',
-    'described', 'explained', 'identified'
+    'described', 'explained', 'identified', 'specific', 'strong',
+    'effective', 'well-structured'
   ];
 
   function shouldBeZero(explanation: string): boolean {
     const lowerExplanation = explanation.toLowerCase();
-    return negativeIndicators.some(indicator => lowerExplanation.includes(indicator));
+    // Check explicit negative indicators
+    if (negativeIndicators.some(indicator => lowerExplanation.includes(indicator))) return true;
+    // Catch pattern: starts with "No " followed by anything (e.g., "No concrete outcomes")
+    if (/\bno\s+\w+/.test(lowerExplanation) && !/(no doubt|no issue|no problem|no question)/.test(lowerExplanation)) return true;
+    return false;
   }
 
   function shouldBeOne(explanation: string): boolean {
     const lowerExplanation = explanation.toLowerCase();
     // Only return true if positive indicators exist AND no negative indicators
     const hasPositive = positiveIndicators.some(indicator => lowerExplanation.includes(indicator));
-    const hasNegative = negativeIndicators.some(indicator => lowerExplanation.includes(indicator));
+    const hasNegative = shouldBeZero(explanation);
     return hasPositive && !hasNegative;
   }
 
