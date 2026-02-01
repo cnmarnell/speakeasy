@@ -4,3 +4,9 @@
 # Local Netlify folder
 .netlify
 TEST_ACCOUNTS.md
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
