@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
+import { Routes, Route, Navigate, Outlet, useNavigate, useLocation, useParams } from 'react-router-dom'
 import './App.css'
-import { supabase } from './lib/supabase'
+import { useApp } from './contexts/AppContext'
+import { getAssignmentById, getStudentById, getClassById } from './data/supabaseData'
 import LoginPage from './components/LoginPage'
 import Header from './components/Header'
 import TeacherDashboard from './components/TeacherDashboard'
@@ -12,247 +14,359 @@ import StudentDetailPage from './components/StudentDetailPage'
 import StudentAssignmentPage from './components/StudentAssignmentPage'
 import RecordingPage from './components/RecordingPage'
 
-function App() {
-  const [user, setUser] = useState(null)
-  const [userRole, setUserRole] = useState(null) // 'teacher' or 'student'
-  const [isLoading, setIsLoading] = useState(true)
-  const [currentView, setCurrentView] = useState('dashboard')
-  const [selectedClass, setSelectedClass] = useState(null)
-  const [selectedAssignment, setSelectedAssignment] = useState(null)
-  const [selectedStudent, setSelectedStudent] = useState(null)
-  const [selectedStudentAssignment, setSelectedStudentAssignment] = useState(null)
-  const [currentStudentId, setCurrentStudentId] = useState(null)
-  const [selectedStudentClass, setSelectedStudentClass] = useState(null)
+// Auth-protected layout with Header
+function AuthLayout() {
+  const { user, userRole, isLoading, handleLogout } = useApp()
 
-  // Check for existing session on app load
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.user) {
-        await handleLogin(session.user)
-      }
-      setIsLoading(false)
-    }
-    
-    checkSession()
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') {
-        setUser(null)
-        setUserRole(null)
-        setCurrentStudentId(null)
-        setCurrentView('dashboard')
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
-
-  // Handle user login and determine role
-  const handleLogin = async (user, role = null) => {
-    setUser(user)
-
-    // If role is provided (from signup), use it directly
-    if (role) {
-      setUserRole(role)
-      if (role === 'student') {
-        // Fetch the student ID for the newly created profile
-        const { data: studentData } = await supabase
-          .from('students')
-          .select('id')
-          .eq('email', user.email)
-          .single()
-        if (studentData) {
-          setCurrentStudentId(studentData.id)
-        }
-      }
-      setCurrentView('dashboard')
-      return
-    }
-
-    // Try to find user in students table first
-    const { data: studentData } = await supabase
-      .from('students')
-      .select('id')
-      .eq('email', user.email)
-      .single()
-
-    if (studentData) {
-      setUserRole('student')
-      setCurrentStudentId(studentData.id)
-      setCurrentView('dashboard')
-    } else {
-      // Check if user is a teacher
-      const { data: teacherData } = await supabase
-        .from('teachers')
-        .select('id')
-        .eq('email', user.email)
-        .single()
-
-      if (teacherData) {
-        setUserRole('teacher')
-        setCurrentView('dashboard')
-      } else {
-        // Default to student role if not found (for new signups)
-        setUserRole('student')
-        setCurrentView('dashboard')
-      }
-    }
-  }
-
-  // Handle logout
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-  }
-
-  // Navigation handlers
-  const handleBackToDashboard = () => {
-    setSelectedClass(null)
-    setSelectedAssignment(null)
-    setSelectedStudent(null)
-    setSelectedStudentClass(null)
-    setCurrentView('dashboard')
-  }
-
-  const handleEnterClass = (className) => {
-    setSelectedClass(className)
-    setCurrentView('class')
-  }
-
-  const handleViewAssignment = (assignment) => {
-    setSelectedAssignment(assignment)
-    setCurrentView('assignment')
-  }
-
-  const handleBackToClass = () => {
-    setSelectedAssignment(null)
-    setSelectedStudent(null)
-    setCurrentView('class')
-  }
-
-  const handleViewStudent = (student) => {
-    setSelectedStudent(student)
-    setCurrentView('studentDetail')
-  }
-
-  const handleBackFromStudent = () => {
-    setSelectedStudent(null)
-    // Determine where to go back to
-    if (selectedAssignment) {
-      setCurrentView('assignment')
-    } else {
-      setCurrentView('class')
-    }
-  }
-
-  const handleViewStudentAssignment = (assignment) => {
-    setSelectedStudentAssignment(assignment)
-    setCurrentView('studentAssignment')
-  }
-
-  const handleBackFromStudentAssignment = () => {
-    setSelectedStudentAssignment(null)
-    if (selectedStudentClass) {
-      setCurrentView('studentAssignments')
-    } else {
-      setCurrentView('dashboard')
-    }
-  }
-
-  const handleViewRecording = (assignment) => {
-    setSelectedStudentAssignment(assignment)
-    setCurrentView('recording')
-  }
-
-  const handleStudentSelectClass = (classItem) => {
-    setSelectedStudentClass(classItem)
-    setCurrentView('studentAssignments')
-  }
-
-  const handleBackToStudentClasses = () => {
-    setSelectedStudentClass(null)
-    setCurrentView('dashboard')
-  }
-
-  const handleBackFromRecording = () => {
-    setCurrentView('studentAssignment')
-  }
-
-  // Show loading spinner
   if (isLoading) {
-    return (
-      <div className="loading-container">
-        <div>Loading...</div>
-      </div>
-    )
+    return <div className="loading-container"><div>Loading...</div></div>
   }
 
-  // Show login page if not authenticated
   if (!user) {
-    return <LoginPage onLogin={handleLogin} />
+    return <Navigate to="/login" replace />
   }
 
   return (
     <>
       <Header user={user} userRole={userRole} onLogout={handleLogout} />
-      {currentView === 'dashboard' && userRole === 'teacher' && (
-        <TeacherDashboard
-          user={user}
-          onClassSelect={(classItem) => handleEnterClass(classItem.name)}
-        />
-      )}
-      {currentView === 'dashboard' && userRole === 'student' && currentStudentId && (
-        <StudentClassesPage 
-          user={{ id: currentStudentId, email: user.email }}
-          onClassSelect={handleStudentSelectClass}
-        />
-      )}
-      {currentView === 'studentAssignments' && selectedStudentClass && (
-        <StudentDashboard 
-          user={{ id: currentStudentId, email: user.email }}
-          selectedClass={selectedStudentClass}
-          onAssignmentSelect={handleViewStudentAssignment}
-          onBackToClasses={handleBackToStudentClasses}
-        />
-      )}
-      {currentView === 'class' && (
-        <ClassPage 
-          className={selectedClass}
-          onBack={handleBackToDashboard}
-          onViewAssignment={handleViewAssignment}
-          onViewStudent={handleViewStudent}
-        />
-      )}
-      {currentView === 'assignment' && (
-        <AssignmentDetailPage 
-          assignment={selectedAssignment}
-          onBack={handleBackToClass}
-          onViewStudent={handleViewStudent}
-        />
-      )}
-      {currentView === 'studentDetail' && (
-        <StudentDetailPage 
-          student={selectedStudent}
-          onBack={handleBackFromStudent}
-        />
-      )}
-      {currentView === 'studentAssignment' && (
-        <StudentAssignmentPage 
-          assignment={selectedStudentAssignment}
-          studentId={currentStudentId}
-          onBack={handleBackFromStudentAssignment}
-          onViewRecording={handleViewRecording}
-        />
-      )}
-      {currentView === 'recording' && (
-        <RecordingPage 
-          assignment={selectedStudentAssignment}
-          studentId={currentStudentId}
-          onBack={handleBackFromRecording}
-        />
-      )}
+      <Outlet />
     </>
+  )
+}
+
+// Login route
+function LoginRoute() {
+  const { user, isLoading, handleLogin } = useApp()
+
+  if (isLoading) {
+    return <div className="loading-container"><div>Loading...</div></div>
+  }
+
+  if (user) {
+    return <Navigate to="/dashboard" replace />
+  }
+
+  return <LoginPage onLogin={handleLogin} />
+}
+
+// Dashboard - teacher or student view based on role
+function DashboardRoute() {
+  const { user, userRole, currentStudentId } = useApp()
+  const navigate = useNavigate()
+
+  if (userRole === 'teacher') {
+    return (
+      <TeacherDashboard
+        user={user}
+        onClassSelect={(classItem) =>
+          navigate(`/teacher/class/${encodeURIComponent(classItem.name)}`)
+        }
+      />
+    )
+  }
+
+  if (userRole === 'student' && currentStudentId) {
+    return (
+      <StudentClassesPage
+        user={{ id: currentStudentId, email: user.email }}
+        onClassSelect={(classItem) =>
+          navigate(`/class/${classItem.id}`, { state: { classItem } })
+        }
+      />
+    )
+  }
+
+  return <div className="loading-container"><div>Loading...</div></div>
+}
+
+// Student: assignments list within a class
+function StudentAssignmentsRoute() {
+  const { user, currentStudentId } = useApp()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { classId } = useParams()
+  const [selectedClass, setSelectedClass] = useState(location.state?.classItem || null)
+  const [loading, setLoading] = useState(!location.state?.classItem)
+
+  useEffect(() => {
+    if (!selectedClass && classId) {
+      getClassById(classId).then(data => {
+        if (data) {
+          setSelectedClass(data)
+        } else {
+          navigate('/dashboard', { replace: true })
+        }
+        setLoading(false)
+      })
+    }
+  }, [classId])
+
+  if (loading || !selectedClass) {
+    return <div className="loading-container"><div>Loading...</div></div>
+  }
+
+  return (
+    <StudentDashboard
+      user={{ id: currentStudentId, email: user.email }}
+      selectedClass={selectedClass}
+      onAssignmentSelect={(assignment) =>
+        navigate(
+          `/class/${classId}/assignment/${assignment.id}`,
+          { state: { assignment, classItem: selectedClass } }
+        )
+      }
+      onBackToClasses={() => navigate('/dashboard')}
+    />
+  )
+}
+
+// Student: assignment detail page
+function StudentAssignmentRoute() {
+  const { currentStudentId } = useApp()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { classId, assignmentId } = useParams()
+
+  // Use route state if available, otherwise minimal object (component fetches internally)
+  const assignment = location.state?.assignment || { id: assignmentId }
+
+  return (
+    <StudentAssignmentPage
+      assignment={assignment}
+      studentId={currentStudentId}
+      onBack={() =>
+        navigate(`/class/${classId}`, { state: { classItem: location.state?.classItem } })
+      }
+      onViewRecording={(a) =>
+        navigate(
+          `/class/${classId}/assignment/${assignmentId}/record`,
+          { state: { assignment: a, classItem: location.state?.classItem } }
+        )
+      }
+    />
+  )
+}
+
+// Student: recording page
+function RecordingRoute() {
+  const { currentStudentId } = useApp()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { classId, assignmentId } = useParams()
+  const [assignment, setAssignment] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const stateAssignment = location.state?.assignment
+    if (stateAssignment?.id && stateAssignment?.title) {
+      setAssignment(stateAssignment)
+      setLoading(false)
+      return
+    }
+
+    // Fetch full assignment data for title display
+    getAssignmentById(assignmentId).then(data => {
+      if (data) {
+        setAssignment(data)
+      } else {
+        navigate('/dashboard', { replace: true })
+      }
+      setLoading(false)
+    })
+  }, [assignmentId])
+
+  if (loading || !assignment) {
+    return <div className="loading-container"><div>Loading...</div></div>
+  }
+
+  return (
+    <RecordingPage
+      assignment={assignment}
+      studentId={currentStudentId}
+      onBack={() =>
+        navigate(
+          `/class/${classId}/assignment/${assignmentId}`,
+          { state: { assignment, classItem: location.state?.classItem } }
+        )
+      }
+    />
+  )
+}
+
+// Teacher: class page
+function TeacherClassRoute() {
+  const navigate = useNavigate()
+  const { className } = useParams()
+  const decodedClassName = decodeURIComponent(className)
+
+  return (
+    <ClassPage
+      className={decodedClassName}
+      onBack={() => navigate('/dashboard')}
+      onViewAssignment={(assignment) =>
+        navigate(
+          `/teacher/class/${className}/assignment/${assignment.id}`,
+          { state: { assignment } }
+        )
+      }
+      onViewStudent={(student) =>
+        navigate(
+          `/teacher/class/${className}/student/${student.id}`,
+          { state: { student } }
+        )
+      }
+    />
+  )
+}
+
+// Teacher: assignment detail page
+function TeacherAssignmentRoute() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { className, assignmentId } = useParams()
+  const [assignment, setAssignment] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const stateAssignment = location.state?.assignment
+    if (stateAssignment?.id && stateAssignment?.title) {
+      setAssignment(stateAssignment)
+      setLoading(false)
+      return
+    }
+
+    getAssignmentById(assignmentId).then(data => {
+      if (data) {
+        setAssignment(data)
+      } else {
+        navigate('/dashboard', { replace: true })
+      }
+      setLoading(false)
+    })
+  }, [assignmentId])
+
+  if (loading || !assignment) {
+    return <div className="loading-container"><div>Loading...</div></div>
+  }
+
+  return (
+    <AssignmentDetailPage
+      assignment={assignment}
+      onBack={() => navigate(`/teacher/class/${className}`)}
+      onViewStudent={(student) =>
+        navigate(
+          `/teacher/class/${className}/assignment/${assignmentId}/student/${student.id}`,
+          { state: { student, assignment } }
+        )
+      }
+    />
+  )
+}
+
+// Teacher: student detail page (from assignment context)
+function TeacherStudentFromAssignmentRoute() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { className, assignmentId, studentId } = useParams()
+  const [student, setStudent] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const stateStudent = location.state?.student
+    if (stateStudent?.id && stateStudent?.name) {
+      setStudent(stateStudent)
+      setLoading(false)
+      return
+    }
+
+    getStudentById(studentId).then(data => {
+      if (data) {
+        setStudent({ id: data.id, name: data.name, email: data.email })
+      } else {
+        navigate('/dashboard', { replace: true })
+      }
+      setLoading(false)
+    })
+  }, [studentId])
+
+  if (loading || !student) {
+    return <div className="loading-container"><div>Loading...</div></div>
+  }
+
+  return (
+    <StudentDetailPage
+      student={student}
+      onBack={() =>
+        navigate(
+          `/teacher/class/${className}/assignment/${assignmentId}`,
+          { state: { assignment: location.state?.assignment } }
+        )
+      }
+    />
+  )
+}
+
+// Teacher: student detail page (from class context, no assignment)
+function TeacherStudentFromClassRoute() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { className, studentId } = useParams()
+  const [student, setStudent] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const stateStudent = location.state?.student
+    if (stateStudent?.id && stateStudent?.name) {
+      setStudent(stateStudent)
+      setLoading(false)
+      return
+    }
+
+    getStudentById(studentId).then(data => {
+      if (data) {
+        setStudent({ id: data.id, name: data.name, email: data.email })
+      } else {
+        navigate('/dashboard', { replace: true })
+      }
+      setLoading(false)
+    })
+  }, [studentId])
+
+  if (loading || !student) {
+    return <div className="loading-container"><div>Loading...</div></div>
+  }
+
+  return (
+    <StudentDetailPage
+      student={student}
+      onBack={() => navigate(`/teacher/class/${className}`)}
+    />
+  )
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginRoute />} />
+
+      <Route element={<AuthLayout />}>
+        <Route path="/dashboard" element={<DashboardRoute />} />
+
+        {/* Student routes */}
+        <Route path="/class/:classId" element={<StudentAssignmentsRoute />} />
+        <Route path="/class/:classId/assignment/:assignmentId" element={<StudentAssignmentRoute />} />
+        <Route path="/class/:classId/assignment/:assignmentId/record" element={<RecordingRoute />} />
+
+        {/* Teacher routes */}
+        <Route path="/teacher/class/:className" element={<TeacherClassRoute />} />
+        <Route path="/teacher/class/:className/assignment/:assignmentId" element={<TeacherAssignmentRoute />} />
+        <Route path="/teacher/class/:className/assignment/:assignmentId/student/:studentId" element={<TeacherStudentFromAssignmentRoute />} />
+        <Route path="/teacher/class/:className/student/:studentId" element={<TeacherStudentFromClassRoute />} />
+      </Route>
+
+      {/* Catch-all redirect */}
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
   )
 }
 

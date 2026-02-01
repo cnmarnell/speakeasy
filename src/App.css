@@ -4278,3 +4278,596 @@
     justify-content: space-between;
   }
 }
+
+/* ===================================================================
+   Student Assignment Page - Redesigned (sap-redesign)
+   =================================================================== */
+
+.student-assignment-page.sap-redesign {
+  padding: 0;
+  height: auto;
+  min-height: calc(100vh - 80px);
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.sap-top-nav {
+  padding: 1.5rem 2rem 0;
+}
+
+.sap-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  color: #6366f1;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  transition: color 0.2s;
+}
+
+.sap-back-btn:hover {
+  color: #4f46e5;
+}
+
+.sap-back-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.sap-header {
+  padding: 1.5rem 2rem 0;
+}
+
+.sap-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 0.75rem 0;
+}
+
+.sap-description {
+  font-size: 1.05rem;
+  color: #64748b;
+  margin: 0 0 0.75rem 0;
+  line-height: 1.6;
+}
+
+.sap-due-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+}
+
+.sap-due-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Record CTA - prominent card for unsubmitted assignments */
+.sap-record-cta {
+  padding: 1.5rem 2rem;
+}
+
+.sap-record-cta-content {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  border-radius: 16px;
+  padding: 2rem;
+  color: white;
+}
+
+.sap-record-cta-icon {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sap-record-cta-icon svg {
+  width: 28px;
+  height: 28px;
+  stroke: white;
+}
+
+.sap-record-cta-text {
+  flex: 1;
+}
+
+.sap-record-cta-text h3 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.sap-record-cta-text p {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.9;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.sap-record-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: white;
+  color: #6366f1;
+  border: none;
+  border-radius: 12px;
+  padding: 0.85rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  white-space: nowrap;
+}
+
+.sap-record-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.sap-record-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Re-record bar for submitted assignments */
+.sap-rerecord-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 1.5rem 2rem;
+  padding: 1rem 1.5rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+}
+
+.sap-submitted-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: #16a34a;
+  font-size: 0.95rem;
+}
+
+.sap-submitted-badge svg {
+  width: 20px;
+  height: 20px;
+}
+
+.sap-rerecord-btn {
+  background: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1.2rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.sap-rerecord-btn:hover {
+  background: #4f46e5;
+  transform: translateY(-1px);
+}
+
+.sap-due-passed {
+  margin: 1.5rem 2rem;
+  padding: 1rem 1.5rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  color: #991b1b;
+  font-weight: 500;
+  text-align: center;
+}
+
+/* Feedback section */
+.sap-feedback-section {
+  padding: 0 2rem 2rem;
+}
+
+.sap-feedback-title {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 1.25rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.sap-feedback-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.sap-filler-card {
+  border-left: 4px solid #ef4444;
+}
+
+.sap-feedback-card-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #334155;
+  margin: 0 0 0.75rem 0;
+}
+
+.sap-feedback-card-content {
+  line-height: 1.6;
+}
+
+.sap-transcript-text {
+  color: #1e293b;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.sap-analysis-text {
+  color: #1e293b;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.sap-analysis-text strong {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.sap-delivery-result {
+  color: #1e293b;
+}
+
+.sap-processing-message {
+  color: #92400e;
+  background: #fffbeb;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.sap-placeholder {
+  color: #94a3b8;
+  font-style: italic;
+  margin: 0;
+}
+
+.sap-submission-time {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin: 0.75rem 0 0 0;
+}
+
+/* No feedback placeholder */
+.sap-no-feedback {
+  text-align: center;
+  padding: 3rem 2rem;
+  margin: 1rem 2rem 2rem;
+  background: #f8fafc;
+  border: 2px dashed #e2e8f0;
+  border-radius: 16px;
+}
+
+.sap-no-feedback-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  background: #ede9fe;
+  border-radius: 50%;
+  margin-bottom: 1rem;
+}
+
+.sap-no-feedback-icon svg {
+  width: 32px;
+  height: 32px;
+  stroke: #7c3aed;
+}
+
+.sap-no-feedback h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #334155;
+  margin: 0 0 0.5rem 0;
+}
+
+.sap-no-feedback p {
+  font-size: 0.95rem;
+  color: #64748b !important;
+  margin: 0;
+  max-width: 400px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sap-record-cta-content {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .sap-record-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .sap-rerecord-bar {
+    flex-direction: column;
+    gap: 0.75rem;
+    text-align: center;
+  }
+
+  .sap-rerecord-btn {
+    width: 100%;
+  }
+}
+
+
+/* ===================================================================
+   Recording Page - Redesigned (rp-redesign)
+   =================================================================== */
+
+.recording-page.rp-redesign {
+  padding: 0;
+  min-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  align-items: stretch;
+}
+
+.rp-top-nav {
+  padding: 1.5rem 2rem 0;
+}
+
+.rp-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  color: #6366f1;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  transition: color 0.2s;
+}
+
+.rp-back-btn:hover {
+  color: #4f46e5;
+}
+
+.rp-back-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.rp-header {
+  padding: 1rem 2rem 0;
+  text-align: center;
+}
+
+.rp-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 0.25rem 0;
+}
+
+.rp-subtitle {
+  font-size: 1rem;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Main recording area */
+.rp-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem 2rem 2rem;
+}
+
+.rp-camera-wrapper {
+  width: 100%;
+  max-width: 720px;
+  margin-bottom: 1.5rem;
+}
+
+.rp-camera-container {
+  position: relative;
+  width: 100%;
+  background-color: #0f172a;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.rp-camera-preview {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16/9;
+  display: block;
+}
+
+.rp-recording-indicator {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: rgba(220, 53, 69, 0.9);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+/* Controls directly under camera */
+.rp-controls {
+  width: 100%;
+  max-width: 720px;
+}
+
+.rp-initial-controls {
+  display: flex;
+  justify-content: center;
+}
+
+.rp-record-start-btn,
+.rp-record-stop-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 2.5rem;
+  border: none;
+  border-radius: 50px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.rp-record-start-btn {
+  background: #dc2626;
+  color: white;
+}
+
+.rp-record-start-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4);
+}
+
+.rp-record-start-btn:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
+.rp-record-start-btn svg,
+.rp-record-stop-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+.rp-record-stop-btn {
+  background: #475569;
+  color: white;
+}
+
+.rp-record-stop-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(71, 85, 105, 0.4);
+}
+
+.rp-post-controls {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.rp-rerecord-btn {
+  padding: 0.85rem 1.75rem;
+  border: 2px solid #e2e8f0;
+  background: white;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.rp-rerecord-btn:hover {
+  border-color: #6366f1;
+  color: #6366f1;
+}
+
+.rp-submit-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1.75rem;
+  border: none;
+  background: #22c55e;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.rp-submit-btn:hover:not(:disabled) {
+  background: #16a34a;
+  transform: translateY(-1px);
+}
+
+.rp-submit-btn:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
+.rp-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: rp-spin 0.8s linear infinite;
+}
+
+@keyframes rp-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .rp-main {
+    padding: 1rem;
+  }
+
+  .rp-post-controls {
+    flex-direction: column;
+  }
+
+  .rp-rerecord-btn,
+  .rp-submit-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

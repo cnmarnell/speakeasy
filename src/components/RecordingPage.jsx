@@ -154,74 +154,98 @@ function RecordingPage({ assignment, studentId, onBack }) {
   }
 
   return (
-    <div className="recording-page">
-      <div className="recording-header">
-        <h2 className="recording-title">Record Assignment: {assignment.title}</h2>
-        {assignment.description && (
-          <p className="recording-description">{assignment.description}</p>
-        )}
+    <div className="recording-page rp-redesign">
+      {/* Top navigation */}
+      <div className="rp-top-nav">
+        <button className="rp-back-btn" onClick={onBack}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5"/>
+            <path d="m12 19-7-7 7-7"/>
+          </svg>
+          Back to Assignment
+        </button>
       </div>
 
-      <div className="camera-section">
-        <div className="camera-container">
-          <video 
-            ref={videoRef}
-            className="camera-preview"
-            autoPlay
-            playsInline
-            muted
-          />
-          {isRecording && (
-            <div className="recording-indicator">
-              <div className="recording-dot"></div>
-              <span>Recording...</span>
+      {/* Header */}
+      <div className="rp-header">
+        <h2 className="rp-title">{assignment.title}</h2>
+        <p className="rp-subtitle">Record your presentation for AI analysis</p>
+      </div>
+
+      {/* Main recording area */}
+      <div className="rp-main">
+        {/* Camera preview */}
+        <div className="rp-camera-wrapper">
+          <div className="rp-camera-container">
+            <video 
+              ref={videoRef}
+              className="rp-camera-preview"
+              autoPlay
+              playsInline
+              muted
+            />
+            {isRecording && (
+              <div className="rp-recording-indicator">
+                <div className="recording-dot"></div>
+                <span>Recording...</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Controls directly under camera */}
+        <div className="rp-controls">
+          {!hasRecorded ? (
+            <div className="rp-initial-controls">
+              {!isRecording ? (
+                <button 
+                  className="rp-record-start-btn"
+                  onClick={startRecording}
+                  disabled={!mediaStream}
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="12" cy="12" r="8"/>
+                  </svg>
+                  Start Recording
+                </button>
+              ) : (
+                <button 
+                  className="rp-record-stop-btn"
+                  onClick={stopRecording}
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="6" y="6" width="12" height="12" rx="2"/>
+                  </svg>
+                  Stop Recording
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="rp-post-controls">
+              <button 
+                className="rp-rerecord-btn"
+                onClick={reRecord}
+              >
+                Re-record
+              </button>
+              <button 
+                className="rp-submit-btn"
+                onClick={sendForAnalysis}
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <>
+                    <div className="rp-spinner"></div>
+                    Processing with AI...
+                  </>
+                ) : (
+                  'Send for Analysis'
+                )}
+              </button>
             </div>
           )}
         </div>
       </div>
-
-      <div className="recording-controls">
-        {!hasRecorded ? (
-          <div className="initial-controls">
-            {!isRecording ? (
-              <button 
-                className="record-start-btn"
-                onClick={startRecording}
-                disabled={!mediaStream}
-              >
-                Start Recording
-              </button>
-            ) : (
-              <button 
-                className="record-stop-btn"
-                onClick={stopRecording}
-              >
-                Stop Recording
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="post-recording-controls">
-            <button 
-              className="re-record-btn"
-              onClick={reRecord}
-            >
-              Re-record
-            </button>
-            <button 
-              className="send-analysis-btn"
-              onClick={sendForAnalysis}
-              disabled={isProcessing}
-            >
-              {isProcessing ? 'Processing with AI...' : 'Send for Analysis'}
-            </button>
-          </div>
-        )}
-      </div>
-
-      <button className="back-btn" onClick={onBack}>
-        Back to Assignment
-      </button>
     </div>
   )
 }

@@ -401,6 +401,31 @@ export const getClassByName = async (name) => {
   return data
 }
 
+export const getClassById = async (classId) => {
+  const { data, error } = await supabase
+    .from('classes')
+    .select(`
+      id,
+      name,
+      description,
+      class_code,
+      teachers(name, email)
+    `)
+    .eq('id', classId)
+    .single()
+
+  if (error || !data) return null
+
+  return {
+    id: data.id,
+    name: data.name,
+    description: data.description,
+    classCode: data.class_code,
+    teacherName: data.teachers?.name,
+    teacherEmail: data.teachers?.email
+  }
+}
+
 export const getStudentGradesById = async (studentId) => {
   return await getStudentGrades(studentId)
 }
