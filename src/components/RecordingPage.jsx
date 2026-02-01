@@ -154,19 +154,29 @@ function RecordingPage({ assignment, studentId, onBack }) {
   }
 
   return (
-    <div className="recording-page">
-      <div className="recording-header">
-        <h2 className="recording-title">Record Assignment: {assignment.title}</h2>
-        {assignment.description && (
-          <p className="recording-description">{assignment.description}</p>
-        )}
+    <div className="recording-page rp-redesign">
+      {/* Back button at top */}
+      <div className="rp-top-nav">
+        <button className="rp-back-btn" onClick={onBack}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+            <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
+          </svg>
+          Back to Assignment
+        </button>
       </div>
 
-      <div className="camera-section">
-        <div className="camera-container">
+      {/* Title */}
+      <div className="rp-header">
+        <h2 className="rp-title">{assignment.title}</h2>
+        <p className="rp-subtitle">Record your presentation for AI analysis</p>
+      </div>
+
+      {/* Camera + controls block */}
+      <div className="rp-stage">
+        <div className="rp-camera-container">
           <video 
             ref={videoRef}
-            className="camera-preview"
+            className="rp-camera-preview"
             autoPlay
             playsInline
             muted
@@ -178,50 +188,46 @@ function RecordingPage({ assignment, studentId, onBack }) {
             </div>
           )}
         </div>
-      </div>
 
-      <div className="recording-controls">
-        {!hasRecorded ? (
-          <div className="initial-controls">
-            {!isRecording ? (
-              <button 
-                className="record-start-btn"
-                onClick={startRecording}
-                disabled={!mediaStream}
-              >
-                Start Recording
+        {/* Controls directly under camera */}
+        <div className="rp-controls">
+          {!hasRecorded ? (
+            <div className="rp-controls-row">
+              {!isRecording ? (
+                <button 
+                  className="rp-start-btn"
+                  onClick={startRecording}
+                  disabled={!mediaStream}
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><circle cx="12" cy="12" r="8"/></svg>
+                  Start Recording
+                </button>
+              ) : (
+                <button 
+                  className="rp-stop-btn"
+                  onClick={stopRecording}
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                  Stop Recording
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="rp-controls-row">
+              <button className="rp-redo-btn" onClick={reRecord}>
+                Re-record
               </button>
-            ) : (
               <button 
-                className="record-stop-btn"
-                onClick={stopRecording}
+                className="rp-submit-btn"
+                onClick={sendForAnalysis}
+                disabled={isProcessing}
               >
-                Stop Recording
+                {isProcessing ? 'Processing with AI...' : 'Send for Analysis'}
               </button>
-            )}
-          </div>
-        ) : (
-          <div className="post-recording-controls">
-            <button 
-              className="re-record-btn"
-              onClick={reRecord}
-            >
-              Re-record
-            </button>
-            <button 
-              className="send-analysis-btn"
-              onClick={sendForAnalysis}
-              disabled={isProcessing}
-            >
-              {isProcessing ? 'Processing with AI...' : 'Send for Analysis'}
-            </button>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
-
-      <button className="back-btn" onClick={onBack}>
-        Back to Assignment
-      </button>
     </div>
   )
 }
