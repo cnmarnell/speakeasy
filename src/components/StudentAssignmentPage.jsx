@@ -63,6 +63,20 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
         <p className="student-assignment-description">{assignmentData.description}</p>
       </div>
 
+      {canRecord && (
+        <div className="record-button-container">
+          <button className="record-btn" onClick={() => onViewRecording(assignmentData)}>
+            {isCompleted ? "Re-record" : "Record"}
+          </button>
+        </div>
+      )}
+
+      {!canRecord && (
+        <div className="record-button-container">
+          <p className="due-date-passed">Assignment due date has passed. Recording is no longer available.</p>
+        </div>
+      )}
+
       <div className="feedback-section">
         <h3 className="feedback-title">Your Speech Analysis:</h3>
         
@@ -157,20 +171,6 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
           </div>
         </div>
       </div>
-
-      {canRecord && (
-        <div className="record-button-container">
-          <button className="record-btn" onClick={() => onViewRecording(assignment)}>
-            {isCompleted ? "Re-record" : "Record"}
-          </button>
-        </div>
-      )}
-      
-      {!canRecord && (
-        <div className="record-button-container">
-          <p className="due-date-passed">Assignment due date has passed. Recording is no longer available.</p>
-        </div>
-      )}
 
       <button className="back-btn" onClick={onBack}>
         Back to Dashboard

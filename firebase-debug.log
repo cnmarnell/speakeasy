@@ -194,3 +194,17 @@
 [debug] [2026-01-11T14:53:33.952Z] > authorizing via signed-in user (collin.marnell@gmail.com)
 [debug] [2026-01-11T14:53:33.952Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
 [debug] [2026-01-11T14:53:33.952Z] > authorizing via signed-in user (collin.marnell@gmail.com)
+[debug] [2026-02-01T22:05:00.206Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-02-01T22:05:00.208Z] > authorizing via signed-in user (collin.marnell@gmail.com)
+[debug] [2026-02-01T22:05:00.208Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-02-01T22:05:00.208Z] > authorizing via signed-in user (collin.marnell@gmail.com)
+[debug] [2026-02-01T22:05:00.215Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-02-01T22:05:00.215Z] > authorizing via signed-in user (collin.marnell@gmail.com)
+[debug] [2026-02-01T22:05:00.236Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-02-01T22:05:00.236Z] > authorizing via signed-in user (collin.marnell@gmail.com)
+[debug] [2026-02-01T22:05:00.237Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-02-01T22:05:00.237Z] > authorizing via signed-in user (collin.marnell@gmail.com)
+[debug] [2026-02-01T22:05:00.237Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-02-01T22:05:00.237Z] > authorizing via signed-in user (collin.marnell@gmail.com)
+[debug] [2026-02-01T22:05:00.238Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-02-01T22:05:00.238Z] > authorizing via signed-in user (collin.marnell@gmail.com)

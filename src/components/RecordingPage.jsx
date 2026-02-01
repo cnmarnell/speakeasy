@@ -157,7 +157,9 @@ function RecordingPage({ assignment, studentId, onBack }) {
     <div className="recording-page">
       <div className="recording-header">
         <h2 className="recording-title">Record Assignment: {assignment.title}</h2>
-        <p className="recording-description">Record your presentation for analysis</p>
+        {assignment.description && (
+          <p className="recording-description">{assignment.description}</p>
+        )}
       </div>
 
       <div className="camera-section">
