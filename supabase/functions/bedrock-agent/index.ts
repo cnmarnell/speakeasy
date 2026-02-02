@@ -285,8 +285,9 @@ Deno.serve(async (req: Request) => {
     });
 
     // AWS Bedrock Runtime API endpoint for Claude Haiku 3.5
+    // Using cross-region inference profile (required for on-demand throughput)
     const endpoint = `https://bedrock-runtime.${awsRegion}.amazonaws.com`;
-    const url = `${endpoint}/model/anthropic.claude-3-5-haiku-20241022-v1:0/invoke`;
+    const url = `${endpoint}/model/us.anthropic.claude-3-5-haiku-20241022-v1:0/invoke`;
 
     // Prepare the request body for Claude Haiku 3.5
     const requestBody = {
