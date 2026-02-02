@@ -3580,29 +3580,29 @@
 
 /* Remove Student Button */
 .cp-remove-student-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
   border: none;
   border-radius: 6px;
-  background: #fee2e2;
-  color: #ef4444;
+  background: transparent;
+  color: #94a3b8;
   cursor: pointer;
   flex-shrink: 0;
   margin-left: auto;
+  padding: 0.35rem 0.75rem;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   transition: all 0.2s ease;
+  opacity: 0;
+}
+
+.cp-student-row:hover .cp-remove-student-btn {
+  opacity: 1;
 }
 
 .cp-remove-student-btn:hover {
-  background: #fca5a5;
-  color: #dc2626;
-}
-
-.cp-remove-student-btn svg {
-  width: 14px;
-  height: 14px;
+  background: #fee2e2;
+  color: #ef4444;
 }
 
 /* Back Button - inline (non-fixed) */
