@@ -43,8 +43,10 @@ Examples:
 ### 4. Quantitative Data (0 or 1)
 Strict binary check for numerical evidence. Even small numbers are better than none.
 
-**Score 1 if:** The response includes ANY number, percentage, dollar amount, or specific time frame. Do not deduct points if they only provide one metric. Do not deduct points if the metric is simple (e.g., "50%").
-**Score 0 if:** There are absolutely zero numbers mentioned.
+**Score 1 if:** The response includes ANY of the following: a number (written as digits OR spelled out like "thirty"), a percentage, a dollar amount, a time frame, a count, or any measurable quantity. Examples that MUST score 1: "30%", "fifty people", "two weeks", "three hundred dollars", "$500", "about thirty minutes", "doubled", "cut in half". Even ONE instance of any number anywhere in the transcript = score 1.
+**Score 0 if:** There are absolutely zero numbers or quantities mentioned anywhere in the entire transcript — no digits, no spelled-out numbers, no percentages, no time frames, nothing measurable at all.
+
+IMPORTANT: Carefully scan the ENTIRE transcript for ANY number before scoring 0. Numbers can appear as digits (30, 50%) OR as words (thirty, fifty percent). Both count equally.
 
 ## Example Responses
 
