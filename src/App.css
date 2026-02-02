@@ -3578,6 +3578,37 @@
   color: #6B6B6B;
 }
 
+/* Remove Student Button */
+.cp-remove-student-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  opacity: 0;
+}
+
+.cp-student-row:hover .cp-remove-student-btn {
+  opacity: 1;
+}
+
+.cp-remove-student-btn:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.cp-remove-student-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
 /* Back Button - inline (non-fixed) */
 .cp-back-btn-inline {
   display: inline-flex;

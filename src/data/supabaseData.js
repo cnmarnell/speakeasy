@@ -1882,6 +1882,111 @@ export const getStudentsByTeacher = async (teacherEmail) => {
   }
 }
 
+// Remove a student from a class
+export const removeStudentFromClass = async (studentId, className) => {
+  try {
+    // Get the class ID from name
+    const { data: classData, error: classError } = await supabase
+      .from('classes')
+      .select('id')
+      .eq('name', className)
+      .single()
+
+    if (classError || !classData) {
+      throw new Error('Class not found')
+    }
+
+    const classId = classData.id
+
+    // Step 1: Delete any submissions + grades + feedback for this student in this class's assignments
+    const { data: assignments } = await supabase
+      .from('assignments')
+      .select('id')
+      .eq('class_id', classId)
+
+    if (assignments && assignments.length > 0) {
+      const assignmentIds = assignments.map(a => a.id)
+
+      // Get submissions for this student in these assignments
+      const { data: submissions } = await supabase
+        .from('submissions')
+        .select('id')
+        .eq('student_id', studentId)
+        .in('assignment_id', assignmentIds)
+
+      if (submissions && submissions.length > 0) {
+        const submissionIds = submissions.map(s => s.id)
+
+        // Get grades
+        const { data: grades } = await supabase
+          .from('grades')
+          .select('id')
+          .in('submission_id', submissionIds)
+
+        if (grades && grades.length > 0) {
+          const gradeIds = grades.map(g => g.id)
+
+          // Delete feedback
+          await supabase
+            .from('feedback')
+            .delete()
+            .in('grade_id', gradeIds)
+
+          // Delete grades
+          await supabase
+            .from('grades')
+            .delete()
+            .in('submission_id', submissionIds)
+        }
+
+        // Delete queue entries
+        await supabase
+          .from('submission_queue')
+          .delete()
+          .in('submission_id', submissionIds)
+
+        // Delete submissions
+        await supabase
+          .from('submissions')
+          .delete()
+          .eq('student_id', studentId)
+          .in('assignment_id', assignmentIds)
+      }
+    }
+
+    // Step 2: Remove the class enrollment
+    const { error: enrollmentError } = await supabase
+      .from('class_enrollments')
+      .delete()
+      .eq('student_id', studentId)
+      .eq('class_id', classId)
+
+    if (enrollmentError) {
+      throw enrollmentError
+    }
+
+    // Step 3: Clear primary_class_id if this was their primary class
+    const { data: student } = await supabase
+      .from('students')
+      .select('primary_class_id')
+      .eq('id', studentId)
+      .single()
+
+    if (student && student.primary_class_id === classId) {
+      await supabase
+        .from('students')
+        .update({ primary_class_id: null })
+        .eq('id', studentId)
+    }
+
+    console.log(`Student ${studentId} removed from class ${className}`)
+    return { success: true }
+  } catch (error) {
+    console.error('Error removing student from class:', error)
+    throw error
+  }
+}
+
 // GRADING FUNCTIONS
 // Note: calculateStudentTotalGrade has been removed and integrated into getStudentsByClass for better performance
 
