@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import NewAssignmentModal from './NewAssignmentModal'
-import { getAssignmentsByClass, getStudentsByClass, createAssignment, deleteAssignment } from '../data/supabaseData'
+import { getAssignmentsByClass, getStudentsByClass, createAssignment, deleteAssignment, removeStudentFromClass } from '../data/supabaseData'
 
 function ClassPage({ className, onBack, onViewAssignment, onViewStudent }) {
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -73,6 +73,24 @@ function ClassPage({ className, onBack, onViewAssignment, onViewStudent }) {
     } catch (error) {
       console.error('Error deleting assignment:', error)
       alert('Failed to delete assignment. Please try again.')
+    }
+  }
+
+  const handleRemoveStudent = async (studentId, studentName) => {
+    const isConfirmed = window.confirm(
+      `Remove "${studentName}" from ${className}?\n\nThis will also delete all their submissions and grades for this class.\n\nThis action cannot be undone.`
+    )
+
+    if (!isConfirmed) return
+
+    try {
+      await removeStudentFromClass(studentId, className)
+      const updatedStudents = await getStudentsByClass(className)
+      setStudents(updatedStudents)
+      alert(`${studentName} has been removed from the class.`)
+    } catch (error) {
+      console.error('Error removing student:', error)
+      alert('Failed to remove student. Please try again.')
     }
   }
 
@@ -321,6 +339,19 @@ function ClassPage({ className, onBack, onViewAssignment, onViewStudent }) {
                     <span className="cp-student-grade">{student.overallGrade || 'N/A'}</span>
                     <span className="cp-student-submissions">{student.submissionCount || 0} submitted</span>
                   </div>
+                  <button
+                    className="cp-remove-student-btn"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleRemoveStudent(student.id, student.name)
+                    }}
+                    title="Remove student from class"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="18" y1="6" x2="6" y2="18"/>
+                      <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
                 </div>
               ))}
             </div>
