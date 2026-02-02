@@ -226,7 +226,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log('Nova Lite grading request received');
+    console.log('Claude Haiku 3.5 grading request received');
 
     // Get AWS credentials and system prompt from environment
     const awsAccessKeyId = Deno.env.get('AWS_ACCESS_KEY_ID');
@@ -279,43 +279,42 @@ Deno.serve(async (req: Request) => {
     // Build prompt from single source of truth (carPrompt.ts)
     const enhancedPrompt = buildCARPrompt(transcript);
 
-    console.log('Calling Nova Lite with CAR prompt...', {
+    console.log('Calling Claude Haiku 3.5 with CAR prompt...', {
       promptLength: enhancedPrompt.length,
       transcriptLength: transcript.length
     });
 
-    // AWS Bedrock Runtime API endpoint for Nova Lite
+    // AWS Bedrock Runtime API endpoint for Claude Haiku 3.5
     const endpoint = `https://bedrock-runtime.${awsRegion}.amazonaws.com`;
-    const url = `${endpoint}/model/amazon.nova-lite-v1:0/converse`;
+    const url = `${endpoint}/model/anthropic.claude-3-5-haiku-20241022-v1:0/invoke`;
 
-    // Prepare the request body for Nova Lite
-    const novaRequestBody = {
+    // Prepare the request body for Claude Haiku 3.5
+    const requestBody = {
+      anthropic_version: "bedrock-2023-05-31",
+      max_tokens: 1500,
       messages: [
         {
           role: "user",
-          content: [{ text: enhancedPrompt }]
+          content: enhancedPrompt
         }
       ],
-      inferenceConfig: {
-        maxTokens: 1500, // Increased for JSON response
-        temperature: 0.1,
-        topP: 0.9
-      }
+      temperature: 0.1,
+      top_p: 0.9
     };
 
-    // Create AWS signature for Nova Lite
+    // Create AWS signature for Claude Haiku 3.5
     const awsSignature = await createAWSSignature(
       'POST',
       url,
-      JSON.stringify(novaRequestBody),
+      JSON.stringify(requestBody),
       awsAccessKeyId,
       awsSecretAccessKey,
       awsRegion
     );
 
-    console.log('Calling Nova Lite API...');
+    console.log('Calling Claude Haiku 3.5 API...');
 
-    // Call Nova Lite
+    // Call Claude Haiku 3.5
     const novaResponse = await fetch(url, {
       method: 'POST',
       headers: {
@@ -324,14 +323,14 @@ Deno.serve(async (req: Request) => {
         'X-Amz-Date': awsSignature.amzDate,
         'Accept': 'application/json'
       },
-      body: JSON.stringify(novaRequestBody)
+      body: JSON.stringify(requestBody)
     });
 
-    console.log('Nova Lite response status:', novaResponse.status);
+    console.log('Claude Haiku 3.5 response status:', novaResponse.status);
 
     if (!novaResponse.ok) {
       const errorText = await novaResponse.text();
-      console.error('Nova Lite API error:', {
+      console.error('Claude Haiku 3.5 API error:', {
         status: novaResponse.status,
         statusText: novaResponse.statusText,
         error: errorText
@@ -339,10 +338,10 @@ Deno.serve(async (req: Request) => {
       
       return new Response(
         JSON.stringify({
-          speechContent: `Nova Lite API Error (${novaResponse.status}): ${errorText}`,
+          speechContent: `Claude Haiku 3.5 API Error (${novaResponse.status}): ${errorText}`,
           contentScore: 2,
           confidence: 0,
-          sources: ['Nova Lite API Error']
+          sources: ['Claude Haiku 3.5 API Error']
         }),
         {
           status: 200,
@@ -351,22 +350,22 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Parse Nova Lite response
-    const novaResponseData = await novaResponse.json();
-    console.log('Nova Lite response received');
+    // Parse Claude Haiku 3.5 response
+    const claudeResponseData = await novaResponse.json();
+    console.log('Claude Haiku 3.5 response received');
 
-    // Extract response text from Nova Lite response structure
-    const responseText = novaResponseData.output?.message?.content?.[0]?.text;
+    // Extract response text from Claude response structure
+    const responseText = claudeResponseData.content?.[0]?.text;
     
     if (!responseText || responseText.trim().length === 0) {
-      console.warn('No content received from Nova Lite');
+      console.warn('No content received from Claude Haiku 3.5');
       
       return new Response(
         JSON.stringify({
-          speechContent: 'Nova Lite returned empty response',
+          speechContent: 'Claude Haiku 3.5 returned empty response',
           contentScore: 2,
           confidence: 0,
-          sources: ['Nova Lite - Empty Response']
+          sources: ['Claude Haiku 3.5 - Empty Response']
         }),
         {
           status: 200,
@@ -375,7 +374,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log('Nova Lite response text:', responseText.substring(0, 300) + '...');
+    console.log('Claude Haiku 3.5 response text:', responseText.substring(0, 300) + '...');
 
     // Try to parse as structured JSON first
     const structuredGrading = parseStructuredResponse(responseText);
@@ -398,7 +397,7 @@ Deno.serve(async (req: Request) => {
         speechContent: feedbackText,
         contentScore: structuredGrading.total,
         confidence: 0.98, // High confidence for structured parsing
-        sources: ['AWS Nova Lite Model (structured JSON)'],
+        sources: ['Claude Haiku 3.5 (structured JSON)'],
         structuredGrading: structuredGrading
       };
     } else {
@@ -411,8 +410,8 @@ Deno.serve(async (req: Request) => {
         contentScore: legacyScore !== null ? legacyScore : 2,
         confidence: legacyScore !== null ? 0.85 : 0.6,
         sources: legacyScore !== null 
-          ? ['AWS Nova Lite Model (legacy text extraction)']
-          : ['AWS Nova Lite Model (default fallback)']
+          ? ['AWS Claude Haiku 3.5 Model (legacy text extraction)']
+          : ['AWS Claude Haiku 3.5 Model (default fallback)']
       };
     }
 
@@ -431,14 +430,14 @@ Deno.serve(async (req: Request) => {
     });
 
   } catch (error) {
-    console.error('Nova Lite placeholder error:', error);
+    console.error('Claude Haiku 3.5 placeholder error:', error);
 
     return new Response(
       JSON.stringify({
-        speechContent: `Error processing with Nova Lite: ${error.message}`,
+        speechContent: `Error processing with Claude Haiku 3.5: ${error.message}`,
         contentScore: 2, // Default fallback score
         confidence: 0,
-        sources: ['Nova Lite Processing Error']
+        sources: ['Claude Haiku 3.5 Processing Error']
       }),
       {
         status: 200,
