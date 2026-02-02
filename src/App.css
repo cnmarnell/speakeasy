@@ -3587,21 +3587,17 @@
   height: 28px;
   border: none;
   border-radius: 6px;
-  background: transparent;
-  color: #94a3b8;
+  background: #fee2e2;
+  color: #ef4444;
   cursor: pointer;
   flex-shrink: 0;
+  margin-left: auto;
   transition: all 0.2s ease;
-  opacity: 0;
-}
-
-.cp-student-row:hover .cp-remove-student-btn {
-  opacity: 1;
 }
 
 .cp-remove-student-btn:hover {
-  background: #fee2e2;
-  color: #ef4444;
+  background: #fca5a5;
+  color: #dc2626;
 }
 
 .cp-remove-student-btn svg {
