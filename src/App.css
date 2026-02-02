@@ -98,7 +98,6 @@
   padding: 0;
   width: 100%;
   min-height: 100vh;
-  overflow-y: auto;
 }
 
 /* Header - Theatrical Design */
@@ -110,7 +109,8 @@
   width: 100%;
   box-sizing: border-box;
   box-shadow: 0 4px 20px rgba(139, 21, 56, 0.3);
-  overflow: hidden;
+  overflow: visible;
+  z-index: 10;
 }
 
 .header-content {
@@ -356,11 +356,11 @@
 .teacher-dashboard {
   padding: 4rem;
   text-align: center;
-  height: calc(100vh - 80px);
+  min-height: calc(100vh - 80px);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  width: 100vw;
+  width: 100%;
   box-sizing: border-box;
 }
 
