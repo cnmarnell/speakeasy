@@ -74,7 +74,23 @@ export function AppProvider({ children }) {
   }
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    try {
+      console.log('Logging out...')
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        console.error('Sign out error:', error)
+        // Force clear state even if signOut API fails
+        setUser(null)
+        setUserRole(null)
+        setCurrentStudentId(null)
+      }
+    } catch (err) {
+      console.error('Logout failed:', err)
+      // Force clear state on any error
+      setUser(null)
+      setUserRole(null)
+      setCurrentStudentId(null)
+    }
   }
 
   return (
