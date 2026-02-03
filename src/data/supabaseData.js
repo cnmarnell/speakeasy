@@ -128,17 +128,28 @@ export const getStudentsByClass = async (className) => {
 }
 
 // Fetch student grades by student ID
-export const getStudentGrades = async (studentId) => {
-  const { data, error } = await supabase
+export const getStudentGrades = async (studentId, className = null) => {
+  let query = supabase
     .from('grades')
     .select(`
       *,
       submissions!inner(
         student_id,
-        assignments(id, title)
+        assignments!inner(
+          id,
+          title,
+          classes!inner(name)
+        )
       )
     `)
     .eq('submissions.student_id', studentId)
+  
+  // Filter by class name if provided
+  if (className) {
+    query = query.eq('submissions.assignments.classes.name', className)
+  }
+
+  const { data, error } = await query
   
   if (error) {
     console.error('Error fetching student grades:', error)
@@ -426,8 +437,8 @@ export const getClassById = async (classId) => {
   }
 }
 
-export const getStudentGradesById = async (studentId) => {
-  return await getStudentGrades(studentId)
+export const getStudentGradesById = async (studentId, className = null) => {
+  return await getStudentGrades(studentId, className)
 }
 
 export const getStudentAssignmentStatus = async (studentId, assignmentId) => {
