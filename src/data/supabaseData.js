@@ -1082,7 +1082,7 @@ export const createSubmission = async (submissionData, videoBlob = null, assignm
           filler_word_counts: fillerWordCounts,
           filler_word_weight: 0.2,
           speech_content_weight: 0.8,
-          content_score_max: 3
+          content_score_max: 4
         }])
         .select()
         .single()
@@ -1403,7 +1403,7 @@ const runBackgroundAI = async (submissionId, videoBlob, assignmentTitle, assignm
         filler_word_counts: fillerWordCounts,
         filler_word_weight: 0.2,
         speech_content_weight: 0.8,
-        content_score_max: 3
+        content_score_max: 4
       }]).select().single()
 
       if (gradeError) throw gradeError
