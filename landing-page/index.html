@@ -189,10 +189,16 @@
         .hero {
             position: relative;
             min-height: 100vh;
-            display: flex;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             align-items: center;
+            gap: 40px;
             padding: 120px 0 80px;
             overflow: hidden;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding-left: 24px;
+            padding-right: 24px;
         }
         .hero::before {
             content: '';
@@ -392,12 +398,8 @@
 
         /* Hero visual */
         .hero-visual {
-            position: absolute;
-            right: 5%;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 40%;
-            max-width: 500px;
+            position: relative;
+            width: 100%;
             z-index: 1;
             animation: fadeInUp 1s var(--ease-out-expo) 0.8s both;
         }
@@ -1093,6 +1095,10 @@
 
         /* ========== RESPONSIVE ========== */
         @media (max-width: 1024px) {
+            .hero {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
             .hero-visual {
                 display: none;
             }
@@ -1203,7 +1209,6 @@
         <div class="orb orb-1"></div>
         <div class="orb orb-2"></div>
         <div class="orb orb-3"></div>
-        <div class="container">
             <div class="hero-content">
                 <div class="hero-badge">
                     <span class="hero-badge-dot"></span>
@@ -1222,7 +1227,6 @@
                     </a>
                 </div>
             </div>
-        </div>
         <div class="hero-visual">
             <div class="hero-mockup">
                 <div class="mockup-header">
