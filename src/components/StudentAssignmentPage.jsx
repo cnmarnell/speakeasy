@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
-import { getAssignmentById, getAssignmentFeedback, getStudentAssignmentStatus } from '../data/supabaseData'
+import { getAssignmentById, getAssignmentFeedback, getStudentAssignmentStatus, getStudentGradeForAssignment } from '../data/supabaseData'
 
 function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording }) {
   const [assignmentData, setAssignmentData] = useState(null)
   const [studentStatus, setStudentStatus] = useState('Not Started')
   const [feedback, setFeedback] = useState(null)
+  const [gradeData, setGradeData] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -15,15 +16,17 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
           return
         }
 
-        const [assignmentInfo, status, feedbackInfo] = await Promise.all([
+        const [assignmentInfo, status, feedbackInfo, grade] = await Promise.all([
           getAssignmentById(assignment.id),
           getStudentAssignmentStatus(studentId, assignment.id),
-          getAssignmentFeedback(assignment.id, studentId)
+          getAssignmentFeedback(assignment.id, studentId),
+          getStudentGradeForAssignment(studentId, assignment.id)
         ])
 
         setAssignmentData(assignmentInfo)
         setStudentStatus(status)
         setFeedback(feedbackInfo)
+        setGradeData(grade)
       } catch (error) {
         console.error('Error fetching assignment data:', error)
       } finally {
@@ -136,6 +139,38 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
       {hasSubmission ? (
         <div className="sap-feedback-section">
           <h3 className="sap-feedback-title">Your Speech Analysis</h3>
+
+          {/* Grade Summary Card */}
+          {isCompleted && gradeData && (
+            <div className="sap-grade-summary">
+              <div className="sap-grade-main">
+                <div className="sap-grade-circle">
+                  <span className="sap-grade-letter">{gradeData.letterGrade}</span>
+                  <span className="sap-grade-score">{gradeData.totalScore}/100</span>
+                </div>
+                <div className="sap-grade-details">
+                  <h4>Overall Grade</h4>
+                  <div className="sap-grade-breakdown">
+                    <div className="sap-grade-item">
+                      <span className="sap-grade-item-label">Speech Content</span>
+                      <span className="sap-grade-item-value">{gradeData.speechContentScore}/{gradeData.contentScoreMax}</span>
+                      <div className="sap-grade-bar">
+                        <div className="sap-grade-bar-fill" style={{width: `${(gradeData.speechContentScore / gradeData.contentScoreMax) * 100}%`}}></div>
+                      </div>
+                    </div>
+                    <div className="sap-grade-item">
+                      <span className="sap-grade-item-label">Filler Words</span>
+                      <span className="sap-grade-item-value">{gradeData.fillerWordScore}/20</span>
+                      <div className="sap-grade-bar">
+                        <div className="sap-grade-bar-fill sap-grade-bar-gold" style={{width: `${(gradeData.fillerWordScore / 20) * 100}%`}}></div>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="sap-grade-formula">Final = 80% content + 20% filler words</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Transcript */}
           <div className="sap-feedback-card">

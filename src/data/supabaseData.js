@@ -1706,7 +1706,9 @@ export const getAssignmentsForStudent = async (studentId) => {
 // Get assignments for a specific class for a student
 export const getAssignmentsForStudentInClass = async (studentId, classId) => {
   try {
-    // Query 1: Fetch all assignments for the class
+    console.log(`[getAssignmentsForStudentInClass] Fetching assignments for student ${studentId} in class ${classId}`)
+    
+    // Query 1: Fetch all assignments for this specific class only
     const { data: assignments, error: assignmentsError } = await supabase
       .from('assignments')
       .select(`
@@ -1715,6 +1717,7 @@ export const getAssignmentsForStudentInClass = async (studentId, classId) => {
         description,
         due_date,
         max_duration_seconds,
+        class_id,
         classes!inner(
           id,
           name
@@ -1722,6 +1725,8 @@ export const getAssignmentsForStudentInClass = async (studentId, classId) => {
       `)
       .eq('class_id', classId)
       .order('due_date', { ascending: true })
+    
+    console.log(`[getAssignmentsForStudentInClass] Found ${assignments?.length || 0} assignments for class ${classId}`, assignments?.map(a => ({ id: a.id, title: a.title, class_id: a.class_id })))
 
     if (assignmentsError) {
       throw assignmentsError
@@ -1984,6 +1989,57 @@ export const removeStudentFromClass = async (studentId, className) => {
   } catch (error) {
     console.error('Error removing student from class:', error)
     throw error
+  }
+}
+
+// Get student's grade for a specific assignment
+export const getStudentGradeForAssignment = async (studentId, assignmentId) => {
+  try {
+    const { data, error } = await supabase
+      .from('submissions')
+      .select(`
+        id,
+        status,
+        submitted_at,
+        grades(
+          total_score,
+          speech_content_score,
+          content_score_max,
+          filler_word_count,
+          filler_word_score,
+          filler_words_used,
+          filler_word_counts,
+          filler_words_per_minute,
+          filler_category_breakdown,
+          graded_at
+        )
+      `)
+      .eq('student_id', studentId)
+      .eq('assignment_id', assignmentId)
+      .single()
+
+    if (error || !data) return null
+
+    const grade = data.grades?.[0]
+    if (!grade) return null
+
+    return {
+      totalScore: grade.total_score,
+      speechContentScore: grade.speech_content_score,
+      contentScoreMax: grade.content_score_max || 4,
+      fillerWordCount: grade.filler_word_count,
+      fillerWordScore: grade.filler_word_score,
+      fillerWordsUsed: grade.filler_words_used || [],
+      fillerWordCounts: grade.filler_word_counts || {},
+      fillersPerMinute: grade.filler_words_per_minute || 0,
+      categoryBreakdown: grade.filler_category_breakdown || {},
+      gradedAt: grade.graded_at,
+      submittedAt: data.submitted_at,
+      letterGrade: getLetterGrade(grade.total_score)
+    }
+  } catch (error) {
+    console.error('Error fetching student grade for assignment:', error)
+    return null
   }
 }
 
