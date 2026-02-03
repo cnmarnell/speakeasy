@@ -296,6 +296,7 @@ function TeacherStudentFromAssignmentRoute() {
   return (
     <StudentDetailPage
       student={student}
+      className={decodeURIComponent(className)}
       onBack={() =>
         navigate(
           `/teacher/class/${className}/assignment/${assignmentId}`,
@@ -339,6 +340,7 @@ function TeacherStudentFromClassRoute() {
   return (
     <StudentDetailPage
       student={student}
+      className={decodeURIComponent(className)}
       onBack={() => navigate(`/teacher/class/${className}`)}
     />
   )
