@@ -11,7 +11,7 @@ function StudentDetailPage({ student, onBack, className }) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const gradeData = await getStudentGradesById(student.id)
+        const gradeData = await getStudentGradesById(student.id, className || null)
         setStudentGrades(gradeData)
       } catch (error) {
         console.error('Error fetching student data:', error)
@@ -21,7 +21,7 @@ function StudentDetailPage({ student, onBack, className }) {
     }
 
     fetchData()
-  }, [student.id])
+  }, [student.id, className])
 
   if (loading) {
     return (
