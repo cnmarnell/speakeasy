@@ -3,6 +3,151 @@ import { transcribeWithDeepgram } from '../lib/deepgram'
 import { analyzeSpeechWithBedrockAgent } from '../lib/bedrockAgent'
 import { analyzeFillerWords, getFillerWordScore } from '../lib/fillerWordAnalysis'
 
+// Default demo class configuration
+const DEFAULT_CLASS_CONFIG = {
+  className: 'Career Practice',
+  classDescription: 'Practice your soft skills with AI-powered feedback',
+  teacherName: 'Sarah Johnson',
+  teacherEmail: 'sarah.johnson@speakeasy.demo'
+}
+
+// Get or create the default demo teacher (Sarah Johnson)
+const getOrCreateDefaultTeacher = async () => {
+  try {
+    // Check if Sarah Johnson exists
+    let { data: teacher, error: fetchError } = await supabase
+      .from('teachers')
+      .select('id, name, email')
+      .eq('email', DEFAULT_CLASS_CONFIG.teacherEmail)
+      .single()
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      // Real error (not just "no rows")
+      console.error('Error fetching default teacher:', fetchError)
+      throw fetchError
+    }
+
+    if (!teacher) {
+      // Create Sarah Johnson
+      console.log('[Auto-Enroll] Creating default teacher: Sarah Johnson')
+      const { data: newTeacher, error: createError } = await supabase
+        .from('teachers')
+        .insert([{
+          name: DEFAULT_CLASS_CONFIG.teacherName,
+          email: DEFAULT_CLASS_CONFIG.teacherEmail
+        }])
+        .select()
+        .single()
+
+      if (createError) {
+        console.error('Error creating default teacher:', createError)
+        throw createError
+      }
+      teacher = newTeacher
+    }
+
+    return teacher
+  } catch (error) {
+    console.error('[Auto-Enroll] Failed to get/create default teacher:', error)
+    throw error
+  }
+}
+
+// Get or create the default demo class (Career Practice)
+const getOrCreateDefaultClass = async () => {
+  try {
+    // Check if Career Practice class exists
+    let { data: existingClass, error: fetchError } = await supabase
+      .from('classes')
+      .select('id, name, class_code, teacher_id')
+      .eq('name', DEFAULT_CLASS_CONFIG.className)
+      .single()
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error('Error fetching default class:', fetchError)
+      throw fetchError
+    }
+
+    if (existingClass) {
+      return existingClass
+    }
+
+    // Class doesn't exist, create it
+    console.log('[Auto-Enroll] Creating default class: Career Practice')
+    
+    // First ensure we have Sarah Johnson as teacher
+    const teacher = await getOrCreateDefaultTeacher()
+
+    // Create the class
+    const { data: newClass, error: createError } = await supabase
+      .from('classes')
+      .insert([{
+        name: DEFAULT_CLASS_CONFIG.className,
+        description: DEFAULT_CLASS_CONFIG.classDescription,
+        teacher_id: teacher.id
+      }])
+      .select('id, name, class_code, teacher_id')
+      .single()
+
+    if (createError) {
+      console.error('Error creating default class:', createError)
+      throw createError
+    }
+
+    console.log(`[Auto-Enroll] Created Career Practice class with code: ${newClass.class_code}`)
+    return newClass
+  } catch (error) {
+    console.error('[Auto-Enroll] Failed to get/create default class:', error)
+    throw error
+  }
+}
+
+// Auto-enroll a student in the default Career Practice class
+const autoEnrollInDefaultClass = async (studentId) => {
+  try {
+    // Get or create the Career Practice class
+    const defaultClass = await getOrCreateDefaultClass()
+
+    // Check if student is already enrolled
+    const { data: existingEnrollment, error: checkError } = await supabase
+      .from('class_enrollments')
+      .select('id')
+      .eq('student_id', studentId)
+      .eq('class_id', defaultClass.id)
+      .single()
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error('Error checking existing enrollment:', checkError)
+      throw checkError
+    }
+
+    if (existingEnrollment) {
+      console.log(`[Auto-Enroll] Student ${studentId} already enrolled in Career Practice`)
+      return { success: true, alreadyEnrolled: true }
+    }
+
+    // Enroll the student
+    const { error: enrollError } = await supabase
+      .from('class_enrollments')
+      .insert([{
+        student_id: studentId,
+        class_id: defaultClass.id
+      }])
+
+    if (enrollError) {
+      console.error('Error auto-enrolling student:', enrollError)
+      throw enrollError
+    }
+
+    console.log(`[Auto-Enroll] Student ${studentId} enrolled in Career Practice (class code: ${defaultClass.class_code})`)
+    return { success: true, className: defaultClass.name, classCode: defaultClass.class_code }
+  } catch (error) {
+    console.error('[Auto-Enroll] Failed to auto-enroll student:', error)
+    // Don't throw - auto-enrollment failure shouldn't block signup
+    return { success: false, error: error.message }
+  }
+}
+
 // Create user profile in students or teachers table after signup
 export const createUserProfile = async (email, name, accountType) => {
   const table = accountType === 'teacher' ? 'teachers' : 'students'
@@ -16,6 +161,15 @@ export const createUserProfile = async (email, name, accountType) => {
   if (error) {
     console.error(`Error creating ${accountType} profile:`, error)
     throw error
+  }
+
+  // Auto-enroll students in the Career Practice class
+  if (accountType === 'student' && data.id) {
+    console.log(`[Auto-Enroll] New student signed up: ${name} (${email})`)
+    const enrollResult = await autoEnrollInDefaultClass(data.id)
+    if (enrollResult.success) {
+      console.log(`[Auto-Enroll] Successfully enrolled ${name} in ${enrollResult.className || 'Career Practice'}`)
+    }
   }
 
   return data
