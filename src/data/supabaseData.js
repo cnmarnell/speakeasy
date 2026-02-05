@@ -3,110 +3,45 @@ import { transcribeWithDeepgram } from '../lib/deepgram'
 import { analyzeSpeechWithBedrockAgent } from '../lib/bedrockAgent'
 import { analyzeFillerWords, getFillerWordScore } from '../lib/fillerWordAnalysis'
 
-// Default demo class configuration
-const DEFAULT_CLASS_CONFIG = {
-  className: 'Career Practice',
-  classDescription: 'Practice your soft skills with AI-powered feedback',
-  teacherName: 'Sarah Johnson',
-  teacherEmail: 'sarah.johnson@speakeasy.demo'
-}
+// Default demo class name (seeded via database migration)
+const DEFAULT_CLASS_NAME = 'Career Practice'
 
-// Get or create the default demo teacher (Sarah Johnson)
-const getOrCreateDefaultTeacher = async () => {
+// Get the default Career Practice class (must exist in database via migration)
+const getDefaultClass = async () => {
   try {
-    // Check if Sarah Johnson exists
-    let { data: teacher, error: fetchError } = await supabase
-      .from('teachers')
-      .select('id, name, email')
-      .eq('email', DEFAULT_CLASS_CONFIG.teacherEmail)
-      .single()
-
-    if (fetchError && fetchError.code !== 'PGRST116') {
-      // Real error (not just "no rows")
-      console.error('Error fetching default teacher:', fetchError)
-      throw fetchError
-    }
-
-    if (!teacher) {
-      // Create Sarah Johnson
-      console.log('[Auto-Enroll] Creating default teacher: Sarah Johnson')
-      const { data: newTeacher, error: createError } = await supabase
-        .from('teachers')
-        .insert([{
-          name: DEFAULT_CLASS_CONFIG.teacherName,
-          email: DEFAULT_CLASS_CONFIG.teacherEmail
-        }])
-        .select()
-        .single()
-
-      if (createError) {
-        console.error('Error creating default teacher:', createError)
-        throw createError
-      }
-      teacher = newTeacher
-    }
-
-    return teacher
-  } catch (error) {
-    console.error('[Auto-Enroll] Failed to get/create default teacher:', error)
-    throw error
-  }
-}
-
-// Get or create the default demo class (Career Practice)
-const getOrCreateDefaultClass = async () => {
-  try {
-    // Check if Career Practice class exists
-    let { data: existingClass, error: fetchError } = await supabase
+    const { data: defaultClass, error: fetchError } = await supabase
       .from('classes')
       .select('id, name, class_code, teacher_id')
-      .eq('name', DEFAULT_CLASS_CONFIG.className)
+      .eq('name', DEFAULT_CLASS_NAME)
       .single()
 
-    if (fetchError && fetchError.code !== 'PGRST116') {
+    if (fetchError) {
+      if (fetchError.code === 'PGRST116') {
+        // Class doesn't exist - needs migration
+        console.warn('[Auto-Enroll] Career Practice class not found. Run the database migration: 20260205000001_seed_career_practice_class.sql')
+        return null
+      }
       console.error('Error fetching default class:', fetchError)
       throw fetchError
     }
 
-    if (existingClass) {
-      return existingClass
-    }
-
-    // Class doesn't exist, create it
-    console.log('[Auto-Enroll] Creating default class: Career Practice')
-    
-    // First ensure we have Sarah Johnson as teacher
-    const teacher = await getOrCreateDefaultTeacher()
-
-    // Create the class
-    const { data: newClass, error: createError } = await supabase
-      .from('classes')
-      .insert([{
-        name: DEFAULT_CLASS_CONFIG.className,
-        description: DEFAULT_CLASS_CONFIG.classDescription,
-        teacher_id: teacher.id
-      }])
-      .select('id, name, class_code, teacher_id')
-      .single()
-
-    if (createError) {
-      console.error('Error creating default class:', createError)
-      throw createError
-    }
-
-    console.log(`[Auto-Enroll] Created Career Practice class with code: ${newClass.class_code}`)
-    return newClass
+    return defaultClass
   } catch (error) {
-    console.error('[Auto-Enroll] Failed to get/create default class:', error)
-    throw error
+    console.error('[Auto-Enroll] Failed to get default class:', error)
+    return null
   }
 }
 
 // Auto-enroll a student in the default Career Practice class
 const autoEnrollInDefaultClass = async (studentId) => {
   try {
-    // Get or create the Career Practice class
-    const defaultClass = await getOrCreateDefaultClass()
+    // Get the Career Practice class (must exist via migration)
+    const defaultClass = await getDefaultClass()
+    
+    if (!defaultClass) {
+      console.warn('[Auto-Enroll] Skipping auto-enrollment - Career Practice class not found')
+      return { success: false, error: 'Default class not configured' }
+    }
 
     // Check if student is already enrolled
     const { data: existingEnrollment, error: checkError } = await supabase
