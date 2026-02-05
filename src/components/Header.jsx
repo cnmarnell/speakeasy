@@ -1,4 +1,14 @@
+import { useTutorial } from '../contexts/TutorialContext'
+
 function Header({ user, userRole, onLogout }) {
+  // Tutorial hook - will be null for teachers since TutorialProvider only wraps students
+  let tutorial = null
+  try {
+    tutorial = useTutorial()
+  } catch (e) {
+    // Not in TutorialProvider context (teacher view)
+  }
+
   return (
     <header className="header-banner">
       <div className="header-content">
@@ -18,6 +28,20 @@ function Header({ user, userRole, onLogout }) {
         </div>
         {user && (
           <div className="header-user-info">
+            {tutorial && userRole === 'student' && (
+              <button 
+                className="tutorial-replay-button" 
+                onClick={tutorial.restartTutorial}
+                title="Replay Tutorial"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M12 16v-4"/>
+                  <path d="M12 8h.01"/>
+                </svg>
+                <span>Help</span>
+              </button>
+            )}
             <div className="user-details">
               <span className="user-email">{user.email}</span>
               <span className="user-role">{userRole === 'teacher' ? 'Instructor' : 'Student'}</span>

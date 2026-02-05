@@ -198,6 +198,33 @@
   text-transform: uppercase;
 }
 
+.tutorial-replay-button {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  color: rgba(255, 248, 231, 0.7);
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  padding: 0.4rem 0.75rem;
+  border-radius: 4px;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tutorial-replay-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.tutorial-replay-button:hover {
+  background: rgba(212, 175, 55, 0.15);
+  color: #FFF8E7;
+  border-color: rgba(212, 175, 55, 0.4);
+}
+
 .logout-button {
   display: flex;
   align-items: center;

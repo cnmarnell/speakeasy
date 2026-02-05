@@ -143,7 +143,7 @@ const StudentDashboard = ({ user, selectedClass, onAssignmentSelect, onBackToCla
             </p>
           </div>
           <div className="header-actions">
-            <div className="header-stats">
+            <div className="header-stats" data-tutorial="stats">
               <div className="stat-card">
                 <span className="stat-value">{stats.total}</span>
                 <span className="stat-label">Total</span>
@@ -229,6 +229,7 @@ const StudentDashboard = ({ user, selectedClass, onAssignmentSelect, onBackToCla
                   className={`assignment-card status-${status}`}
                   onClick={() => onAssignmentSelect(assignment)}
                   style={{'--card-delay': `${index * 0.05}s`}}
+                  {...(index === 0 ? { 'data-tutorial': 'assignment-card' } : {})}
                 >
                   <div className="assignment-card-left">
                     <div className="assignment-icon">
