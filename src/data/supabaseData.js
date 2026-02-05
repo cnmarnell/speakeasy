@@ -6,20 +6,32 @@ import { analyzeFillerWords, getFillerWordScore } from '../lib/fillerWordAnalysi
 // Career Practice class configuration
 // This class is owned by Sarah Johnson and used for new user onboarding
 const CAREER_PRACTICE_CLASS = {
-  id: 'c80eec9a-b35f-4035-9ce4-fac22db082f0',
+  id: null, // Will be set after class is created
   name: 'Career Practice',
-  teacherId: '428f3963-51df-409c-8b71-6284a10fbee7' // Sarah Johnson
+  teacherId: 'd3d70418-0540-4401-a415-6a43f1ceeb1a' // Sarah Johnson
 }
 
 // Auto-enroll a student in the Career Practice class
 const autoEnrollInDefaultClass = async (studentId) => {
   try {
+    // Look up Career Practice class by name
+    const { data: careerPracticeClass, error: classError } = await supabase
+      .from('classes')
+      .select('id, name')
+      .eq('name', CAREER_PRACTICE_CLASS.name)
+      .single()
+
+    if (classError || !careerPracticeClass) {
+      console.warn('[Auto-Enroll] Career Practice class not found in database')
+      return { success: false, error: 'Career Practice class not found' }
+    }
+
     // Check if student is already enrolled
     const { data: existingEnrollment, error: checkError } = await supabase
       .from('class_enrollments')
       .select('id')
       .eq('student_id', studentId)
-      .eq('class_id', CAREER_PRACTICE_CLASS.id)
+      .eq('class_id', careerPracticeClass.id)
       .single()
 
     if (checkError && checkError.code !== 'PGRST116') {
@@ -37,7 +49,7 @@ const autoEnrollInDefaultClass = async (studentId) => {
       .from('class_enrollments')
       .insert([{
         student_id: studentId,
-        class_id: CAREER_PRACTICE_CLASS.id
+        class_id: careerPracticeClass.id
       }])
 
     if (enrollError) {
@@ -45,8 +57,8 @@ const autoEnrollInDefaultClass = async (studentId) => {
       throw enrollError
     }
 
-    console.log(`[Auto-Enroll] Student ${studentId} enrolled in ${CAREER_PRACTICE_CLASS.name}`)
-    return { success: true, className: CAREER_PRACTICE_CLASS.name }
+    console.log(`[Auto-Enroll] Student ${studentId} enrolled in ${careerPracticeClass.name}`)
+    return { success: true, className: careerPracticeClass.name }
   } catch (error) {
     console.error('[Auto-Enroll] Failed to auto-enroll student:', error)
     // Don't throw - auto-enrollment failure shouldn't block signup
