@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { getEnrolledClasses, joinClassByCode } from '../data/supabaseData'
 import JoinClass from './JoinClass'
+import StudentTutorial from './StudentTutorial'
 import './StudentDashboard.css'
 
 const StudentClassesPage = ({ user, onClassSelect }) => {
@@ -8,6 +9,7 @@ const StudentClassesPage = ({ user, onClassSelect }) => {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [showJoinClass, setShowJoinClass] = useState(false)
+  const [showTutorial, setShowTutorial] = useState(true)
 
   useEffect(() => {
     loadClasses()
@@ -220,6 +222,13 @@ const StudentClassesPage = ({ user, onClassSelect }) => {
         <JoinClass 
           onJoinClass={handleJoinClass}
           onCancel={() => setShowJoinClass(false)}
+        />
+      )}
+
+      {/* New User Tutorial */}
+      {showTutorial && (
+        <StudentTutorial 
+          onComplete={() => setShowTutorial(false)}
         />
       )}
     </div>
