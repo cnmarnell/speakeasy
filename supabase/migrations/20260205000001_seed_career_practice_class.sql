@@ -3,11 +3,11 @@
 -- Purpose: Ensure Career Practice class is owned by Sarah Johnson + add enrollment RLS
 
 -- Update Career Practice class to be owned by Sarah Johnson
--- Class ID: c80eec9a-b35f-4035-9ce4-fac22db082f0
--- Teacher ID: 428f3963-51df-409c-8b71-6284a10fbee7
+-- Class ID: dce3fac8-e730-4979-a68d-f01ee51d68fb
+-- Teacher ID: d3d70418-0540-4401-a415-6a43f1ceeb1a
 UPDATE classes 
-SET teacher_id = '428f3963-51df-409c-8b71-6284a10fbee7'
-WHERE id = 'c80eec9a-b35f-4035-9ce4-fac22db082f0';
+SET teacher_id = 'd3d70418-0540-4401-a415-6a43f1ceeb1a'
+WHERE id = 'dce3fac8-e730-4979-a68d-f01ee51d68fb';
 
 -- Add RLS policy to allow students to enroll themselves in classes
 -- This is needed for the auto-enrollment feature
@@ -34,7 +34,7 @@ BEGIN
   INTO class_name_val, teacher_name_val
   FROM classes c
   JOIN teachers t ON c.teacher_id = t.id
-  WHERE c.id = 'c80eec9a-b35f-4035-9ce4-fac22db082f0';
+  WHERE c.id = 'dce3fac8-e730-4979-a68d-f01ee51d68fb';
   
   RAISE NOTICE 'Career Practice configured - Class: %, Owner: %', class_name_val, teacher_name_val;
 END $$;

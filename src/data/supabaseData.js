@@ -6,9 +6,9 @@ import { analyzeFillerWords, getFillerWordScore } from '../lib/fillerWordAnalysi
 // Career Practice class configuration
 // This class is owned by Sarah Johnson and used for new user onboarding
 const CAREER_PRACTICE_CLASS = {
-  id: 'c80eec9a-b35f-4035-9ce4-fac22db082f0',
+  id: 'dce3fac8-e730-4979-a68d-f01ee51d68fb',
   name: 'Career Practice',
-  teacherId: '428f3963-51df-409c-8b71-6284a10fbee7' // Sarah Johnson
+  teacherId: 'd3d70418-0540-4401-a415-6a43f1ceeb1a' // Sarah Johnson
 }
 
 // Auto-enroll a student in the Career Practice class
