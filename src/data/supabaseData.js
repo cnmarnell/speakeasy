@@ -3,52 +3,23 @@ import { transcribeWithDeepgram } from '../lib/deepgram'
 import { analyzeSpeechWithBedrockAgent } from '../lib/bedrockAgent'
 import { analyzeFillerWords, getFillerWordScore } from '../lib/fillerWordAnalysis'
 
-// Default demo class name (seeded via database migration)
-const DEFAULT_CLASS_NAME = 'Career Practice'
-
-// Get the default Career Practice class (must exist in database via migration)
-const getDefaultClass = async () => {
-  try {
-    const { data: defaultClass, error: fetchError } = await supabase
-      .from('classes')
-      .select('id, name, class_code, teacher_id')
-      .eq('name', DEFAULT_CLASS_NAME)
-      .single()
-
-    if (fetchError) {
-      if (fetchError.code === 'PGRST116') {
-        // Class doesn't exist - needs migration
-        console.warn('[Auto-Enroll] Career Practice class not found. Run the database migration: 20260205000001_seed_career_practice_class.sql')
-        return null
-      }
-      console.error('Error fetching default class:', fetchError)
-      throw fetchError
-    }
-
-    return defaultClass
-  } catch (error) {
-    console.error('[Auto-Enroll] Failed to get default class:', error)
-    return null
-  }
+// Career Practice class configuration
+// This class is owned by Sarah Johnson and used for new user onboarding
+const CAREER_PRACTICE_CLASS = {
+  id: 'c80eec9a-b35f-4035-9ce4-fac22db082f0',
+  name: 'Career Practice',
+  teacherId: '428f3963-51df-409c-8b71-6284a10fbee7' // Sarah Johnson
 }
 
-// Auto-enroll a student in the default Career Practice class
+// Auto-enroll a student in the Career Practice class
 const autoEnrollInDefaultClass = async (studentId) => {
   try {
-    // Get the Career Practice class (must exist via migration)
-    const defaultClass = await getDefaultClass()
-    
-    if (!defaultClass) {
-      console.warn('[Auto-Enroll] Skipping auto-enrollment - Career Practice class not found')
-      return { success: false, error: 'Default class not configured' }
-    }
-
     // Check if student is already enrolled
     const { data: existingEnrollment, error: checkError } = await supabase
       .from('class_enrollments')
       .select('id')
       .eq('student_id', studentId)
-      .eq('class_id', defaultClass.id)
+      .eq('class_id', CAREER_PRACTICE_CLASS.id)
       .single()
 
     if (checkError && checkError.code !== 'PGRST116') {
@@ -66,7 +37,7 @@ const autoEnrollInDefaultClass = async (studentId) => {
       .from('class_enrollments')
       .insert([{
         student_id: studentId,
-        class_id: defaultClass.id
+        class_id: CAREER_PRACTICE_CLASS.id
       }])
 
     if (enrollError) {
@@ -74,8 +45,8 @@ const autoEnrollInDefaultClass = async (studentId) => {
       throw enrollError
     }
 
-    console.log(`[Auto-Enroll] Student ${studentId} enrolled in Career Practice (class code: ${defaultClass.class_code})`)
-    return { success: true, className: defaultClass.name, classCode: defaultClass.class_code }
+    console.log(`[Auto-Enroll] Student ${studentId} enrolled in ${CAREER_PRACTICE_CLASS.name}`)
+    return { success: true, className: CAREER_PRACTICE_CLASS.name }
   } catch (error) {
     console.error('[Auto-Enroll] Failed to auto-enroll student:', error)
     // Don't throw - auto-enrollment failure shouldn't block signup
