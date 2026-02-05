@@ -28,8 +28,8 @@
   margin-bottom: var(--space-2xl);
   position: relative;
   box-shadow: 0 8px 24px rgba(139, 21, 56, 0.2);
-  overflow: hidden;
-  min-height: 180px;
+  overflow: visible;
+  min-height: auto;
 }
 
 .student-dashboard .dashboard-header::after {
@@ -172,6 +172,13 @@
   gap: 2rem;
   position: relative;
   z-index: 1;
+  flex-wrap: wrap;
+}
+
+.student-dashboard .header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
   flex-wrap: wrap;
 }
 
@@ -790,12 +797,34 @@
     gap: 1.5rem;
     padding: 1.5rem;
   }
+
+  .student-dashboard .header-content {
+    gap: 1.5rem;
+  }
+
+  .student-dashboard .header-actions {
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .student-dashboard .header-stats {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .student-dashboard .stat-card {
+    min-width: 80px;
+    padding: 1rem 1.25rem;
+  }
+
+  .student-dashboard .stat-value {
+    font-size: 1.75rem;
+  }
 }
 
 @media (max-width: 768px) {
   .student-dashboard .dashboard-header {
     padding: 2.5rem 0 2rem;
-    min-height: 200px;
   }
 
   .student-dashboard .header-text h1 {
