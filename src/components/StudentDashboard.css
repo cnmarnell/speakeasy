@@ -24,12 +24,13 @@
 .student-dashboard .dashboard-header {
   background: linear-gradient(135deg, #8B1538 0%, #6B0F2A 100%);
   border-bottom: 4px solid #D4AF37;
-  padding: 3.5rem 0 3rem;
+  padding: 3.5rem 0 4rem;
   margin-bottom: var(--space-2xl);
   position: relative;
   box-shadow: 0 8px 24px rgba(139, 21, 56, 0.2);
-  overflow: hidden;
-  min-height: 180px;
+  overflow-x: hidden;
+  overflow-y: visible;
+  min-height: 200px;
 }
 
 .student-dashboard .dashboard-header::after {
@@ -794,8 +795,8 @@
 
 @media (max-width: 768px) {
   .student-dashboard .dashboard-header {
-    padding: 2.5rem 0 2rem;
-    min-height: 200px;
+    padding: 2.5rem 0 3rem;
+    min-height: auto;
   }
 
   .student-dashboard .header-text h1 {
