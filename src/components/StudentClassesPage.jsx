@@ -178,6 +178,7 @@ const StudentClassesPage = ({ user, onClassSelect }) => {
                 className="class-card"
                 onClick={() => onClassSelect(classItem)}
                 style={{'--card-delay': `${index * 0.1}s`}}
+                {...(index === 0 ? { 'data-tutorial': 'class-card' } : {})}
               >
                 <div className="class-card-background" style={{background: getClassGradient(index)}}></div>
                 <div className="class-card-content">

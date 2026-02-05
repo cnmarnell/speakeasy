@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate, Outlet, useNavigate, useLocation, useParams } from 'react-router-dom'
 import './App.css'
 import { useApp } from './contexts/AppContext'
+import { TutorialProvider } from './contexts/TutorialContext'
 import { getAssignmentById, getStudentById, getClassById } from './data/supabaseData'
 import LoginPage from './components/LoginPage'
 import Header from './components/Header'
+import TutorialOverlay from './components/TutorialOverlay'
 import TeacherDashboard from './components/TeacherDashboard'
 import StudentDashboard from './components/StudentDashboard'
 import StudentClassesPage from './components/StudentClassesPage'
@@ -27,10 +29,11 @@ function AuthLayout() {
   }
 
   return (
-    <>
+    <TutorialProvider>
       <Header user={user} userRole={userRole} onLogout={handleLogout} />
       <Outlet />
-    </>
+      {userRole === 'student' && <TutorialOverlay />}
+    </TutorialProvider>
   )
 }
 

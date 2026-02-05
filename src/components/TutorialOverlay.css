@@ -1,0 +1,277 @@
+/* Tutorial Overlay Styles */
+
+.tutorial-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+.tutorial-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  pointer-events: auto;
+}
+
+/* Spotlight cutout using clip-path */
+.tutorial-spotlight {
+  position: absolute;
+  background: transparent;
+  border-radius: 12px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.75);
+  pointer-events: none;
+}
+
+/* Animated border around spotlight */
+.tutorial-spotlight-border {
+  position: absolute;
+  border-radius: 12px;
+  border: 3px solid #D4AF37;
+  box-shadow: 
+    0 0 20px rgba(212, 175, 55, 0.5),
+    0 0 40px rgba(212, 175, 55, 0.3),
+    inset 0 0 20px rgba(212, 175, 55, 0.1);
+  animation: spotlight-pulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes spotlight-pulse {
+  0%, 100% {
+    box-shadow: 
+      0 0 20px rgba(212, 175, 55, 0.5),
+      0 0 40px rgba(212, 175, 55, 0.3),
+      inset 0 0 20px rgba(212, 175, 55, 0.1);
+  }
+  50% {
+    box-shadow: 
+      0 0 30px rgba(212, 175, 55, 0.7),
+      0 0 60px rgba(212, 175, 55, 0.4),
+      inset 0 0 30px rgba(212, 175, 55, 0.15);
+  }
+}
+
+/* Tooltip */
+.tutorial-tooltip {
+  position: fixed;
+  width: 320px;
+  background: linear-gradient(135deg, #FFF8E7 0%, #FFFDF5 100%);
+  border: 3px solid #8B1538;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 
+    0 8px 32px rgba(139, 21, 56, 0.25),
+    0 0 0 6px rgba(212, 175, 55, 0.15);
+  pointer-events: auto;
+  animation: tooltip-appear 0.3s ease-out;
+  z-index: 10001;
+}
+
+.tutorial-tooltip-center {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 380px;
+}
+
+@keyframes tooltip-appear {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tutorial-tooltip-center {
+  animation: tooltip-appear-center 0.3s ease-out;
+}
+
+@keyframes tooltip-appear-center {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.tutorial-tooltip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.tutorial-step-indicator {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #8B1538;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(139, 21, 56, 0.1);
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+}
+
+.tutorial-exit-btn {
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  color: #6B6B6B;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.tutorial-exit-btn:hover {
+  color: #8B1538;
+  background: rgba(139, 21, 56, 0.1);
+}
+
+.tutorial-exit-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.tutorial-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #8B1538;
+  margin: 0 0 0.75rem 0;
+  line-height: 1.2;
+}
+
+.tutorial-text {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 1rem;
+  color: #4A4A4A;
+  line-height: 1.6;
+  margin: 0 0 1rem 0;
+}
+
+.tutorial-click-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 0.875rem;
+  color: #D4AF37;
+  font-weight: 600;
+  margin: 0 0 1rem 0;
+  padding: 0.5rem 0.75rem;
+  background: rgba(212, 175, 55, 0.1);
+  border-radius: 8px;
+}
+
+.tutorial-click-hint svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.tutorial-buttons {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.tutorial-btn {
+  flex: 1;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tutorial-btn-primary {
+  background: linear-gradient(135deg, #8B1538 0%, #6B0F2A 100%);
+  color: #FFF8E7;
+  border: 2px solid #D4AF37;
+}
+
+.tutorial-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(139, 21, 56, 0.3);
+}
+
+.tutorial-btn-secondary {
+  background: transparent;
+  color: #8B1538;
+  border: 2px solid #8B1538;
+}
+
+.tutorial-btn-secondary:hover {
+  background: rgba(139, 21, 56, 0.05);
+}
+
+/* Progress dots */
+.tutorial-progress {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.tutorial-progress-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #DDD;
+  transition: all 0.3s ease;
+}
+
+.tutorial-progress-dot.active {
+  background: #8B1538;
+  transform: scale(1.25);
+}
+
+.tutorial-progress-dot.completed {
+  background: #D4AF37;
+}
+
+/* Make highlighted elements clickable through the overlay */
+.tutorial-overlay [data-tutorial] {
+  position: relative;
+  z-index: 10001;
+  pointer-events: auto;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .tutorial-tooltip,
+  .tutorial-tooltip-center {
+    width: calc(100% - 2rem);
+    max-width: 340px;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%);
+  }
+
+  .tutorial-tooltip-center {
+    transform: translate(-50%, -50%);
+  }
+
+  .tutorial-title {
+    font-size: 1.25rem;
+  }
+
+  .tutorial-text {
+    font-size: 0.9375rem;
+  }
+}

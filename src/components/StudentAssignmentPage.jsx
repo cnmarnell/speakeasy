@@ -103,7 +103,7 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
               <h3>Ready to Present?</h3>
               <p>Record your speech to receive AI-powered feedback on content, delivery, and filler words.</p>
             </div>
-            <button className="sap-record-btn" onClick={() => onViewRecording(assignmentData || assignment)}>
+            <button className="sap-record-btn" onClick={() => onViewRecording(assignmentData || assignment)} data-tutorial="record-button">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="10"/>
                 <circle cx="12" cy="12" r="4" fill="currentColor"/>
