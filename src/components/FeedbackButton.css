@@ -107,6 +107,7 @@
 
 .feedback-textarea {
   width: 100%;
+  box-sizing: border-box; /* Prevents overflow */
   padding: 1rem;
   border: 2px solid #DDD;
   border-radius: 8px;
@@ -136,6 +137,7 @@
 
 .feedback-submit {
   width: 100%;
+  box-sizing: border-box; /* Prevents overflow */
   padding: 0.875rem 1.5rem;
   background: linear-gradient(135deg, #8B1538 0%, #6B0F2A 100%);
   color: #FFF8E7;
