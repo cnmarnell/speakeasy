@@ -11,27 +11,35 @@
 }
 
 .tutorial-backdrop {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.75);
   pointer-events: auto;
 }
 
-/* Spotlight cutout using clip-path */
+.tutorial-backdrop.has-spotlight {
+  background: transparent;
+}
+
+.tutorial-backdrop.no-spotlight {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+/* Spotlight cutout using box-shadow */
 .tutorial-spotlight {
-  position: absolute;
+  position: fixed;
   background: transparent;
   border-radius: 12px;
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.75);
   pointer-events: none;
+  z-index: 10000;
 }
 
 /* Animated border around spotlight */
 .tutorial-spotlight-border {
-  position: absolute;
+  position: fixed;
   border-radius: 12px;
   border: 3px solid #D4AF37;
   box-shadow: 
@@ -40,6 +48,7 @@
     inset 0 0 20px rgba(212, 175, 55, 0.1);
   animation: spotlight-pulse 2s ease-in-out infinite;
   pointer-events: none;
+  z-index: 10000;
 }
 
 @keyframes spotlight-pulse {
