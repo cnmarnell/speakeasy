@@ -57,7 +57,12 @@ export const TUTORIAL_STEPS = [
     action: 'click-element',
     buttonText: 'Skip',
     position: 'top',
-    extraOffset: 20 // Adjust this number to move tooltip higher/lower
+    extraOffset: 20,
+    // Expand spotlight to show title, description, and record button
+    spotlightPaddingTop: 150,    // Expand upward to include title/description
+    spotlightPaddingBottom: 20,
+    spotlightPaddingLeft: 20,
+    spotlightPaddingRight: 20
   },
   {
     id: 'complete',
