@@ -44,18 +44,27 @@ function TutorialOverlay() {
       const target = document.querySelector(currentStep.target)
       if (target) {
         const rect = target.getBoundingClientRect()
-        const padding = 8
+        
+        // Get padding values - support uniform or per-side padding
+        const defaultPadding = 8
+        const basePadding = currentStep.spotlightPadding ?? defaultPadding
+        const paddingTop = currentStep.spotlightPaddingTop ?? basePadding
+        const paddingRight = currentStep.spotlightPaddingRight ?? basePadding
+        const paddingBottom = currentStep.spotlightPaddingBottom ?? basePadding
+        const paddingLeft = currentStep.spotlightPaddingLeft ?? basePadding
+        
         // Get optional offsets for fine-tuning spotlight position
         const offsetX = currentStep.spotlightOffsetX || 0
         const offsetY = currentStep.spotlightOffsetY || 0
+        
         // Use viewport-relative positions (getBoundingClientRect returns viewport coords)
         const spotlightRect = {
-          top: rect.top - padding + offsetY,
-          left: rect.left - padding + offsetX,
-          width: rect.width + padding * 2,
-          height: rect.height + padding * 2,
-          bottom: rect.bottom + padding + offsetY,
-          right: rect.right + padding + offsetX
+          top: rect.top - paddingTop + offsetY,
+          left: rect.left - paddingLeft + offsetX,
+          width: rect.width + paddingLeft + paddingRight,
+          height: rect.height + paddingTop + paddingBottom,
+          bottom: rect.bottom + paddingBottom + offsetY,
+          right: rect.right + paddingRight + offsetX
         }
         setTargetRect(spotlightRect)
 
