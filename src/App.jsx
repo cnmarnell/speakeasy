@@ -16,10 +16,11 @@ import StudentDetailPage from './components/StudentDetailPage'
 import StudentAssignmentPage from './components/StudentAssignmentPage'
 import RecordingPage from './components/RecordingPage'
 import FeedbackButton from './components/FeedbackButton'
+import RoleSelectionModal from './components/RoleSelectionModal'
 
 // Auth-protected layout with Header
 function AuthLayout() {
-  const { user, userRole, isLoading, handleLogout } = useApp()
+  const { user, userRole, isLoading, handleLogout, needsRoleSelection } = useApp()
 
   if (isLoading) {
     return <div className="loading-container"><div>Loading...</div></div>
@@ -27,6 +28,11 @@ function AuthLayout() {
 
   if (!user) {
     return <Navigate to="/login" replace />
+  }
+
+  // Show role selection modal for new OAuth users
+  if (needsRoleSelection) {
+    return <RoleSelectionModal />
   }
 
   return (
