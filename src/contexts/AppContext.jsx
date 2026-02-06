@@ -69,17 +69,20 @@ export function AppProvider({ children }) {
       if (teacherData) {
         setUserRole('teacher')
       } else {
-        // New user (likely from OAuth) - create student profile
+        // New user (likely from OAuth) - check localStorage for selected role
+        const signupRole = localStorage.getItem('speakeasy_signup_role') || 'student'
+        localStorage.removeItem('speakeasy_signup_role') // Clean up after use
+        
         const userName = authUser.user_metadata?.full_name || authUser.email.split('@')[0]
         try {
-          const newStudent = await createUserProfile(authUser.email, userName, 'student')
-          setUserRole('student')
-          if (newStudent?.id) {
-            setCurrentStudentId(newStudent.id)
+          const newProfile = await createUserProfile(authUser.email, userName, signupRole)
+          setUserRole(signupRole)
+          if (signupRole === 'student' && newProfile?.id) {
+            setCurrentStudentId(newProfile.id)
           }
         } catch (err) {
           console.error('Failed to create profile for new user:', err)
-          setUserRole('student')
+          setUserRole(signupRole)
         }
       }
     }
