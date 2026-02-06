@@ -43,7 +43,7 @@ function TutorialOverlay() {
         setTargetRect(spotlightRect)
 
         // Calculate tooltip position based on spotlight rect
-        const tooltipPos = calculateTooltipPosition(spotlightRect, currentStep.position)
+        const tooltipPos = calculateTooltipPosition(spotlightRect, currentStep.position, currentStep.extraOffset)
         setTooltipStyle(tooltipPos)
 
         // Add click listener for interactive elements
@@ -66,8 +66,8 @@ function TutorialOverlay() {
 
   // Calculate tooltip position based on spotlight rect (viewport coords)
   // Includes bounds checking to keep tooltip on screen
-  const calculateTooltipPosition = (spotlightRect, position) => {
-    const gap = 48 // Large gap for clear separation from spotlight
+  const calculateTooltipPosition = (spotlightRect, position, extraOffset = 0) => {
+    const gap = 48 + extraOffset // Base gap plus any step-specific offset
     const tooltipWidth = 320
     const tooltipHeight = 220 // Approximate
     const margin = 16
