@@ -2847,6 +2847,24 @@
   flex-shrink: 0;
 }
 
+.google-signup-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.google-signup-buttons .google-signin-button {
+  font-size: 0.95rem;
+}
+
+.google-signin-button.google-student:hover:not(:disabled) {
+  border-color: #C8A951;
+}
+
+.google-signin-button.google-teacher:hover:not(:disabled) {
+  border-color: #8B1538;
+}
+
 .login-footer {
   margin-top: 2rem;
   text-align: center;
