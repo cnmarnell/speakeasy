@@ -279,7 +279,7 @@ export const getAssignmentFeedback = async (assignmentId, studentId = null) => {
     .select(`
       *,
       grades!inner(
-        submissions!inner(assignment_id, student_id, transcript, submitted_at)
+        submissions!inner(assignment_id, student_id, transcript, submitted_at, video_url)
       )
     `)
     .eq('grades.submissions.assignment_id', assignmentId)
@@ -296,7 +296,8 @@ export const getAssignmentFeedback = async (assignmentId, studentId = null) => {
       speechContent: "No feedback available yet.",
       bodyLanguage: "No feedback available yet.",
       transcript: "No transcript available yet.",
-      submittedAt: null
+      submittedAt: null,
+      videoUrl: null
     }
   }
   
@@ -308,7 +309,8 @@ export const getAssignmentFeedback = async (assignmentId, studentId = null) => {
     speechContent: feedback.speech_content_feedback || "No feedback available yet.",
     bodyLanguage: feedback.body_language_feedback || "No feedback available yet.",
     transcript: submission.transcript || "No transcript available yet.",
-    submittedAt: submission.submitted_at
+    submittedAt: submission.submitted_at,
+    videoUrl: submission.video_url || null
   }
 }
 
