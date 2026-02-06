@@ -44,17 +44,17 @@ export const TUTORIAL_STEPS = [
     action: 'click-element',
     fallbackAction: 'button', // If no assignments exist
     buttonText: 'Next',
-    position: 'right'
+    position: 'bottom'
   },
   {
     id: 'record',
     page: '/assignment/',
-    target: '[data-tutorial="record-button"]',
+    target: '[data-tutorial="record-cta"]',
     title: 'Record Your Speech',
-    text: 'When you\'re ready to practice, hit this button to start recording. You\'ll need to allow camera and microphone access.',
+    text: 'When you\'re ready to practice, click "Start Recording" to begin. You\'ll need to allow camera and microphone access.',
     action: 'click-element',
     buttonText: 'Skip',
-    position: 'top'
+    position: 'right'
   },
   {
     id: 'complete',
