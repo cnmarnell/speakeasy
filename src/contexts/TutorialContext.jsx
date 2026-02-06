@@ -23,7 +23,7 @@ export const TUTORIAL_STEPS = [
     text: 'This is Career Practice — your first class! Click it to see your assignments.',
     action: 'click-element', // Click the actual element to advance
     buttonText: 'Skip',
-    position: 'bottom'
+    position: 'right'
   },
   {
     id: 'stats',
