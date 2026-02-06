@@ -44,7 +44,8 @@ export const TUTORIAL_STEPS = [
     action: 'click-element',
     fallbackAction: 'button', // If no assignments exist
     buttonText: 'Next',
-    position: 'top'
+    position: 'top',
+    extraOffset: 80 // Push tooltip higher for this step
   },
   {
     id: 'record',
