@@ -140,23 +140,6 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
         <div className="sap-feedback-section">
           <h3 className="sap-feedback-title">Your Speech Analysis</h3>
 
-          {/* Video Playback */}
-          {isCompleted && feedback?.videoUrl && (
-            <div className="sap-feedback-card sap-video-card">
-              <h4 className="sap-feedback-card-title">Your Recording</h4>
-              <div className="sap-video-container">
-                <video 
-                  className="sap-video-player"
-                  controls
-                  src={feedback.videoUrl}
-                  poster=""
-                >
-                  Your browser does not support video playback.
-                </video>
-              </div>
-            </div>
-          )}
-
           {/* Grade Summary Card */}
           {isCompleted && gradeData && (
             <div className="sap-grade-summary">
@@ -275,6 +258,23 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
               )}
             </div>
           </div>
+
+          {/* Video Playback */}
+          {isCompleted && feedback?.videoUrl && (
+            <div className="sap-feedback-card sap-video-card">
+              <h4 className="sap-feedback-card-title">Your Recording</h4>
+              <div className="sap-video-container">
+                <video 
+                  className="sap-video-player"
+                  controls
+                  src={feedback.videoUrl}
+                  poster=""
+                >
+                  Your browser does not support video playback.
+                </video>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         /* Placeholder when no submission yet */
