@@ -89,6 +89,7 @@ function FeedbackButton() {
           <path d="M12 16v-4"/>
           <path d="M12 8h.01"/>
         </svg>
+        <span>Report Issue</span>
       </button>
 
       {/* Modal */}
