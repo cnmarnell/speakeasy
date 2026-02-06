@@ -2791,6 +2791,62 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
+.login-divider-text {
+  display: flex;
+  align-items: center;
+  margin: 1.5rem 0;
+}
+
+.login-divider-text::before,
+.login-divider-text::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(139, 21, 56, 0.2), transparent);
+}
+
+.login-divider-text span {
+  padding: 0 1rem;
+  color: #8B1538;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.google-signin-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 24px;
+  background: #fff;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Source Sans Pro', sans-serif;
+}
+
+.google-signin-button:hover:not(:disabled) {
+  background: #f8f8f8;
+  border-color: #ccc;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.google-signin-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.google-signin-button svg {
+  flex-shrink: 0;
+}
+
 .login-footer {
   margin-top: 2rem;
   text-align: center;
