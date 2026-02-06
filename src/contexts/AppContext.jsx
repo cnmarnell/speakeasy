@@ -86,6 +86,8 @@ export function AppProvider({ children }) {
       setNeedsRoleSelection(false)
       if (role === 'student' && newProfile?.id) {
         setCurrentStudentId(newProfile.id)
+        // Clear tutorial flag so new students see the tutorial
+        localStorage.removeItem('speakeasy_tutorial_completed')
       }
     } catch (err) {
       console.error('Failed to create profile:', err)
