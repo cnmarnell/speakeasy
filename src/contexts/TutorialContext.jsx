@@ -53,14 +53,14 @@ export const TUTORIAL_STEPS = [
     page: '/assignment/',
     target: '[data-tutorial="record-cta"]',
     title: 'Record Your Speech',
-    text: 'When you\'re ready to practice, click "Start Recording" to begin. You\'ll need to allow camera and microphone access.',
+    text: 'When you\'re done reading the description & ready to practice, click "Start Recording" to begin. You\'ll need to allow camera and microphone access.',
     action: 'click-element',
     buttonText: 'Skip',
     position: 'top',
-    extraOffset: 20,
+    extraOffset: -610,
     // Expand spotlight to show title, description, and record button
-    spotlightPaddingTop: 150,    // Expand upward to include title/description
-    spotlightPaddingBottom: 20,
+    spotlightPaddingTop: 200,    // Expand upward to include title/description
+    spotlightPaddingBottom: 10,
     spotlightPaddingLeft: 20,
     spotlightPaddingRight: 20
   },
