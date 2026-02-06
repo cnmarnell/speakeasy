@@ -65,31 +65,42 @@ function TutorialOverlay() {
   }, [shouldShowStep, currentStep, nextStep])
 
   // Calculate tooltip position based on spotlight rect (viewport coords)
+  // Includes bounds checking to keep tooltip on screen
   const calculateTooltipPosition = (spotlightRect, position) => {
     const gap = 20
     const tooltipWidth = 320
-    const tooltipHeight = 200 // Approximate
+    const tooltipHeight = 220 // Approximate
+    const margin = 16
+
+    // Helper to clamp values within viewport
+    const clampTop = (top) => Math.max(margin, Math.min(top, window.innerHeight - tooltipHeight - margin))
+    const clampLeft = (left) => Math.max(margin, Math.min(left, window.innerWidth - tooltipWidth - margin))
+
+    // Calculate centered horizontal position
+    const centeredLeft = spotlightRect.left + spotlightRect.width / 2 - tooltipWidth / 2
+    // Calculate centered vertical position
+    const centeredTop = spotlightRect.top + spotlightRect.height / 2 - tooltipHeight / 2
 
     switch (position) {
       case 'top':
         return {
-          top: `${spotlightRect.top - tooltipHeight - gap}px`,
-          left: `${Math.max(16, Math.min(spotlightRect.left + spotlightRect.width / 2 - tooltipWidth / 2, window.innerWidth - tooltipWidth - 16))}px`
+          top: `${Math.max(margin, spotlightRect.top - tooltipHeight - gap)}px`,
+          left: `${clampLeft(centeredLeft)}px`
         }
       case 'bottom':
         return {
-          top: `${spotlightRect.bottom + gap}px`,
-          left: `${Math.max(16, Math.min(spotlightRect.left + spotlightRect.width / 2 - tooltipWidth / 2, window.innerWidth - tooltipWidth - 16))}px`
+          top: `${Math.min(spotlightRect.bottom + gap, window.innerHeight - tooltipHeight - margin)}px`,
+          left: `${clampLeft(centeredLeft)}px`
         }
       case 'left':
         return {
-          top: `${spotlightRect.top + spotlightRect.height / 2 - tooltipHeight / 2}px`,
-          left: `${spotlightRect.left - tooltipWidth - gap}px`
+          top: `${clampTop(centeredTop)}px`,
+          left: `${Math.max(margin, spotlightRect.left - tooltipWidth - gap)}px`
         }
       case 'right':
         return {
-          top: `${spotlightRect.top + spotlightRect.height / 2 - tooltipHeight / 2}px`,
-          left: `${spotlightRect.right + gap}px`
+          top: `${clampTop(centeredTop)}px`,
+          left: `${Math.min(spotlightRect.right + gap, window.innerWidth - tooltipWidth - margin)}px`
         }
       case 'center':
       default:
