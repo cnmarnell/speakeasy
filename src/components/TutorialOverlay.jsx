@@ -22,6 +22,7 @@ function TutorialOverlay() {
   useEffect(() => {
     if (!shouldShowStep || !currentStep?.target) {
       setTargetRect(null)
+      setTooltipStyle({})
       return
     }
 
@@ -29,15 +30,20 @@ function TutorialOverlay() {
       const target = document.querySelector(currentStep.target)
       if (target) {
         const rect = target.getBoundingClientRect()
-        setTargetRect({
-          top: rect.top - 8,
-          left: rect.left - 8,
-          width: rect.width + 16,
-          height: rect.height + 16
-        })
+        const padding = 8
+        // Use viewport-relative positions (getBoundingClientRect returns viewport coords)
+        const spotlightRect = {
+          top: rect.top - padding,
+          left: rect.left - padding,
+          width: rect.width + padding * 2,
+          height: rect.height + padding * 2,
+          bottom: rect.bottom + padding,
+          right: rect.right + padding
+        }
+        setTargetRect(spotlightRect)
 
-        // Calculate tooltip position
-        const tooltipPos = calculateTooltipPosition(rect, currentStep.position)
+        // Calculate tooltip position based on spotlight rect
+        const tooltipPos = calculateTooltipPosition(spotlightRect, currentStep.position)
         setTooltipStyle(tooltipPos)
 
         // Add click listener for interactive elements
@@ -58,32 +64,32 @@ function TutorialOverlay() {
     return () => clearTimeout(timeoutId)
   }, [shouldShowStep, currentStep, nextStep])
 
-  // Calculate tooltip position based on target element
-  const calculateTooltipPosition = (targetRect, position) => {
-    const padding = 16
+  // Calculate tooltip position based on spotlight rect (viewport coords)
+  const calculateTooltipPosition = (spotlightRect, position) => {
+    const gap = 20
     const tooltipWidth = 320
-    const tooltipHeight = 180 // Approximate
+    const tooltipHeight = 200 // Approximate
 
     switch (position) {
       case 'top':
         return {
-          bottom: `${window.innerHeight - targetRect.top + padding}px`,
-          left: `${Math.max(padding, Math.min(targetRect.left + targetRect.width / 2 - tooltipWidth / 2, window.innerWidth - tooltipWidth - padding))}px`
+          top: `${spotlightRect.top - tooltipHeight - gap}px`,
+          left: `${Math.max(16, Math.min(spotlightRect.left + spotlightRect.width / 2 - tooltipWidth / 2, window.innerWidth - tooltipWidth - 16))}px`
         }
       case 'bottom':
         return {
-          top: `${targetRect.bottom + padding}px`,
-          left: `${Math.max(padding, Math.min(targetRect.left + targetRect.width / 2 - tooltipWidth / 2, window.innerWidth - tooltipWidth - padding))}px`
+          top: `${spotlightRect.bottom + gap}px`,
+          left: `${Math.max(16, Math.min(spotlightRect.left + spotlightRect.width / 2 - tooltipWidth / 2, window.innerWidth - tooltipWidth - 16))}px`
         }
       case 'left':
         return {
-          top: `${targetRect.top + targetRect.height / 2 - tooltipHeight / 2}px`,
-          right: `${window.innerWidth - targetRect.left + padding}px`
+          top: `${spotlightRect.top + spotlightRect.height / 2 - tooltipHeight / 2}px`,
+          left: `${spotlightRect.left - tooltipWidth - gap}px`
         }
       case 'right':
         return {
-          top: `${targetRect.top + targetRect.height / 2 - tooltipHeight / 2}px`,
-          left: `${targetRect.right + padding}px`
+          top: `${spotlightRect.top + spotlightRect.height / 2 - tooltipHeight / 2}px`,
+          left: `${spotlightRect.right + gap}px`
         }
       case 'center':
       default:
@@ -117,20 +123,21 @@ function TutorialOverlay() {
 
   return (
     <div className="tutorial-overlay" ref={overlayRef}>
-      {/* Dark overlay with spotlight cutout */}
-      <div className="tutorial-backdrop">
-        {targetRect && (
-          <div 
-            className="tutorial-spotlight"
-            style={{
-              top: targetRect.top,
-              left: targetRect.left,
-              width: targetRect.width,
-              height: targetRect.height
-            }}
-          />
-        )}
-      </div>
+      {/* Dark overlay - transparent when spotlight exists, dark otherwise */}
+      <div className={`tutorial-backdrop ${targetRect ? 'has-spotlight' : 'no-spotlight'}`} />
+      
+      {/* Spotlight cutout with box-shadow creating the dark overlay */}
+      {targetRect && (
+        <div 
+          className="tutorial-spotlight"
+          style={{
+            top: targetRect.top,
+            left: targetRect.left,
+            width: targetRect.width,
+            height: targetRect.height
+          }}
+        />
+      )}
 
       {/* Spotlight border/glow effect */}
       {targetRect && (
