@@ -4764,6 +4764,28 @@
   line-height: 1.6;
 }
 
+.sap-video-card {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  border-color: #475569;
+}
+
+.sap-video-card .sap-feedback-card-title {
+  color: #f1f5f9;
+}
+
+.sap-video-container {
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+}
+
+.sap-video-player {
+  width: 100%;
+  max-height: 400px;
+  display: block;
+  border-radius: 12px;
+}
+
 .sap-transcript-text {
   color: #1e293b;
   margin: 0;
