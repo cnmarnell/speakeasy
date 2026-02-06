@@ -34,7 +34,7 @@ export const TUTORIAL_STEPS = [
     action: 'button',
     buttonText: 'Next',
     position: 'bottom',
-    spotlightOffsetX: 50 // Adjust to move spotlight left (-) or right (+)
+    spotlightOffsetX: -22 // Adjust to move spotlight left (-) or right (+)
   },
   {
     id: 'assignments',
