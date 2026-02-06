@@ -45,14 +45,17 @@ function TutorialOverlay() {
       if (target) {
         const rect = target.getBoundingClientRect()
         const padding = 8
+        // Get optional offsets for fine-tuning spotlight position
+        const offsetX = currentStep.spotlightOffsetX || 0
+        const offsetY = currentStep.spotlightOffsetY || 0
         // Use viewport-relative positions (getBoundingClientRect returns viewport coords)
         const spotlightRect = {
-          top: rect.top - padding,
-          left: rect.left - padding,
+          top: rect.top - padding + offsetY,
+          left: rect.left - padding + offsetX,
           width: rect.width + padding * 2,
           height: rect.height + padding * 2,
-          bottom: rect.bottom + padding,
-          right: rect.right + padding
+          bottom: rect.bottom + padding + offsetY,
+          right: rect.right + padding + offsetX
         }
         setTargetRect(spotlightRect)
 
