@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { createUserProfile } from '../data/supabaseData'
 
 const AppContext = createContext(null)
 
@@ -68,7 +69,18 @@ export function AppProvider({ children }) {
       if (teacherData) {
         setUserRole('teacher')
       } else {
-        setUserRole('student')
+        // New user (likely from OAuth) - create student profile
+        const userName = authUser.user_metadata?.full_name || authUser.email.split('@')[0]
+        try {
+          const newStudent = await createUserProfile(authUser.email, userName, 'student')
+          setUserRole('student')
+          if (newStudent?.id) {
+            setCurrentStudentId(newStudent.id)
+          }
+        } catch (err) {
+          console.error('Failed to create profile for new user:', err)
+          setUserRole('student')
+        }
       }
     }
   }
