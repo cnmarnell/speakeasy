@@ -44,7 +44,7 @@ export const TUTORIAL_STEPS = [
     action: 'click-element',
     fallbackAction: 'button', // If no assignments exist
     buttonText: 'Next',
-    position: 'bottom'
+    position: 'top'
   },
   {
     id: 'record',
