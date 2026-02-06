@@ -9,6 +9,7 @@ export function AppProvider({ children }) {
   const [userRole, setUserRole] = useState(null)
   const [currentStudentId, setCurrentStudentId] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [needsRoleSelection, setNeedsRoleSelection] = useState(false)
 
   useEffect(() => {
     const checkSession = async () => {
@@ -70,21 +71,46 @@ export function AppProvider({ children }) {
         setUserRole('teacher')
       } else {
         // New user (likely from OAuth) - check localStorage for selected role
-        const signupRole = localStorage.getItem('speakeasy_signup_role') || 'student'
+        const signupRole = localStorage.getItem('speakeasy_signup_role')
         localStorage.removeItem('speakeasy_signup_role') // Clean up after use
         
-        const userName = authUser.user_metadata?.full_name || authUser.email.split('@')[0]
-        try {
-          const newProfile = await createUserProfile(authUser.email, userName, signupRole)
-          setUserRole(signupRole)
-          if (signupRole === 'student' && newProfile?.id) {
-            setCurrentStudentId(newProfile.id)
+        if (signupRole) {
+          // User pre-selected a role before OAuth
+          const userName = authUser.user_metadata?.full_name || authUser.email.split('@')[0]
+          try {
+            const newProfile = await createUserProfile(authUser.email, userName, signupRole)
+            setUserRole(signupRole)
+            if (signupRole === 'student' && newProfile?.id) {
+              setCurrentStudentId(newProfile.id)
+            }
+          } catch (err) {
+            console.error('Failed to create profile for new user:', err)
+            setUserRole(signupRole)
           }
-        } catch (err) {
-          console.error('Failed to create profile for new user:', err)
-          setUserRole(signupRole)
+        } else {
+          // No role selected - need to ask user
+          setNeedsRoleSelection(true)
         }
       }
+    }
+  }
+
+  const completeSignup = async (role) => {
+    if (!user) return
+    
+    const userName = user.user_metadata?.full_name || user.email.split('@')[0]
+    try {
+      const newProfile = await createUserProfile(user.email, userName, role)
+      setUserRole(role)
+      setNeedsRoleSelection(false)
+      if (role === 'student' && newProfile?.id) {
+        setCurrentStudentId(newProfile.id)
+      }
+    } catch (err) {
+      console.error('Failed to create profile:', err)
+      // Still set role so user can proceed
+      setUserRole(role)
+      setNeedsRoleSelection(false)
     }
   }
 
@@ -114,8 +140,10 @@ export function AppProvider({ children }) {
       userRole,
       currentStudentId,
       isLoading,
+      needsRoleSelection,
       handleLogin,
-      handleLogout
+      handleLogout,
+      completeSignup
     }}>
       {children}
     </AppContext.Provider>
