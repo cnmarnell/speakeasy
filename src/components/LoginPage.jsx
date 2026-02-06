@@ -31,6 +31,11 @@ function LoginPage({ onLogin }) {
         // Create profile in students or teachers table
         await createUserProfile(email, name, accountType)
 
+        // Clear tutorial flag so new students see the tutorial
+        if (accountType === 'student') {
+          localStorage.removeItem('speakeasy_tutorial_completed')
+        }
+
         if (result.data.user) {
           onLogin(result.data.user, accountType)
         }

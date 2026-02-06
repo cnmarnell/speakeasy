@@ -137,13 +137,17 @@ export function TutorialProvider({ children }) {
 
   // Auto-start tutorial for first-time users (after a short delay)
   useEffect(() => {
-    if (!hasCompleted && !isActive && location.pathname === '/dashboard') {
+    // Check if user is on dashboard (flexible match)
+    const isOnDashboard = location.pathname === '/dashboard' || location.pathname.startsWith('/dashboard')
+    
+    if (!hasCompleted && !isActive && isOnDashboard) {
       const timer = setTimeout(() => {
         const completed = localStorage.getItem(STORAGE_KEY)
         if (completed !== 'true') {
+          console.log('[Tutorial] Auto-starting for first-time user')
           startTutorial()
         }
-      }, 500) // Small delay to let page render
+      }, 800) // Slightly longer delay to ensure page is fully rendered
       return () => clearTimeout(timer)
     }
   }, [hasCompleted, isActive, location.pathname, startTutorial])
