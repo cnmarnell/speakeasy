@@ -67,7 +67,7 @@ function TutorialOverlay() {
   // Calculate tooltip position based on spotlight rect (viewport coords)
   // Includes bounds checking to keep tooltip on screen
   const calculateTooltipPosition = (spotlightRect, position) => {
-    const gap = 20
+    const gap = 32 // Increased gap for better separation from spotlight
     const tooltipWidth = 320
     const tooltipHeight = 220 // Approximate
     const margin = 16
