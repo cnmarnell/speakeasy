@@ -44,7 +44,7 @@ export const TUTORIAL_STEPS = [
     text: 'Assignments from your teacher appear here. The badge shows the status — Pending, Completed, or Overdue. Click one to get started!',
     action: 'click-element',
     fallbackAction: 'button', // If no assignments exist
-    buttonText: 'Next',
+    buttonText: 'Skip',
     position: 'top',
     extraOffset: 80 // Push tooltip higher for this step
   },
