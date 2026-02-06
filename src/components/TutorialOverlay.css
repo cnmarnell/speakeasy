@@ -16,15 +16,16 @@
   left: 0;
   right: 0;
   bottom: 0;
-  pointer-events: auto;
 }
 
 .tutorial-backdrop.has-spotlight {
   background: transparent;
+  pointer-events: none; /* Allow clicks to pass through to highlighted element */
 }
 
 .tutorial-backdrop.no-spotlight {
   background: rgba(0, 0, 0, 0.75);
+  pointer-events: auto; /* Block clicks for modal views */
 }
 
 /* Spotlight cutout using box-shadow */
