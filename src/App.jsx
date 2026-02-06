@@ -5,7 +5,6 @@ import { useApp } from './contexts/AppContext'
 import { TutorialProvider } from './contexts/TutorialContext'
 import { getAssignmentById, getStudentById, getClassById } from './data/supabaseData'
 import LoginPage from './components/LoginPage'
-import DemoRecordingPage from './components/DemoRecordingPage'
 import Header from './components/Header'
 import TutorialOverlay from './components/TutorialOverlay'
 import TeacherDashboard from './components/TeacherDashboard'
@@ -356,7 +355,6 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginRoute />} />
-      <Route path="/demo" element={<DemoRecordingPage />} />
 
       <Route element={<AuthLayout />}>
         <Route path="/dashboard" element={<DashboardRoute />} />
