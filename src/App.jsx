@@ -15,6 +15,7 @@ import AssignmentDetailPage from './components/AssignmentDetailPage'
 import StudentDetailPage from './components/StudentDetailPage'
 import StudentAssignmentPage from './components/StudentAssignmentPage'
 import RecordingPage from './components/RecordingPage'
+import FeedbackButton from './components/FeedbackButton'
 
 // Auth-protected layout with Header
 function AuthLayout() {
@@ -33,6 +34,7 @@ function AuthLayout() {
       <Header user={user} userRole={userRole} onLogout={handleLogout} />
       <Outlet />
       {userRole === 'student' && <TutorialOverlay />}
+      <FeedbackButton />
     </TutorialProvider>
   )
 }
