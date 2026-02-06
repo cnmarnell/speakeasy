@@ -89,7 +89,7 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
 
       {/* Record CTA - prominent when no submission */}
       {!hasSubmission && canRecord && (
-        <div className="sap-record-cta">
+        <div className="sap-record-cta" data-tutorial="record-cta">
           <div className="sap-record-cta-content">
             <div className="sap-record-cta-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
