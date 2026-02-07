@@ -3,172 +3,190 @@ import { useLocation } from 'react-router-dom'
 
 const TutorialContext = createContext(null)
 
-// Tutorial steps configuration
-export const TUTORIAL_STEPS = [
-  {
+// Tutorial steps - grouped by page context
+export const TUTORIAL_STEPS = {
+  // Login/Dashboard intro
+  welcome: {
     id: 'welcome',
-    page: null, // Shows on any page
-    target: null, // No element highlight - just modal
-    title: 'Welcome to Speakeasy! 🎤',
-    text: 'Practice your public speaking skills and get instant AI feedback on your presentations. Let\'s take a quick tour!',
-    action: 'button', // Click "Get Started" button
-    buttonText: 'Get Started',
-    position: 'center'
-  },
-  {
-    id: 'classes',
     page: '/dashboard',
-    target: '[data-tutorial="class-card"]',
-    title: 'Your Classes',
-    text: 'This is Career Practice — your first class! Click it to see your assignments.',
-    action: 'click-element', // Click the actual element to advance
-    buttonText: 'Skip',
-    position: 'right'
+    target: null,
+    title: 'Welcome to Speakeasy! 🎤',
+    text: 'Practice your public speaking skills and get instant AI feedback. Let\'s take a quick tour!',
+    buttonText: 'Get Started',
+    position: 'center',
+    nextStep: null // End of this context
   },
-  {
+  
+  // Class page - stats
+  stats: {
     id: 'stats',
     page: '/class/',
     target: '[data-tutorial="stats"]',
     title: 'Track Your Progress',
     text: 'These stats show your assignment progress — Total, Pending, and Completed. Stay on top of your practice!',
-    action: 'button',
     buttonText: 'Next',
     position: 'bottom',
-    spotlightOffsetX: -22 // Adjust to move spotlight left (-) or right (+)
+    spotlightOffsetX: -22,
+    nextStep: 'assignments', // Auto-advance to assignments
+    dismissBehavior: 'advance' // Dismiss acts like Next
   },
-  {
+  
+  // Class page - assignments
+  assignments: {
     id: 'assignments',
     page: '/class/',
     target: '[data-tutorial="assignment-card"]',
     title: 'Your Assignments',
-    text: 'Assignments from your teacher appear here. The badge shows the status — Pending, Completed, or Overdue. Click one to get started!',
-    action: 'click-element',
-    fallbackAction: 'button', // If no assignments exist
-    buttonText: 'Skip',
+    text: 'Assignments from your teacher appear here. Click one to get started practicing!',
+    buttonText: 'Got it',
     position: 'top',
-    extraOffset: 80 // Push tooltip higher for this step
+    extraOffset: 80,
+    nextStep: null, // End of class page context
+    dismissBehavior: 'close' // Dismiss closes tutorial
   },
-  {
+  
+  // Assignment page - record
+  record: {
     id: 'record',
     page: '/assignment/',
     target: '[data-tutorial="record-cta"]',
     title: 'Record Your Speech',
-    text: 'When you\'re done reading the description & ready to practice, click "Start Recording" to begin. You\'ll need to allow camera and microphone access.',
-    action: 'click-element',
-    buttonText: 'Skip',
+    text: 'Read the assignment description, then click "Start Recording" when you\'re ready. You\'ll need to allow camera and microphone access.',
+    buttonText: 'Got it',
     position: 'top',
     extraOffset: -610,
-    // Expand spotlight to show title, description, and record button
-    spotlightPaddingTop: 200,    // Expand upward to include title/description
+    spotlightPaddingTop: 200,
     spotlightPaddingBottom: 10,
     spotlightPaddingLeft: 20,
-    spotlightPaddingRight: 20
-  },
-  {
-    id: 'complete',
-    page: '/record',
-    target: null,
-    title: 'You\'re All Set! 🎉',
-    text: 'After recording, our AI will analyze your speech for content, filler words, and delivery. Your results appear instantly. Now go practice!',
-    action: 'button',
-    buttonText: 'Finish Tutorial',
-    position: 'center'
+    spotlightPaddingRight: 20,
+    nextStep: null,
+    dismissBehavior: 'close'
   }
-]
+}
 
-const STORAGE_KEY = 'speakeasy_tutorial_completed'
+// Map pages to their starting tutorial step
+const PAGE_TUTORIAL_MAP = {
+  '/dashboard': 'welcome',
+  '/class/': 'stats',
+  '/assignment/': 'record'
+}
+
+const STORAGE_KEY = 'speakeasy_tutorial_disabled'
+const SEEN_STEPS_KEY = 'speakeasy_tutorial_seen'
 
 export function TutorialProvider({ children }) {
-  const [isActive, setIsActive] = useState(false)
-  const [currentStepIndex, setCurrentStepIndex] = useState(0)
-  const [hasCompleted, setHasCompleted] = useState(false)
+  const [currentStepId, setCurrentStepId] = useState(null)
+  const [isDisabled, setIsDisabled] = useState(false)
+  const [seenSteps, setSeenSteps] = useState(new Set())
   const location = useLocation()
 
-  // Check if tutorial was completed before
+  // Load disabled state and seen steps from localStorage
   useEffect(() => {
-    const completed = localStorage.getItem(STORAGE_KEY)
-    if (completed === 'true') {
-      setHasCompleted(true)
+    const disabled = localStorage.getItem(STORAGE_KEY) === 'true'
+    setIsDisabled(disabled)
+    
+    const seen = localStorage.getItem(SEEN_STEPS_KEY)
+    if (seen) {
+      try {
+        setSeenSteps(new Set(JSON.parse(seen)))
+      } catch (e) {
+        setSeenSteps(new Set())
+      }
     }
   }, [])
 
-  // Get current step
-  const currentStep = TUTORIAL_STEPS[currentStepIndex]
+  // Get current step object
+  const currentStep = currentStepId ? TUTORIAL_STEPS[currentStepId] : null
 
-  // Check if current step should show on current page
-  const shouldShowStep = useCallback(() => {
-    if (!isActive || !currentStep) return false
-    if (currentStep.page === null) return true // Welcome modal shows anywhere
-    return location.pathname.includes(currentStep.page)
-  }, [isActive, currentStep, location.pathname])
-
-  // Start tutorial
-  const startTutorial = useCallback(() => {
-    setCurrentStepIndex(0)
-    setIsActive(true)
+  // Check which tutorial should show for current page
+  const getTutorialForPage = useCallback((pathname) => {
+    for (const [pagePath, stepId] of Object.entries(PAGE_TUTORIAL_MAP)) {
+      if (pathname.includes(pagePath) || pathname === pagePath) {
+        return stepId
+      }
+    }
+    return null
   }, [])
 
-  // Advance to next step
-  const nextStep = useCallback(() => {
-    if (currentStepIndex < TUTORIAL_STEPS.length - 1) {
-      setCurrentStepIndex(prev => prev + 1)
+  // Show tutorial for current page if not seen and not disabled
+  useEffect(() => {
+    if (isDisabled) return
+    
+    const stepId = getTutorialForPage(location.pathname)
+    if (stepId && !seenSteps.has(stepId)) {
+      // Small delay to let page render
+      const timer = setTimeout(() => {
+        setCurrentStepId(stepId)
+      }, 500)
+      return () => clearTimeout(timer)
     } else {
-      // Tutorial complete
-      setIsActive(false)
-      setHasCompleted(true)
-      localStorage.setItem(STORAGE_KEY, 'true')
+      setCurrentStepId(null)
     }
-  }, [currentStepIndex])
+  }, [location.pathname, isDisabled, seenSteps, getTutorialForPage])
 
-  // Skip current step
-  const skipStep = useCallback(() => {
-    nextStep()
-  }, [nextStep])
+  // Mark step as seen
+  const markSeen = useCallback((stepId) => {
+    setSeenSteps(prev => {
+      const newSet = new Set(prev)
+      newSet.add(stepId)
+      localStorage.setItem(SEEN_STEPS_KEY, JSON.stringify([...newSet]))
+      return newSet
+    })
+  }, [])
 
-  // Exit tutorial entirely
-  const exitTutorial = useCallback(() => {
-    setIsActive(false)
-    setHasCompleted(true)
+  // Handle Next button click
+  const nextStep = useCallback(() => {
+    if (!currentStep) return
+    
+    markSeen(currentStep.id)
+    
+    if (currentStep.nextStep) {
+      // Advance to next step on same page
+      setCurrentStepId(currentStep.nextStep)
+    } else {
+      // No more steps, close tutorial
+      setCurrentStepId(null)
+    }
+  }, [currentStep, markSeen])
+
+  // Handle dismiss (click outside)
+  const dismissStep = useCallback(() => {
+    if (!currentStep) return
+    
+    markSeen(currentStep.id)
+    
+    if (currentStep.dismissBehavior === 'advance' && currentStep.nextStep) {
+      // Dismissing acts like Next - show next step
+      setCurrentStepId(currentStep.nextStep)
+    } else {
+      // Close tutorial
+      setCurrentStepId(null)
+    }
+  }, [currentStep, markSeen])
+
+  // Disable tutorials permanently
+  const disableTutorials = useCallback(() => {
+    setIsDisabled(true)
+    setCurrentStepId(null)
     localStorage.setItem(STORAGE_KEY, 'true')
   }, [])
 
-  // Restart tutorial
-  const restartTutorial = useCallback(() => {
+  // Re-enable tutorials (for testing/settings)
+  const enableTutorials = useCallback(() => {
+    setIsDisabled(false)
+    setSeenSteps(new Set())
     localStorage.removeItem(STORAGE_KEY)
-    setHasCompleted(false)
-    setCurrentStepIndex(0)
-    setIsActive(true)
+    localStorage.removeItem(SEEN_STEPS_KEY)
   }, [])
 
-  // Auto-start tutorial for first-time users (after a short delay)
-  useEffect(() => {
-    // Check if user is on dashboard (flexible match)
-    const isOnDashboard = location.pathname === '/dashboard' || location.pathname.startsWith('/dashboard')
-    
-    if (!hasCompleted && !isActive && isOnDashboard) {
-      const timer = setTimeout(() => {
-        const completed = localStorage.getItem(STORAGE_KEY)
-        if (completed !== 'true') {
-          console.log('[Tutorial] Auto-starting for first-time user')
-          startTutorial()
-        }
-      }, 800) // Slightly longer delay to ensure page is fully rendered
-      return () => clearTimeout(timer)
-    }
-  }, [hasCompleted, isActive, location.pathname, startTutorial])
-
   const value = {
-    isActive,
     currentStep,
-    currentStepIndex,
-    totalSteps: TUTORIAL_STEPS.length,
-    hasCompleted,
-    shouldShowStep: shouldShowStep(),
-    startTutorial,
+    isActive: !!currentStepId && !isDisabled,
+    isDisabled,
     nextStep,
-    skipStep,
-    exitTutorial,
-    restartTutorial
+    dismissStep,
+    disableTutorials,
+    enableTutorials
   }
 
   return (

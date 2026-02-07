@@ -6,35 +6,19 @@ function TutorialOverlay() {
   const { 
     isActive, 
     currentStep, 
-    currentStepIndex,
-    totalSteps,
-    shouldShowStep,
     nextStep, 
-    skipStep, 
-    exitTutorial 
+    dismissStep,
+    disableTutorials
   } = useTutorial()
   
   const [targetRect, setTargetRect] = useState(null)
   const [tooltipStyle, setTooltipStyle] = useState({})
-  const overlayRef = useRef(null)
-
-  // Lock scrolling when tutorial is active
-  useEffect(() => {
-    if (isActive) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
-    
-    // Cleanup on unmount
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [isActive])
+  const [dontShowAgain, setDontShowAgain] = useState(false)
+  const tooltipRef = useRef(null)
 
   // Find and highlight target element
   useEffect(() => {
-    if (!shouldShowStep || !currentStep?.target) {
+    if (!isActive || !currentStep?.target) {
       setTargetRect(null)
       setTooltipStyle({})
       return
@@ -45,7 +29,7 @@ function TutorialOverlay() {
       if (target) {
         const rect = target.getBoundingClientRect()
         
-        // Get padding values - support uniform or per-side padding
+        // Get padding values
         const defaultPadding = 8
         const basePadding = currentStep.spotlightPadding ?? defaultPadding
         const paddingTop = currentStep.spotlightPaddingTop ?? basePadding
@@ -53,11 +37,10 @@ function TutorialOverlay() {
         const paddingBottom = currentStep.spotlightPaddingBottom ?? basePadding
         const paddingLeft = currentStep.spotlightPaddingLeft ?? basePadding
         
-        // Get optional offsets for fine-tuning spotlight position
+        // Get optional offsets
         const offsetX = currentStep.spotlightOffsetX || 0
         const offsetY = currentStep.spotlightOffsetY || 0
         
-        // Use viewport-relative positions (getBoundingClientRect returns viewport coords)
         const spotlightRect = {
           top: rect.top - paddingTop + offsetY,
           left: rect.left - paddingLeft + offsetX,
@@ -68,43 +51,30 @@ function TutorialOverlay() {
         }
         setTargetRect(spotlightRect)
 
-        // Calculate tooltip position based on spotlight rect
+        // Calculate tooltip position
         const tooltipPos = calculateTooltipPosition(spotlightRect, currentStep.position, currentStep.extraOffset)
         setTooltipStyle(tooltipPos)
-
-        // Add click listener for interactive elements
-        if (currentStep.action === 'click-element') {
-          const handleClick = () => {
-            nextStep()
-          }
-          target.addEventListener('click', handleClick, { once: true })
-          return () => target.removeEventListener('click', handleClick)
-        }
       } else {
-        // Element not found - might be loading, retry
+        // Element not found - retry
         setTimeout(findTarget, 100)
       }
     }
 
     const timeoutId = setTimeout(findTarget, 50)
     return () => clearTimeout(timeoutId)
-  }, [shouldShowStep, currentStep, nextStep])
+  }, [isActive, currentStep])
 
-  // Calculate tooltip position based on spotlight rect (viewport coords)
-  // Includes bounds checking to keep tooltip on screen
+  // Calculate tooltip position
   const calculateTooltipPosition = (spotlightRect, position, extraOffset = 0) => {
-    const gap = 48 + extraOffset // Base gap plus any step-specific offset
+    const gap = 48 + extraOffset
     const tooltipWidth = 320
-    const tooltipHeight = 220 // Approximate
+    const tooltipHeight = 220
     const margin = 16
 
-    // Helper to clamp values within viewport
     const clampTop = (top) => Math.max(margin, Math.min(top, window.innerHeight - tooltipHeight - margin))
     const clampLeft = (left) => Math.max(margin, Math.min(left, window.innerWidth - tooltipWidth - margin))
 
-    // Calculate centered horizontal position
     const centeredLeft = spotlightRect.left + spotlightRect.width / 2 - tooltipWidth / 2
-    // Calculate centered vertical position
     const centeredTop = spotlightRect.top + spotlightRect.height / 2 - tooltipHeight / 2
 
     switch (position) {
@@ -138,42 +108,68 @@ function TutorialOverlay() {
     }
   }
 
-  // Handle keyboard navigation
+  // Handle click outside tooltip and spotlight
+  const handleBackdropClick = (e) => {
+    // Check if click is on the backdrop (not tooltip or spotlight)
+    const isTooltipClick = tooltipRef.current?.contains(e.target)
+    const isSpotlightClick = e.target.classList.contains('tutorial-spotlight') || 
+                            e.target.classList.contains('tutorial-spotlight-border')
+    
+    if (!isTooltipClick && !isSpotlightClick) {
+      if (dontShowAgain) {
+        disableTutorials()
+      } else {
+        dismissStep()
+      }
+    }
+  }
+
+  // Handle keyboard
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!isActive) return
       if (e.key === 'Escape') {
-        exitTutorial()
-      } else if (e.key === 'Enter' && currentStep?.action === 'button') {
-        nextStep()
+        if (dontShowAgain) {
+          disableTutorials()
+        } else {
+          dismissStep()
+        }
+      } else if (e.key === 'Enter') {
+        handleNext()
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isActive, currentStep, nextStep, exitTutorial])
+  }, [isActive, dismissStep, disableTutorials, dontShowAgain])
 
-  if (!isActive || !shouldShowStep) return null
+  const handleNext = () => {
+    if (dontShowAgain) {
+      disableTutorials()
+    } else {
+      nextStep()
+    }
+  }
+
+  if (!isActive || !currentStep) return null
 
   const isCenter = currentStep?.position === 'center' || !currentStep?.target
-  const showClickHint = currentStep?.action === 'click-element'
 
   return (
-    <div className="tutorial-overlay" ref={overlayRef}>
-      {/* Dark overlay - transparent when spotlight exists, dark otherwise */}
-      <div className={`tutorial-backdrop ${targetRect ? 'has-spotlight' : 'no-spotlight'}`} />
-      
-      {/* Spotlight cutout with box-shadow creating the dark overlay */}
-      {targetRect && (
+    <div className="tutorial-overlay" onClick={handleBackdropClick}>
+      {/* Dark overlay with spotlight cutout */}
+      {targetRect ? (
         <div 
-          className="tutorial-spotlight"
+          className="tutorial-backdrop-with-spotlight"
           style={{
-            top: targetRect.top,
-            left: targetRect.left,
-            width: targetRect.width,
-            height: targetRect.height
+            '--spotlight-top': `${targetRect.top}px`,
+            '--spotlight-left': `${targetRect.left}px`,
+            '--spotlight-width': `${targetRect.width}px`,
+            '--spotlight-height': `${targetRect.height}px`
           }}
         />
+      ) : (
+        <div className="tutorial-backdrop" />
       )}
 
       {/* Spotlight border/glow effect */}
@@ -191,54 +187,33 @@ function TutorialOverlay() {
 
       {/* Tooltip */}
       <div 
+        ref={tooltipRef}
         className={`tutorial-tooltip ${isCenter ? 'tutorial-tooltip-center' : ''}`}
         style={!isCenter ? tooltipStyle : undefined}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="tutorial-tooltip-header">
-          <span className="tutorial-step-indicator">
-            {currentStepIndex + 1} of {totalSteps}
-          </span>
-          <button className="tutorial-exit-btn" onClick={exitTutorial}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
         <h3 className="tutorial-title">{currentStep?.title}</h3>
         <p className="tutorial-text">{currentStep?.text}</p>
 
-        {showClickHint && (
-          <p className="tutorial-click-hint">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
-            </svg>
-            Click the highlighted element to continue
-          </p>
-        )}
-
         <div className="tutorial-buttons">
-          {currentStep?.action === 'button' && (
-            <button className="tutorial-btn tutorial-btn-primary" onClick={nextStep}>
-              {currentStep?.buttonText || 'Next'}
-            </button>
-          )}
-          {currentStep?.action === 'click-element' && (
-            <button className="tutorial-btn tutorial-btn-secondary" onClick={skipStep}>
-              {currentStep?.buttonText || 'Skip'}
-            </button>
-          )}
+          <button className="tutorial-btn tutorial-btn-primary" onClick={handleNext}>
+            {currentStep?.buttonText || 'Next'}
+          </button>
         </div>
 
-        {/* Progress dots */}
-        <div className="tutorial-progress">
-          {Array.from({ length: totalSteps }).map((_, i) => (
-            <div 
-              key={i} 
-              className={`tutorial-progress-dot ${i === currentStepIndex ? 'active' : ''} ${i < currentStepIndex ? 'completed' : ''}`}
-            />
-          ))}
-        </div>
+        {/* Don't show again checkbox */}
+        <label className="tutorial-dont-show">
+          <input 
+            type="checkbox" 
+            checked={dontShowAgain}
+            onChange={(e) => setDontShowAgain(e.target.checked)}
+          />
+          <span>Don't show tutorials again</span>
+        </label>
+
+        <p className="tutorial-dismiss-hint">
+          Click anywhere outside to dismiss
+        </p>
       </div>
     </div>
   )
