@@ -1,12 +1,38 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { getRubrics } from '../data/supabaseData'
 
 function NewAssignmentModal({ isOpen, onClose, onSubmit }) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     startDate: '',
-    dueDate: ''
+    dueDate: '',
+    rubricId: ''
   })
+  const [rubrics, setRubrics] = useState([])
+  const [loadingRubrics, setLoadingRubrics] = useState(false)
+
+  // Fetch rubrics when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const fetchRubrics = async () => {
+        setLoadingRubrics(true)
+        try {
+          const data = await getRubrics()
+          setRubrics(data)
+          // Auto-select first rubric if available
+          if (data.length > 0 && !formData.rubricId) {
+            setFormData(prev => ({ ...prev, rubricId: data[0].id }))
+          }
+        } catch (error) {
+          console.error('Error fetching rubrics:', error)
+        } finally {
+          setLoadingRubrics(false)
+        }
+      }
+      fetchRubrics()
+    }
+  }, [isOpen])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -23,7 +49,8 @@ function NewAssignmentModal({ isOpen, onClose, onSubmit }) {
       title: '',
       description: '',
       startDate: '',
-      dueDate: ''
+      dueDate: '',
+      rubricId: ''
     })
     onClose()
   }
@@ -33,10 +60,14 @@ function NewAssignmentModal({ isOpen, onClose, onSubmit }) {
       title: '',
       description: '',
       startDate: '',
-      dueDate: ''
+      dueDate: '',
+      rubricId: ''
     })
     onClose()
   }
+
+  // Get selected rubric details for preview
+  const selectedRubric = rubrics.find(r => r.id === formData.rubricId)
 
   if (!isOpen) return null
 
@@ -70,6 +101,45 @@ function NewAssignmentModal({ isOpen, onClose, onSubmit }) {
               rows="4"
               required
             />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="rubricId" className="form-label">Grading Rubric</label>
+            {loadingRubrics ? (
+              <div className="rubric-loading">Loading rubrics...</div>
+            ) : (
+              <>
+                <select
+                  id="rubricId"
+                  name="rubricId"
+                  value={formData.rubricId}
+                  onChange={handleInputChange}
+                  className="form-input"
+                  required
+                >
+                  <option value="">Select a rubric...</option>
+                  {rubrics.map(rubric => (
+                    <option key={rubric.id} value={rubric.id}>
+                      {rubric.name} ({rubric.totalPoints} pts)
+                    </option>
+                  ))}
+                </select>
+                
+                {/* Rubric preview */}
+                {selectedRubric && (
+                  <div className="rubric-preview">
+                    <p className="rubric-description">{selectedRubric.description}</p>
+                    <div className="rubric-criteria-list">
+                      {selectedRubric.rubric_criteria?.map(criterion => (
+                        <span key={criterion.id} className="criterion-tag">
+                          {criterion.name} ({criterion.max_points}pt)
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           <div className="form-group">

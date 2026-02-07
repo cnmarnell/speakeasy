@@ -739,7 +739,8 @@ export const processVideoWithAI = async (videoBlob, assignmentTitle, assignmentI
     console.log('Step 3: Analyzing speech content with Bedrock Agent...')
     const analysisResult = await analyzeSpeechWithBedrockAgent(
       transcriptionResult.text,
-      assignmentTitle
+      assignmentTitle,
+      assignmentId
     )
 
     // Combine filler word analysis with Bedrock Agent analysis
@@ -830,6 +831,43 @@ export const processVideoWithAI = async (videoBlob, assignmentTitle, assignmentI
 // CREATE FUNCTIONS
 
 // Create a new assignment
+// Fetch all available rubrics for assignment creation
+export const getRubrics = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('rubrics')
+      .select(`
+        id,
+        name,
+        description,
+        is_system,
+        rubric_criteria (
+          id,
+          name,
+          description,
+          max_points,
+          sort_order
+        )
+      `)
+      .order('name')
+
+    if (error) {
+      console.error('Error fetching rubrics:', error)
+      return []
+    }
+
+    // Sort criteria by sort_order within each rubric
+    return data.map(rubric => ({
+      ...rubric,
+      rubric_criteria: rubric.rubric_criteria?.sort((a, b) => a.sort_order - b.sort_order) || [],
+      totalPoints: rubric.rubric_criteria?.reduce((sum, c) => sum + c.max_points, 0) || 0
+    }))
+  } catch (error) {
+    console.error('Error fetching rubrics:', error)
+    return []
+  }
+}
+
 export const createAssignment = async (assignmentData) => {
   try {
     // First get the class ID by name
@@ -843,7 +881,7 @@ export const createAssignment = async (assignmentData) => {
       throw new Error('Class not found')
     }
 
-    // Create the assignment
+    // Create the assignment with rubric_id
     const { data, error } = await supabase
       .from('assignments')
       .insert([{
@@ -851,7 +889,8 @@ export const createAssignment = async (assignmentData) => {
         title: assignmentData.title,
         description: assignmentData.description,
         max_duration_seconds: assignmentData.maxDuration || 60,
-        due_date: assignmentData.dueDate
+        due_date: assignmentData.dueDate,
+        rubric_id: assignmentData.rubricId || null
       }])
       .select()
       .single()
@@ -1020,7 +1059,7 @@ export const createSubmission = async (submissionData, videoBlob = null, assignm
     if (videoBlob) {
       console.log('Processing video with AI...')
       try {
-        aiResult = await processVideoWithAI(videoBlob, assignmentTitle)
+        aiResult = await processVideoWithAI(videoBlob, assignmentTitle, submissionData.assignmentId)
 
         // Only calculate score if AI processing succeeded
         if (aiResult.analysis.overallScore !== null) {

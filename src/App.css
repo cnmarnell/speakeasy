@@ -1097,6 +1097,44 @@
   background-color: #0056b3;
 }
 
+/* Rubric selection styles */
+.rubric-loading {
+  padding: 0.75rem;
+  color: #666;
+  font-style: italic;
+}
+
+.rubric-preview {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #f8f4f0 0%, #f0e8e0 100%);
+  border-radius: 8px;
+  border: 1px solid #d4c4b0;
+}
+
+.rubric-description {
+  margin: 0 0 0.75rem 0;
+  color: #555;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.rubric-criteria-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.criterion-tag {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: #722f37;
+  color: #fff;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
 .assignment-detail-page {
   padding: 2rem 4rem;
   height: calc(100vh - 80px);

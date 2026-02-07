@@ -1,5 +1,12 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCARPrompt } from "../_shared/carPrompt.ts";
+import { 
+  buildDynamicPrompt, 
+  parseDynamicResponse, 
+  generateDynamicFeedback,
+  type Rubric 
+} from "../_shared/dynamicPrompt.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,40 +14,92 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-interface NovaLiteRequest {
+interface GradingRequest {
   transcript: string;
-  assignmentTitle: string;
+  assignmentTitle?: string;
+  assignmentId?: string;  // New: fetch rubric via assignment
+  rubricId?: string;      // New: direct rubric ID
 }
 
-// Structured JSON output format for grading
-interface GradingCriterion {
-  score: 0 | 1;
-  explanation: string;
-}
-
-interface StructuredGradingResponse {
-  context: GradingCriterion;
-  action: GradingCriterion;
-  result: GradingCriterion;
-  quantitative: GradingCriterion;
-  total: number;
-  improvement: string;
-  example_perfect_response: string;
-}
-
-interface NovaLiteResponse {
+interface GradingResponse {
   speechContent: string;
   contentScore: number;
   confidence: number;
   sources: string[];
-  structuredGrading?: StructuredGradingResponse;
+  structuredGrading?: Record<string, unknown>;
+  rubricName?: string;
+  maxScore?: number;
 }
 
-// System prompt is now in _shared/carPrompt.ts — single source of truth
-// No more secrets, no more mystery. Edit carPrompt.ts to change grading.
+// Initialize Supabase client for fetching rubrics
+function getSupabaseClient() {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  return createClient(supabaseUrl, supabaseKey);
+}
 
-// Validate that scores match explanations
-function validateAndCorrectScores(grading: StructuredGradingResponse): StructuredGradingResponse {
+// Fetch rubric by assignment ID
+async function getRubricByAssignment(assignmentId: string): Promise<Rubric | null> {
+  try {
+    const supabase = getSupabaseClient();
+    
+    // Get assignment's rubric_id
+    const { data: assignment, error: assignmentError } = await supabase
+      .from('assignments')
+      .select('rubric_id')
+      .eq('id', assignmentId)
+      .single();
+    
+    if (assignmentError || !assignment?.rubric_id) {
+      console.log('No rubric assigned to this assignment, using fallback');
+      return null;
+    }
+    
+    return await getRubricById(assignment.rubric_id);
+  } catch (error) {
+    console.error('Error fetching rubric by assignment:', error);
+    return null;
+  }
+}
+
+// Fetch rubric by ID
+async function getRubricById(rubricId: string): Promise<Rubric | null> {
+  try {
+    const supabase = getSupabaseClient();
+    
+    const { data: rubric, error } = await supabase
+      .from('rubrics')
+      .select(`
+        id,
+        name,
+        description,
+        context,
+        rubric_criteria (
+          id,
+          name,
+          description,
+          max_points,
+          sort_order,
+          examples
+        )
+      `)
+      .eq('id', rubricId)
+      .single();
+    
+    if (error || !rubric) {
+      console.error('Error fetching rubric:', error);
+      return null;
+    }
+    
+    return rubric as Rubric;
+  } catch (error) {
+    console.error('Error fetching rubric:', error);
+    return null;
+  }
+}
+
+// Legacy: Validate and correct CAR scores
+function validateAndCorrectCARScores(grading: Record<string, unknown>): Record<string, unknown> {
   const negativeIndicators = [
     'not met', 'not include', 'did not', 'does not', 'lacks', 'missing',
     'no mention', 'absent', 'failed to', 'without', 'unclear', 'vague',
@@ -53,153 +112,80 @@ function validateAndCorrectScores(grading: StructuredGradingResponse): Structure
     'did not provide', 'did not include', 'did not describe',
     'did not mention', 'not a real'
   ];
-  
-  const positiveIndicators = [
-    'met', 'included', 'demonstrated', 'present', 'provided', 'clear',
-    'evident', 'showed', 'displayed', 'mentioned', 'addressed', 'stated',
-    'described', 'explained', 'identified', 'specific', 'strong',
-    'effective', 'well-structured'
-  ];
 
   function shouldBeZero(explanation: string): boolean {
     const lowerExplanation = explanation.toLowerCase();
-    // Check explicit negative indicators
     if (negativeIndicators.some(indicator => lowerExplanation.includes(indicator))) return true;
-    // Catch pattern: starts with "No " followed by anything (e.g., "No concrete outcomes")
     if (/\bno\s+\w+/.test(lowerExplanation) && !/(no doubt|no issue|no problem|no question)/.test(lowerExplanation)) return true;
     return false;
   }
 
-  function shouldBeOne(explanation: string): boolean {
-    const lowerExplanation = explanation.toLowerCase();
-    // Only return true if positive indicators exist AND no negative indicators
-    const hasPositive = positiveIndicators.some(indicator => lowerExplanation.includes(indicator));
-    const hasNegative = shouldBeZero(explanation);
-    return hasPositive && !hasNegative;
-  }
-
-  // Check and correct each criterion
-  const criteria: (keyof Pick<StructuredGradingResponse, 'context' | 'action' | 'result' | 'quantitative'>)[] = 
-    ['context', 'action', 'result', 'quantitative'];
-  
+  const criteria = ['context', 'action', 'result', 'quantitative'];
   let correctedTotal = 0;
   const corrected = { ...grading };
 
   for (const criterion of criteria) {
-    const item = corrected[criterion];
-    const originalScore = item.score;
-    
-    // Check for mismatch: score is 1 but explanation indicates failure
-    if (item.score === 1 && shouldBeZero(item.explanation)) {
-      console.log(`⚠️ Score/explanation mismatch detected for ${criterion}:`);
-      console.log(`   Score: ${item.score}, Explanation: "${item.explanation.substring(0, 100)}..."`);
-      console.log(`   Auto-correcting score from 1 to 0`);
-      item.score = 0;
-    }
-    // Check for mismatch: score is 0 but explanation clearly indicates success
-    else if (item.score === 0 && shouldBeOne(item.explanation)) {
-      // Only correct if the explanation is CLEARLY positive (no negative indicators)
-      console.log(`⚠️ Score/explanation mismatch detected for ${criterion}:`);
-      console.log(`   Score: ${item.score}, Explanation: "${item.explanation.substring(0, 100)}..."`);
-      console.log(`   Auto-correcting score from 0 to 1`);
-      item.score = 1;
-    }
-
-    correctedTotal += item.score;
-    
-    if (originalScore !== item.score) {
-      console.log(`✅ Corrected ${criterion} score: ${originalScore} → ${item.score}`);
+    const item = corrected[criterion] as { score: number; explanation: string } | undefined;
+    if (item) {
+      if (item.score === 1 && shouldBeZero(item.explanation)) {
+        console.log(`⚠️ Auto-correcting ${criterion} score from 1 to 0`);
+        item.score = 0;
+      }
+      correctedTotal += item.score;
     }
   }
 
-  // Correct total if it doesn't match sum
-  if (corrected.total !== correctedTotal) {
-    console.log(`⚠️ Total mismatch: reported ${corrected.total}, calculated ${correctedTotal}`);
-    corrected.total = correctedTotal;
+  if ((corrected as { total?: number }).total !== correctedTotal) {
+    (corrected as { total: number }).total = correctedTotal;
   }
 
   return corrected;
 }
 
-// Parse JSON response with fallback handling
-function parseStructuredResponse(responseText: string): StructuredGradingResponse | null {
+// Parse legacy CAR response
+function parseCARResponse(responseText: string): Record<string, unknown> | null {
   try {
-    // First, try to find JSON in the response (in case there's extra text)
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.log('❌ No JSON object found in response');
-      return null;
-    }
+    if (!jsonMatch) return null;
 
-    const jsonStr = jsonMatch[0];
-    const parsed = JSON.parse(jsonStr);
-
-    // Validate required fields
+    const parsed = JSON.parse(jsonMatch[0]);
     const requiredFields = ['context', 'action', 'result', 'quantitative', 'total', 'improvement', 'example_perfect_response'];
     for (const field of requiredFields) {
-      if (!(field in parsed)) {
-        console.log(`❌ Missing required field: ${field}`);
-        return null;
-      }
+      if (!(field in parsed)) return null;
     }
 
-    // Validate criterion structure
     const criteria = ['context', 'action', 'result', 'quantitative'];
     for (const criterion of criteria) {
-      if (typeof parsed[criterion]?.score !== 'number' || 
-          typeof parsed[criterion]?.explanation !== 'string') {
-        console.log(`❌ Invalid structure for criterion: ${criterion}`);
-        return null;
-      }
-      // Normalize score to 0 or 1
+      if (typeof parsed[criterion]?.score !== 'number') return null;
       parsed[criterion].score = parsed[criterion].score >= 0.5 ? 1 : 0;
     }
 
-    // Validate and correct scores based on explanations
-    const validated = validateAndCorrectScores(parsed as StructuredGradingResponse);
-
-    console.log('✅ Successfully parsed and validated structured response');
-    return validated;
-
-  } catch (error) {
-    console.error('❌ JSON parse error:', error);
+    return validateAndCorrectCARScores(parsed);
+  } catch {
     return null;
   }
 }
 
-// Legacy fallback: extract score from text format
-function extractLegacyScore(responseText: string): number | null {
-  const lowerText = responseText.toLowerCase();
-  const scoreIndex = lowerText.indexOf('final score:');
-
-  if (scoreIndex !== -1) {
-    const afterScore = responseText.substring(scoreIndex + 13, scoreIndex + 33);
-    const match = afterScore.match(/\d/);
-    if (match) {
-      return parseInt(match[0], 10);
-    }
-  }
-  return null;
-}
-
-// Generate human-readable feedback from structured response
-function generateFeedbackText(grading: StructuredGradingResponse): string {
-  const criteriaNames = {
+// Generate CAR feedback (legacy)
+function generateCARFeedback(grading: Record<string, unknown>): string {
+  const criteriaNames: Record<string, string> = {
     context: 'Context',
-    action: 'Action',
+    action: 'Action', 
     result: 'Result',
     quantitative: 'Quantitative'
   };
 
-  let feedback = `## Elevator Pitch Evaluation\n\n`;
+  let feedback = `## CAR Framework Evaluation\n\n`;
   feedback += `**Total Score: ${grading.total}/4**\n\n`;
   feedback += `### Criteria Breakdown\n\n`;
 
   for (const [key, name] of Object.entries(criteriaNames)) {
-    const criterion = grading[key as keyof typeof criteriaNames];
-    const icon = criterion.score === 1 ? '✅' : '❌';
-    feedback += `**${name}:** ${icon} ${criterion.score}/1\n`;
-    feedback += `${criterion.explanation}\n\n`;
+    const criterion = grading[key] as { score: number; explanation: string };
+    if (criterion) {
+      const icon = criterion.score === 1 ? '✅' : '❌';
+      feedback += `**${name}:** ${icon} ${criterion.score}/1\n`;
+      feedback += `${criterion.explanation}\n\n`;
+    }
   }
 
   feedback += `### How to Improve\n\n${grading.improvement}\n\n`;
@@ -209,31 +195,23 @@ function generateFeedbackText(grading: StructuredGradingResponse): string {
 }
 
 Deno.serve(async (req: Request) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Only allow POST requests
     if (req.method !== 'POST') {
       return new Response(
         JSON.stringify({ error: 'Method not allowed' }),
-        {
-          status: 405,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Claude Haiku 3.5 grading request received');
+    console.log('Grading request received');
 
-    // Get AWS credentials and system prompt from environment
     const awsAccessKeyId = Deno.env.get('AWS_ACCESS_KEY_ID');
     const awsSecretAccessKey = Deno.env.get('AWS_SECRET_ACCESS_KEY');
     const awsRegion = Deno.env.get('AWS_REGION');
-    // System prompt now lives in code, not a secret
-    // Old secret ELEVATOR_PITCH_SYSTEM_PROMPT is no longer needed
     
     if (!awsAccessKeyId || !awsSecretAccessKey || !awsRegion) {
       console.error('Missing AWS credentials');
@@ -244,24 +222,19 @@ Deno.serve(async (req: Request) => {
           confidence: 0,
           sources: ['Configuration Error']
         }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Parse request body
-    const { transcript, assignmentTitle }: NovaLiteRequest = await req.json();
+    const { transcript, assignmentId, rubricId }: GradingRequest = await req.json();
 
     console.log('Request parsed:', {
       transcriptLength: transcript?.length || 0,
-      assignmentTitle: assignmentTitle || 'No title',
-      hasTranscript: !!transcript
+      assignmentId: assignmentId || 'none',
+      rubricId: rubricId || 'none'
     });
 
     if (!transcript) {
-      console.error('Missing transcript in request');
       return new Response(
         JSON.stringify({
           speechContent: 'Transcript is required for analysis',
@@ -269,53 +242,51 @@ Deno.serve(async (req: Request) => {
           confidence: 0,
           sources: ['Missing Data']
         }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Build prompt from single source of truth (carPrompt.ts)
-    const enhancedPrompt = buildCARPrompt(transcript);
+    // Try to fetch rubric (by assignment or direct ID)
+    let rubric: Rubric | null = null;
+    let useDynamicRubric = false;
 
-    console.log('Calling Claude Haiku 3.5 with CAR prompt...', {
-      promptLength: enhancedPrompt.length,
-      transcriptLength: transcript.length
-    });
+    if (assignmentId) {
+      rubric = await getRubricByAssignment(assignmentId);
+    } else if (rubricId) {
+      rubric = await getRubricById(rubricId);
+    }
 
-    // AWS Bedrock Runtime API endpoint for Claude Haiku 3.5
-    // Using cross-region inference profile (required for on-demand throughput)
+    if (rubric && rubric.rubric_criteria?.length > 0) {
+      useDynamicRubric = true;
+      console.log(`Using dynamic rubric: ${rubric.name} (${rubric.rubric_criteria.length} criteria)`);
+    } else {
+      console.log('Using fallback CAR Framework prompt');
+    }
+
+    // Build prompt
+    const prompt = useDynamicRubric && rubric
+      ? buildDynamicPrompt(rubric, transcript)
+      : buildCARPrompt(transcript);
+
+    console.log('Calling Claude Haiku 3.5...', { promptLength: prompt.length });
+
+    // AWS Bedrock call
     const endpoint = `https://bedrock-runtime.${awsRegion}.amazonaws.com`;
     const url = `${endpoint}/model/us.anthropic.claude-3-5-haiku-20241022-v1:0/invoke`;
 
-    // Prepare the request body for Claude Haiku 3.5
     const requestBody = {
       anthropic_version: "bedrock-2023-05-31",
       max_tokens: 1500,
-      messages: [
-        {
-          role: "user",
-          content: enhancedPrompt
-        }
-      ],
+      messages: [{ role: "user", content: prompt }],
       temperature: 0.1,
       top_p: 0.9
     };
 
-    // Create AWS signature for Claude Haiku 3.5
     const awsSignature = await createAWSSignature(
-      'POST',
-      url,
-      JSON.stringify(requestBody),
-      awsAccessKeyId,
-      awsSecretAccessKey,
-      awsRegion
+      'POST', url, JSON.stringify(requestBody),
+      awsAccessKeyId, awsSecretAccessKey, awsRegion
     );
 
-    console.log('Calling Claude Haiku 3.5 API...');
-
-    // Call Claude Haiku 3.5
     const novaResponse = await fetch(url, {
       method: 'POST',
       headers: {
@@ -327,135 +298,115 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify(requestBody)
     });
 
-    console.log('Claude Haiku 3.5 response status:', novaResponse.status);
-
     if (!novaResponse.ok) {
       const errorText = await novaResponse.text();
-      console.error('Claude Haiku 3.5 API error:', {
-        status: novaResponse.status,
-        statusText: novaResponse.statusText,
-        error: errorText
-      });
-      
+      console.error('Claude API error:', { status: novaResponse.status, error: errorText });
       return new Response(
         JSON.stringify({
-          speechContent: `Claude Haiku 3.5 API Error (${novaResponse.status}): ${errorText}`,
+          speechContent: `API Error (${novaResponse.status}): ${errorText}`,
           contentScore: 2,
           confidence: 0,
-          sources: ['Claude Haiku 3.5 API Error']
+          sources: ['API Error']
         }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Parse Claude Haiku 3.5 response
-    const claudeResponseData = await novaResponse.json();
-    console.log('Claude Haiku 3.5 response received');
+    const claudeResponse = await novaResponse.json();
+    const responseText = claudeResponse.content?.[0]?.text;
 
-    // Extract response text from Claude response structure
-    const responseText = claudeResponseData.content?.[0]?.text;
-    
-    if (!responseText || responseText.trim().length === 0) {
-      console.warn('No content received from Claude Haiku 3.5');
-      
+    if (!responseText?.trim()) {
       return new Response(
         JSON.stringify({
-          speechContent: 'Claude Haiku 3.5 returned empty response',
+          speechContent: 'Empty response from Claude',
           contentScore: 2,
           confidence: 0,
-          sources: ['Claude Haiku 3.5 - Empty Response']
+          sources: ['Empty Response']
         }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Claude Haiku 3.5 response text:', responseText.substring(0, 300) + '...');
+    console.log('Response received:', responseText.substring(0, 200) + '...');
 
-    // Try to parse as structured JSON first
-    const structuredGrading = parseStructuredResponse(responseText);
+    // Parse response based on rubric type
+    let result: GradingResponse;
 
-    let analysisResult: NovaLiteResponse;
-
-    if (structuredGrading) {
-      // Successfully parsed structured JSON
-      console.log('✅ Using structured JSON grading:', {
-        total: structuredGrading.total,
-        context: structuredGrading.context.score,
-        action: structuredGrading.action.score,
-        result: structuredGrading.result.score,
-        quantitative: structuredGrading.quantitative.score
-      });
-
-      const feedbackText = generateFeedbackText(structuredGrading);
-
-      analysisResult = {
-        speechContent: feedbackText,
-        contentScore: structuredGrading.total,
-        confidence: 0.98, // High confidence for structured parsing
-        sources: ['Claude Haiku 3.5 (structured JSON)'],
-        structuredGrading: structuredGrading
-      };
+    if (useDynamicRubric && rubric) {
+      const parsed = parseDynamicResponse(responseText, rubric);
+      if (parsed) {
+        const maxScore = rubric.rubric_criteria.reduce((sum, c) => sum + c.max_points, 0);
+        const feedbackText = generateDynamicFeedback(
+          rubric, parsed.scores, parsed.total, parsed.improvement, parsed.example
+        );
+        
+        result = {
+          speechContent: feedbackText,
+          contentScore: parsed.total,
+          confidence: 0.95,
+          sources: [`Claude Haiku 3.5 (${rubric.name})`],
+          structuredGrading: { scores: parsed.scores, total: parsed.total },
+          rubricName: rubric.name,
+          maxScore
+        };
+      } else {
+        // Fallback to raw text
+        result = {
+          speechContent: responseText.trim(),
+          contentScore: 2,
+          confidence: 0.6,
+          sources: ['Claude Haiku 3.5 (parse error)'],
+          rubricName: rubric.name
+        };
+      }
     } else {
-      // Fallback to legacy text parsing
-      console.log('⚠️ Falling back to legacy text parsing');
-      const legacyScore = extractLegacyScore(responseText);
-
-      analysisResult = {
-        speechContent: responseText.trim(),
-        contentScore: legacyScore !== null ? legacyScore : 2,
-        confidence: legacyScore !== null ? 0.85 : 0.6,
-        sources: legacyScore !== null 
-          ? ['AWS Claude Haiku 3.5 Model (legacy text extraction)']
-          : ['AWS Claude Haiku 3.5 Model (default fallback)']
-      };
+      // Legacy CAR parsing
+      const carGrading = parseCARResponse(responseText);
+      if (carGrading) {
+        result = {
+          speechContent: generateCARFeedback(carGrading),
+          contentScore: carGrading.total as number,
+          confidence: 0.98,
+          sources: ['Claude Haiku 3.5 (CAR Framework)'],
+          structuredGrading: carGrading,
+          rubricName: 'CAR Framework',
+          maxScore: 4
+        };
+      } else {
+        result = {
+          speechContent: responseText.trim(),
+          contentScore: 2,
+          confidence: 0.6,
+          sources: ['Claude Haiku 3.5 (fallback)']
+        };
+      }
     }
 
-    console.log('Returning analysis:', {
-      contentScore: analysisResult.contentScore,
-      confidence: analysisResult.confidence,
-      isStructured: !!structuredGrading
-    });
+    console.log('Returning:', { score: result.contentScore, rubric: result.rubricName });
 
-    return new Response(JSON.stringify(analysisResult), {
+    return new Response(JSON.stringify(result), {
       status: 200,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json',
-      },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
-    console.error('Claude Haiku 3.5 placeholder error:', error);
-
+    console.error('Grading error:', error);
     return new Response(
       JSON.stringify({
-        speechContent: `Error processing with Claude Haiku 3.5: ${error.message}`,
-        contentScore: 2, // Default fallback score
+        speechContent: `Error: ${error.message}`,
+        contentScore: 2,
         confidence: 0,
-        sources: ['Claude Haiku 3.5 Processing Error']
+        sources: ['Processing Error']
       }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
 
 // AWS Signature V4 implementation
 async function createAWSSignature(
-  method: string,
-  url: string,
-  body: string,
-  accessKeyId: string,
-  secretAccessKey: string,
-  region: string
+  method: string, url: string, body: string,
+  accessKeyId: string, secretAccessKey: string, region: string
 ) {
   const urlObj = new URL(url);
   const host = urlObj.hostname;
@@ -465,12 +416,7 @@ async function createAWSSignature(
   const amzDate = now.toISOString().replace(/[:\-]|\.\d{3}/g, '');
   const dateStamp = amzDate.substring(0, 8);
   
-  // Create canonical request - AWS expects URL-encoded path
-  const canonicalUri = urlObj.pathname
-    .split('/')
-    .map(segment => encodeURIComponent(segment))
-    .join('/');
-    
+  const canonicalUri = urlObj.pathname.split('/').map(segment => encodeURIComponent(segment)).join('/');
   const canonicalQuerystring = urlObj.search.substring(1);
   const canonicalHeaders = `host:${host}\nx-amz-date:${amzDate}\n`;
   const signedHeaders = 'host;x-amz-date';
@@ -478,62 +424,39 @@ async function createAWSSignature(
   
   const canonicalRequest = `${method}\n${canonicalUri}\n${canonicalQuerystring}\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
   
-  // Create string to sign
   const algorithm = 'AWS4-HMAC-SHA256';
   const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
   const stringToSign = `${algorithm}\n${amzDate}\n${credentialScope}\n${await sha256(canonicalRequest)}`;
   
-  // Create signing key
   const signingKey = await getSigningKey(secretAccessKey, dateStamp, region, service);
-  
-  // Create signature
   const signature = await hmacSha256(signingKey, stringToSign);
   
-  // Create authorization header
   const authorization = `${algorithm} Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
   
-  return {
-    authorization,
-    amzDate
-  };
+  return { authorization, amzDate };
 }
 
 async function sha256(message: string): Promise<string> {
   const msgBuffer = new TextEncoder().encode(message);
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 async function hmacSha256(key: Uint8Array, message: string): Promise<string> {
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    key.buffer as ArrayBuffer,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
+  const cryptoKey = await crypto.subtle.importKey('raw', key.buffer as ArrayBuffer, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const signature = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(message));
-  const hashArray = Array.from(new Uint8Array(signature));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 async function getSigningKey(secretAccessKey: string, dateStamp: string, region: string, service: string): Promise<Uint8Array> {
   const kDate = await hmacSha256Raw(new TextEncoder().encode(`AWS4${secretAccessKey}`), dateStamp);
   const kRegion = await hmacSha256Raw(kDate, region);
   const kService = await hmacSha256Raw(kRegion, service);
-  const kSigning = await hmacSha256Raw(kService, 'aws4_request');
-  return kSigning;
+  return await hmacSha256Raw(kService, 'aws4_request');
 }
 
 async function hmacSha256Raw(key: Uint8Array, message: string): Promise<Uint8Array> {
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    key.buffer as ArrayBuffer,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
+  const cryptoKey = await crypto.subtle.importKey('raw', key.buffer as ArrayBuffer, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const signature = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(message));
   return new Uint8Array(signature);
 }

@@ -19,11 +19,12 @@ import { fetchWithRetry } from './apiResilience'
  */
 
 // Analyze speech content using AWS Bedrock Agent
-export const analyzeSpeechWithBedrockAgent = async (transcript, assignmentTitle) => {
+export const analyzeSpeechWithBedrockAgent = async (transcript, assignmentTitle, assignmentId = null) => {
   try {
     console.log('Analyzing speech with AWS Bedrock Agent...', {
       transcriptLength: transcript.length,
-      assignment: assignmentTitle
+      assignment: assignmentTitle,
+      assignmentId: assignmentId || 'none'
     })
 
     // Get user session for authentication
@@ -58,7 +59,8 @@ export const analyzeSpeechWithBedrockAgent = async (transcript, assignmentTitle)
         },
         body: JSON.stringify({
           transcript: transcript,
-          assignmentTitle: assignmentTitle
+          assignmentTitle: assignmentTitle,
+          assignmentId: assignmentId
         }),
         signal: controller.signal
       }).finally(() => clearTimeout(timeout))
