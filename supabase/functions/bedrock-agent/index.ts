@@ -1,12 +1,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { buildCARPrompt } from "../_shared/carPrompt.ts";
 import { 
-  buildDynamicPrompt, 
-  parseDynamicResponse, 
-  generateDynamicFeedback,
-  type Rubric 
-} from "../_shared/dynamicPrompt.ts";
+  getRubricByKey, 
+  buildRubricPrompt, 
+  DEFAULT_RUBRIC_KEY,
+  type RubricDefinition 
+} from "../_shared/rubrics/index.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,9 +15,9 @@ const corsHeaders = {
 
 interface GradingRequest {
   transcript: string;
-  assignmentTitle?: string;
-  assignmentId?: string;  // New: fetch rubric via assignment
-  rubricId?: string;      // New: direct rubric ID
+  assignmentId?: string;
+  rubricId?: string;
+  promptKey?: string;  // Direct prompt_key override
 }
 
 interface GradingResponse {
@@ -31,165 +30,113 @@ interface GradingResponse {
   maxScore?: number;
 }
 
-// Initialize Supabase client for fetching rubrics
+// Initialize Supabase client
 function getSupabaseClient() {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   return createClient(supabaseUrl, supabaseKey);
 }
 
-// Fetch rubric by assignment ID
-async function getRubricByAssignment(assignmentId: string): Promise<Rubric | null> {
+// Fetch prompt_key by assignment ID
+async function getPromptKeyByAssignment(assignmentId: string): Promise<string | null> {
   try {
     const supabase = getSupabaseClient();
     
-    // Get assignment's rubric_id
-    const { data: assignment, error: assignmentError } = await supabase
+    const { data, error } = await supabase
       .from('assignments')
-      .select('rubric_id')
+      .select('rubric_id, rubrics(prompt_key)')
       .eq('id', assignmentId)
       .single();
     
-    if (assignmentError || !assignment?.rubric_id) {
-      console.log('No rubric assigned to this assignment, using fallback');
+    if (error || !data?.rubrics?.prompt_key) {
+      console.log('No prompt_key found for assignment, using default');
       return null;
     }
     
-    return await getRubricById(assignment.rubric_id);
+    return data.rubrics.prompt_key;
   } catch (error) {
-    console.error('Error fetching rubric by assignment:', error);
+    console.error('Error fetching prompt_key:', error);
     return null;
   }
 }
 
-// Fetch rubric by ID
-async function getRubricById(rubricId: string): Promise<Rubric | null> {
+// Fetch prompt_key by rubric ID
+async function getPromptKeyByRubricId(rubricId: string): Promise<string | null> {
   try {
     const supabase = getSupabaseClient();
     
-    const { data: rubric, error } = await supabase
+    const { data, error } = await supabase
       .from('rubrics')
-      .select(`
-        id,
-        name,
-        description,
-        context,
-        rubric_criteria (
-          id,
-          name,
-          description,
-          max_points,
-          sort_order,
-          examples
-        )
-      `)
+      .select('prompt_key')
       .eq('id', rubricId)
       .single();
     
-    if (error || !rubric) {
-      console.error('Error fetching rubric:', error);
+    if (error || !data?.prompt_key) {
       return null;
     }
     
-    return rubric as Rubric;
+    return data.prompt_key;
   } catch (error) {
-    console.error('Error fetching rubric:', error);
+    console.error('Error fetching prompt_key:', error);
     return null;
   }
 }
 
-// Legacy: Validate and correct CAR scores
-function validateAndCorrectCARScores(grading: Record<string, unknown>): Record<string, unknown> {
-  const negativeIndicators = [
-    'not met', 'not include', 'did not', 'does not', 'lacks', 'missing',
-    'no mention', 'absent', 'failed to', 'without', 'unclear', 'vague',
-    'not provide', 'not demonstrate', 'not present', 'not evident',
-    'could not find', 'unable to identify', 'not addressed',
-    'no concrete', 'no specific', 'no numerical', 'no measurable',
-    'no real', 'no action', 'no context', 'no result', 'no outcome',
-    'not mentioned', 'not described', 'not included', 'were not',
-    'was not', 'wasn\'t', 'weren\'t', 'no evidence', 'not measurable',
-    'did not provide', 'did not include', 'did not describe',
-    'did not mention', 'not a real'
-  ];
-
-  function shouldBeZero(explanation: string): boolean {
-    const lowerExplanation = explanation.toLowerCase();
-    if (negativeIndicators.some(indicator => lowerExplanation.includes(indicator))) return true;
-    if (/\bno\s+\w+/.test(lowerExplanation) && !/(no doubt|no issue|no problem|no question)/.test(lowerExplanation)) return true;
-    return false;
-  }
-
-  const criteria = ['context', 'action', 'result', 'quantitative'];
-  let correctedTotal = 0;
-  const corrected = { ...grading };
-
-  for (const criterion of criteria) {
-    const item = corrected[criterion] as { score: number; explanation: string } | undefined;
-    if (item) {
-      if (item.score === 1 && shouldBeZero(item.explanation)) {
-        console.log(`⚠️ Auto-correcting ${criterion} score from 1 to 0`);
-        item.score = 0;
-      }
-      correctedTotal += item.score;
-    }
-  }
-
-  if ((corrected as { total?: number }).total !== correctedTotal) {
-    (corrected as { total: number }).total = correctedTotal;
-  }
-
-  return corrected;
-}
-
-// Parse legacy CAR response
-function parseCARResponse(responseText: string): Record<string, unknown> | null {
+// Parse JSON response based on rubric criteria
+function parseRubricResponse(responseText: string, rubric: RubricDefinition): Record<string, unknown> | null {
   try {
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
 
     const parsed = JSON.parse(jsonMatch[0]);
-    const requiredFields = ['context', 'action', 'result', 'quantitative', 'total', 'improvement', 'example_perfect_response'];
-    for (const field of requiredFields) {
-      if (!(field in parsed)) return null;
+    
+    // Validate required fields
+    if (typeof parsed.total !== 'number' || !parsed.improvement) {
+      return null;
     }
 
-    const criteria = ['context', 'action', 'result', 'quantitative'];
-    for (const criterion of criteria) {
-      if (typeof parsed[criterion]?.score !== 'number') return null;
-      parsed[criterion].score = parsed[criterion].score >= 0.5 ? 1 : 0;
+    // Validate each criterion exists
+    let calculatedTotal = 0;
+    for (const criterion of rubric.criteria) {
+      const key = criterion.toLowerCase().replace(/\s+/g, '_');
+      if (parsed[key] && typeof parsed[key].score === 'number') {
+        // Normalize to 0 or 1
+        parsed[key].score = parsed[key].score >= 0.5 ? 1 : 0;
+        calculatedTotal += parsed[key].score;
+      }
     }
 
-    return validateAndCorrectCARScores(parsed);
-  } catch {
+    // Correct total if needed
+    if (parsed.total !== calculatedTotal) {
+      console.log(`Correcting total: ${parsed.total} → ${calculatedTotal}`);
+      parsed.total = calculatedTotal;
+    }
+
+    return parsed;
+  } catch (error) {
+    console.error('Parse error:', error);
     return null;
   }
 }
 
-// Generate CAR feedback (legacy)
-function generateCARFeedback(grading: Record<string, unknown>): string {
-  const criteriaNames: Record<string, string> = {
-    context: 'Context',
-    action: 'Action', 
-    result: 'Result',
-    quantitative: 'Quantitative'
-  };
-
-  let feedback = `## CAR Framework Evaluation\n\n`;
-  feedback += `**Total Score: ${grading.total}/4**\n\n`;
+// Generate feedback text from parsed response
+function generateFeedback(rubric: RubricDefinition, parsed: Record<string, unknown>): string {
+  let feedback = `## ${rubric.name} Evaluation\n\n`;
+  feedback += `**Total Score: ${parsed.total}/${rubric.maxScore}**\n\n`;
   feedback += `### Criteria Breakdown\n\n`;
 
-  for (const [key, name] of Object.entries(criteriaNames)) {
-    const criterion = grading[key] as { score: number; explanation: string };
-    if (criterion) {
-      const icon = criterion.score === 1 ? '✅' : '❌';
-      feedback += `**${name}:** ${icon} ${criterion.score}/1\n`;
-      feedback += `${criterion.explanation}\n\n`;
+  for (const criterion of rubric.criteria) {
+    const key = criterion.toLowerCase().replace(/\s+/g, '_');
+    const result = parsed[key] as { score: number; explanation: string } | undefined;
+    if (result) {
+      const icon = result.score === 1 ? '✅' : '❌';
+      feedback += `**${criterion}:** ${icon} ${result.score}/1\n`;
+      feedback += `${result.explanation}\n\n`;
     }
   }
 
-  feedback += `### How to Improve\n\n${grading.improvement}\n\n`;
-  feedback += `### Example Perfect Response\n\n${grading.example_perfect_response}`;
+  feedback += `### How to Improve\n\n${parsed.improvement}\n\n`;
+  feedback += `### Example Perfect Response\n\n${parsed.example_perfect_response || 'N/A'}`;
 
   return feedback;
 }
@@ -218,7 +165,7 @@ Deno.serve(async (req: Request) => {
       return new Response(
         JSON.stringify({
           speechContent: 'Configuration not complete - missing AWS credentials',
-          contentScore: 2,
+          contentScore: 0,
           confidence: 0,
           sources: ['Configuration Error']
         }),
@@ -226,19 +173,20 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { transcript, assignmentId, rubricId }: GradingRequest = await req.json();
+    const { transcript, assignmentId, rubricId, promptKey: directPromptKey }: GradingRequest = await req.json();
 
-    console.log('Request parsed:', {
+    console.log('Request:', {
       transcriptLength: transcript?.length || 0,
       assignmentId: assignmentId || 'none',
-      rubricId: rubricId || 'none'
+      rubricId: rubricId || 'none',
+      directPromptKey: directPromptKey || 'none'
     });
 
     if (!transcript) {
       return new Response(
         JSON.stringify({
           speechContent: 'Transcript is required for analysis',
-          contentScore: 2,
+          contentScore: 0,
           confidence: 0,
           sources: ['Missing Data']
         }),
@@ -246,31 +194,43 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Try to fetch rubric (by assignment or direct ID)
-    let rubric: Rubric | null = null;
-    let useDynamicRubric = false;
-
-    if (assignmentId) {
-      rubric = await getRubricByAssignment(assignmentId);
+    // Determine which rubric to use (priority: directPromptKey > assignmentId > rubricId > default)
+    let promptKey: string | null = null;
+    
+    if (directPromptKey) {
+      promptKey = directPromptKey;
+    } else if (assignmentId) {
+      promptKey = await getPromptKeyByAssignment(assignmentId);
     } else if (rubricId) {
-      rubric = await getRubricById(rubricId);
+      promptKey = await getPromptKeyByRubricId(rubricId);
+    }
+    
+    // Fall back to default
+    if (!promptKey) {
+      promptKey = DEFAULT_RUBRIC_KEY;
     }
 
-    if (rubric && rubric.rubric_criteria?.length > 0) {
-      useDynamicRubric = true;
-      console.log(`Using dynamic rubric: ${rubric.name} (${rubric.rubric_criteria.length} criteria)`);
-    } else {
-      console.log('Using fallback CAR Framework prompt');
+    // Get the rubric definition
+    const rubric = getRubricByKey(promptKey);
+    if (!rubric) {
+      console.error(`Unknown rubric: ${promptKey}`);
+      return new Response(
+        JSON.stringify({
+          speechContent: `Unknown rubric: ${promptKey}`,
+          contentScore: 0,
+          confidence: 0,
+          sources: ['Configuration Error']
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Build prompt
-    const prompt = useDynamicRubric && rubric
-      ? buildDynamicPrompt(rubric, transcript)
-      : buildCARPrompt(transcript);
+    console.log(`Using rubric: ${rubric.name} (${promptKey})`);
 
-    console.log('Calling Claude Haiku 3.5...', { promptLength: prompt.length });
+    // Build the prompt
+    const prompt = rubric.buildPrompt(transcript);
 
-    // AWS Bedrock call
+    // Call AWS Bedrock
     const endpoint = `https://bedrock-runtime.${awsRegion}.amazonaws.com`;
     const url = `${endpoint}/model/us.anthropic.claude-3-5-haiku-20241022-v1:0/invoke`;
 
@@ -287,7 +247,7 @@ Deno.serve(async (req: Request) => {
       awsAccessKeyId, awsSecretAccessKey, awsRegion
     );
 
-    const novaResponse = await fetch(url, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -298,13 +258,13 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify(requestBody)
     });
 
-    if (!novaResponse.ok) {
-      const errorText = await novaResponse.text();
-      console.error('Claude API error:', { status: novaResponse.status, error: errorText });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Claude API error:', { status: response.status, error: errorText });
       return new Response(
         JSON.stringify({
-          speechContent: `API Error (${novaResponse.status}): ${errorText}`,
-          contentScore: 2,
+          speechContent: `API Error (${response.status}): ${errorText}`,
+          contentScore: 0,
           confidence: 0,
           sources: ['API Error']
         }),
@@ -312,14 +272,14 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const claudeResponse = await novaResponse.json();
+    const claudeResponse = await response.json();
     const responseText = claudeResponse.content?.[0]?.text;
 
     if (!responseText?.trim()) {
       return new Response(
         JSON.stringify({
           speechContent: 'Empty response from Claude',
-          contentScore: 2,
+          contentScore: 0,
           confidence: 0,
           sources: ['Empty Response']
         }),
@@ -327,62 +287,36 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log('Response received:', responseText.substring(0, 200) + '...');
+    console.log('Response:', responseText.substring(0, 200) + '...');
 
-    // Parse response based on rubric type
+    // Parse and generate feedback
+    const parsed = parseRubricResponse(responseText, rubric);
+    
     let result: GradingResponse;
-
-    if (useDynamicRubric && rubric) {
-      const parsed = parseDynamicResponse(responseText, rubric);
-      if (parsed) {
-        const maxScore = rubric.rubric_criteria.reduce((sum, c) => sum + c.max_points, 0);
-        const feedbackText = generateDynamicFeedback(
-          rubric, parsed.scores, parsed.total, parsed.improvement, parsed.example
-        );
-        
-        result = {
-          speechContent: feedbackText,
-          contentScore: parsed.total,
-          confidence: 0.95,
-          sources: [`Claude Haiku 3.5 (${rubric.name})`],
-          structuredGrading: { scores: parsed.scores, total: parsed.total },
-          rubricName: rubric.name,
-          maxScore
-        };
-      } else {
-        // Fallback to raw text
-        result = {
-          speechContent: responseText.trim(),
-          contentScore: 2,
-          confidence: 0.6,
-          sources: ['Claude Haiku 3.5 (parse error)'],
-          rubricName: rubric.name
-        };
-      }
+    
+    if (parsed) {
+      result = {
+        speechContent: generateFeedback(rubric, parsed),
+        contentScore: parsed.total as number,
+        confidence: 0.95,
+        sources: [`Claude Haiku 3.5 (${rubric.name})`],
+        structuredGrading: parsed,
+        rubricName: rubric.name,
+        maxScore: rubric.maxScore
+      };
     } else {
-      // Legacy CAR parsing
-      const carGrading = parseCARResponse(responseText);
-      if (carGrading) {
-        result = {
-          speechContent: generateCARFeedback(carGrading),
-          contentScore: carGrading.total as number,
-          confidence: 0.98,
-          sources: ['Claude Haiku 3.5 (CAR Framework)'],
-          structuredGrading: carGrading,
-          rubricName: 'CAR Framework',
-          maxScore: 4
-        };
-      } else {
-        result = {
-          speechContent: responseText.trim(),
-          contentScore: 2,
-          confidence: 0.6,
-          sources: ['Claude Haiku 3.5 (fallback)']
-        };
-      }
+      // Fallback to raw text
+      result = {
+        speechContent: responseText.trim(),
+        contentScore: 0,
+        confidence: 0.5,
+        sources: ['Claude Haiku 3.5 (parse error)'],
+        rubricName: rubric.name,
+        maxScore: rubric.maxScore
+      };
     }
 
-    console.log('Returning:', { score: result.contentScore, rubric: result.rubricName });
+    console.log('Result:', { score: result.contentScore, maxScore: result.maxScore, rubric: result.rubricName });
 
     return new Response(JSON.stringify(result), {
       status: 200,
@@ -394,7 +328,7 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         speechContent: `Error: ${error.message}`,
-        contentScore: 2,
+        contentScore: 0,
         confidence: 0,
         sources: ['Processing Error']
       }),
@@ -403,7 +337,7 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-// AWS Signature V4 implementation
+// AWS Signature V4
 async function createAWSSignature(
   method: string, url: string, body: string,
   accessKeyId: string, secretAccessKey: string, region: string
@@ -431,9 +365,7 @@ async function createAWSSignature(
   const signingKey = await getSigningKey(secretAccessKey, dateStamp, region, service);
   const signature = await hmacSha256(signingKey, stringToSign);
   
-  const authorization = `${algorithm} Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
-  
-  return { authorization, amzDate };
+  return { authorization: `${algorithm} Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`, amzDate };
 }
 
 async function sha256(message: string): Promise<string> {
