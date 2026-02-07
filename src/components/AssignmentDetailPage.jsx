@@ -229,7 +229,7 @@ function AssignmentDetailPage({ assignment, onBack, onViewStudent }) {
                           Speech Content (80%):
                         </span>
                         <span className="component-score">
-                          {selectedStudentFeedback.grade.speechContentScore ?? 'N/A'}/4
+                          {selectedStudentFeedback.grade.speechContentScore ?? 'N/A'}/{selectedStudentFeedback.grade.contentScoreMax ?? 4}
                         </span>
                       </div>
                       <div className="score-component">

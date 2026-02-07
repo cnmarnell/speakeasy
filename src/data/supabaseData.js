@@ -386,7 +386,7 @@ export const getDetailedStudentFeedback = async (assignmentId, studentId) => {
       grade: grade ? {
         totalScore: grade.total_score,
         speechContentScore: grade.speech_content_score,
-        contentScoreMax: 4,
+        contentScoreMax: grade.content_score_max ?? 4,
         fillerWordCount: grade.filler_word_count,
         fillerWordsUsed: grade.filler_words_used || [],
         fillersPerMinute: grade.filler_words_per_minute || 0,
@@ -2138,7 +2138,7 @@ export const getStudentGradeForAssignment = async (studentId, assignmentId) => {
     return {
       totalScore: grade.total_score,
       speechContentScore: grade.speech_content_score,
-      contentScoreMax: 4,
+      contentScoreMax: grade.content_score_max ?? 4,
       fillerWordCount: grade.filler_word_count,
       fillerWordScore: grade.filler_word_score,
       fillerWordsUsed: grade.filler_words_used || [],

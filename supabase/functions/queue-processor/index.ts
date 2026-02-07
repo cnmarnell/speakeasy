@@ -297,6 +297,7 @@ async function processQueueItem(
       submission_id: item.submission_id,
       total_score: finalScore,
       speech_content_score: speechContentScore,
+      content_score_max: maxScore,  // Dynamic max based on rubric
       filler_word_count: fillerAnalysis.totalCount,
       filler_words_used: fillerAnalysis.fillerWordsUsed,
       filler_word_score: fillerWordScore,

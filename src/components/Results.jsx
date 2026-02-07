@@ -312,7 +312,7 @@ export default function Results({ submissionId }) {
             <div className="flex justify-between text-sm">
               <div className="text-center">
                 <p className="font-semibold text-gray-700">Speech Content (80%)</p>
-                <p className="text-lg font-bold text-blue-600">{grade.speech_content_score}/4</p>
+                <p className="text-lg font-bold text-blue-600">{grade.speech_content_score}/{grade.content_score_max ?? 4}</p>
               </div>
               <div className="text-center">
                 <p className="font-semibold text-gray-700">Filler Words (20%)</p>
