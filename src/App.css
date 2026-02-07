@@ -3839,6 +3839,35 @@
   line-height: 1.5;
 }
 
+/* Markdown styling within teacher description */
+.adp-description p {
+  margin: 0 0 1rem 0;
+}
+
+.adp-description p:last-child {
+  margin-bottom: 0;
+}
+
+.adp-description strong {
+  color: rgba(255, 248, 231, 1);
+  font-weight: 600;
+}
+
+.adp-description ul, .adp-description ol {
+  margin: 0.5rem 0 1rem 1.5rem;
+  padding: 0;
+}
+
+.adp-description li {
+  margin-bottom: 0.4rem;
+}
+
+.adp-description h3 {
+  font-size: 1.1rem;
+  color: rgba(255, 248, 231, 1);
+  margin: 1rem 0 0.5rem 0;
+}
+
 .adp-due {
   display: inline-flex;
   align-items: center;
@@ -4504,6 +4533,50 @@
   color: #64748b;
   margin: 0 0 0.75rem 0;
   line-height: 1.6;
+}
+
+/* Markdown styling within description */
+.sap-description p {
+  margin: 0 0 1rem 0;
+}
+
+.sap-description p:last-child {
+  margin-bottom: 0;
+}
+
+.sap-description strong {
+  color: #334155;
+  font-weight: 600;
+}
+
+.sap-description ul, .sap-description ol {
+  margin: 0.5rem 0 1rem 1.5rem;
+  padding: 0;
+}
+
+.sap-description li {
+  margin-bottom: 0.4rem;
+}
+
+.sap-description h3 {
+  font-size: 1.1rem;
+  color: #334155;
+  margin: 1rem 0 0.5rem 0;
+}
+
+.sap-description code {
+  background: #f1f5f9;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.sap-description blockquote {
+  border-left: 3px solid #cbd5e1;
+  padding-left: 1rem;
+  margin: 1rem 0;
+  color: #475569;
+  font-style: italic;
 }
 
 .sap-due-date {

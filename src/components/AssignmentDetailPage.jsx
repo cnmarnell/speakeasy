@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { getStudentProgressForAssignment, getDetailedStudentFeedback } from '../data/supabaseData'
 import VideoPlayer from './VideoPlayer'
 
@@ -120,7 +121,7 @@ function AssignmentDetailPage({ assignment, onBack, onViewStudent }) {
         <div className="adp-header-info">
           <h2 className="adp-title">{assignment.title}</h2>
           {assignment.description && (
-            <p className="adp-description">{assignment.description}</p>
+            <div className="adp-description"><ReactMarkdown>{assignment.description}</ReactMarkdown></div>
           )}
           <div className="adp-due">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="adp-due-icon">

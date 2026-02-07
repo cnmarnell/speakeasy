@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { getAssignmentById, getAssignmentFeedback, getStudentAssignmentStatus, getStudentGradeForAssignment } from '../data/supabaseData'
 
 function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording }) {
@@ -76,7 +77,9 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
       {/* Header section */}
       <div className="sap-header">
         <h2 className="sap-title">{assignmentData.title}</h2>
-        <p className="sap-description">{assignmentData.description}</p>
+        <div className="sap-description">
+          <ReactMarkdown>{assignmentData.description}</ReactMarkdown>
+        </div>
         {assignmentData.dueDate && (
           <div className="sap-due-date">
             <svg viewBox="0 0 20 20" fill="currentColor" className="sap-due-icon">
