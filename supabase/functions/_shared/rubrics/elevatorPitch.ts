@@ -9,7 +9,7 @@ export const ELEVATOR_PITCH = {
   name: 'Elevator Pitch',
   promptKey: 'elevator_pitch',
   maxScore: 6,
-  criteria: ['Hook', 'Clarity', 'Value Proposition', 'Credibility', 'Call to Action'],
+  criteria: ['Identity', 'Intent', 'Value Proposition', 'Specificity', 'Connection','Call to Action'],
   
   buildPrompt: (transcript: string): string => `You are an evaluator assessing a student's elevator pitch delivered at a career fair to a recruiter. You are grading ONLY the pitch portion of the conversation — the part where the student introduces themselves professionally, NOT the small talk or introductions before it.
 
