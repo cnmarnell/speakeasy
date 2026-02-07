@@ -5,7 +5,7 @@ const TutorialContext = createContext(null)
 
 // Tutorial steps - grouped by page context
 export const TUTORIAL_STEPS = {
-  // Login/Dashboard intro
+  // Dashboard - welcome intro
   welcome: {
     id: 'welcome',
     page: '/dashboard',
@@ -14,7 +14,21 @@ export const TUTORIAL_STEPS = {
     text: 'Practice your public speaking skills and get instant AI feedback. Let\'s take a quick tour!',
     buttonText: 'Get Started',
     position: 'center',
-    nextStep: null // End of this context
+    nextStep: 'classes',
+    dismissBehavior: 'advance'
+  },
+  
+  // Dashboard - click into a class
+  classes: {
+    id: 'classes',
+    page: '/dashboard',
+    target: '[data-tutorial="class-card"]',
+    title: 'Your Classes',
+    text: 'This is Career Practice — your first class! Click it to see your assignments.',
+    buttonText: 'Got it',
+    position: 'right',
+    nextStep: null,
+    dismissBehavior: 'close'
   },
   
   // Class page - stats
@@ -27,8 +41,8 @@ export const TUTORIAL_STEPS = {
     buttonText: 'Next',
     position: 'bottom',
     spotlightOffsetX: -22,
-    nextStep: 'assignments', // Auto-advance to assignments
-    dismissBehavior: 'advance' // Dismiss acts like Next
+    nextStep: 'assignments',
+    dismissBehavior: 'advance'
   },
   
   // Class page - assignments
@@ -41,8 +55,8 @@ export const TUTORIAL_STEPS = {
     buttonText: 'Got it',
     position: 'top',
     extraOffset: 80,
-    nextStep: null, // End of class page context
-    dismissBehavior: 'close' // Dismiss closes tutorial
+    nextStep: null,
+    dismissBehavior: 'close'
   },
   
   // Assignment page - record
@@ -78,6 +92,7 @@ export function TutorialProvider({ children }) {
   const [currentStepId, setCurrentStepId] = useState(null)
   const [isDisabled, setIsDisabled] = useState(false)
   const [seenSteps, setSeenSteps] = useState(new Set())
+  const [manualTrigger, setManualTrigger] = useState(false)
   const location = useLocation()
 
   // Load disabled state and seen steps from localStorage
@@ -100,29 +115,30 @@ export function TutorialProvider({ children }) {
 
   // Check which tutorial should show for current page
   const getTutorialForPage = useCallback((pathname) => {
-    for (const [pagePath, stepId] of Object.entries(PAGE_TUTORIAL_MAP)) {
-      if (pathname.includes(pagePath) || pathname === pagePath) {
-        return stepId
-      }
-    }
+    // Check exact matches first, then partial matches
+    if (pathname === '/dashboard') return 'welcome'
+    if (pathname.includes('/class/') && pathname.includes('/assignment/')) return 'record'
+    if (pathname.includes('/class/')) return 'stats'
+    if (pathname.includes('/assignment/')) return 'record'
     return null
   }, [])
 
   // Show tutorial for current page if not seen and not disabled
   useEffect(() => {
-    if (isDisabled) return
+    if (isDisabled && !manualTrigger) return
     
     const stepId = getTutorialForPage(location.pathname)
-    if (stepId && !seenSteps.has(stepId)) {
+    if (stepId && (!seenSteps.has(stepId) || manualTrigger)) {
       // Small delay to let page render
       const timer = setTimeout(() => {
         setCurrentStepId(stepId)
+        if (manualTrigger) setManualTrigger(false)
       }, 500)
       return () => clearTimeout(timer)
-    } else {
+    } else if (!currentStepId) {
       setCurrentStepId(null)
     }
-  }, [location.pathname, isDisabled, seenSteps, getTutorialForPage])
+  }, [location.pathname, isDisabled, seenSteps, getTutorialForPage, manualTrigger])
 
   // Mark step as seen
   const markSeen = useCallback((stepId) => {
@@ -171,22 +187,30 @@ export function TutorialProvider({ children }) {
     localStorage.setItem(STORAGE_KEY, 'true')
   }, [])
 
-  // Re-enable tutorials (for testing/settings)
-  const enableTutorials = useCallback(() => {
-    setIsDisabled(false)
+  // Restart tutorial from the beginning (for help button)
+  const restartTutorial = useCallback(() => {
+    // Clear seen steps and disabled state
     setSeenSteps(new Set())
+    setIsDisabled(false)
     localStorage.removeItem(STORAGE_KEY)
     localStorage.removeItem(SEEN_STEPS_KEY)
-  }, [])
+    
+    // Trigger tutorial for current page
+    setManualTrigger(true)
+    const stepId = getTutorialForPage(location.pathname)
+    if (stepId) {
+      setCurrentStepId(stepId)
+    }
+  }, [getTutorialForPage, location.pathname])
 
   const value = {
     currentStep,
-    isActive: !!currentStepId && !isDisabled,
+    isActive: !!currentStepId,
     isDisabled,
     nextStep,
     dismissStep,
     disableTutorials,
-    enableTutorials
+    restartTutorial
   }
 
   return (
