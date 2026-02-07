@@ -16,6 +16,19 @@ function TutorialOverlay() {
   const [dontShowAgain, setDontShowAgain] = useState(false)
   const tooltipRef = useRef(null)
 
+  // Lock scroll when tutorial is active
+  useEffect(() => {
+    if (isActive) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [isActive])
+
   // Find and highlight target element
   useEffect(() => {
     if (!isActive || !currentStep?.target) {
