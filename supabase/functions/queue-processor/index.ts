@@ -232,20 +232,23 @@ async function processQueueItem(
     // Update submission with transcript
     await supabase.from('submissions').update({ transcript }).eq('id', item.submission_id);
 
-    // Analyze with Bedrock
-    console.log(`[Queue ${item.id}] Analyzing with Bedrock...`);
+    // Analyze with Bedrock (pass assignment_id for rubric lookup)
+    const assignmentId = submission.assignment_id;
+    console.log(`[Queue ${item.id}] Analyzing with Bedrock... (assignment: ${assignmentId})`);
     const bedrockResponse = await fetch(`${supabaseUrl}/functions/v1/bedrock-agent`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ transcript, assignmentTitle })
+      body: JSON.stringify({ transcript, assignmentTitle, assignmentId })
     });
 
-    const bedrockResult = bedrockResponse.ok ? await bedrockResponse.json() : { contentScore: 2, speechContent: 'Analysis unavailable' };
-    const speechContentScore = bedrockResult.contentScore ?? 2;
+    const bedrockResult = bedrockResponse.ok ? await bedrockResponse.json() : { contentScore: 0, speechContent: 'Analysis unavailable', maxScore: 4 };
+    const speechContentScore = bedrockResult.contentScore ?? 0;
+    const maxScore = bedrockResult.maxScore ?? 4;  // Dynamic max score based on rubric
     const speechContentFeedback = bedrockResult.speechContent || 'Analysis completed.';
+    console.log(`[Queue ${item.id}] Bedrock result: ${speechContentScore}/${maxScore} (${bedrockResult.rubricName || 'unknown'})`);
 
     // Hand tracking analysis
     console.log(`[Queue ${item.id}] Analyzing hand tracking...`);
@@ -275,9 +278,9 @@ async function processQueueItem(
     // Filler word analysis
     const fillerAnalysis = analyzeFillerWords(transcript);
 
-    // Calculate scores
+    // Calculate scores (use dynamic maxScore from rubric)
     const fillerWordScore = Math.max(0, 20 - fillerAnalysis.totalCount);
-    const contentPercentage = (speechContentScore / 4) * 100;
+    const contentPercentage = (speechContentScore / maxScore) * 100;
     const fillerPercentage = (fillerWordScore / 20) * 100;
     const finalScore = Math.round((contentPercentage * 0.8) + (fillerPercentage * 0.2));
 
