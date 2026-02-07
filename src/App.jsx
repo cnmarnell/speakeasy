@@ -260,6 +260,13 @@ function TeacherAssignmentRoute() {
     return <div className="loading-container"><div>Loading...</div></div>
   }
 
+  const refreshAssignment = async () => {
+    const data = await getAssignmentById(assignmentId)
+    if (data) {
+      setAssignment(data)
+    }
+  }
+
   return (
     <AssignmentDetailPage
       assignment={assignment}
@@ -270,6 +277,7 @@ function TeacherAssignmentRoute() {
           { state: { student, assignment } }
         )
       }
+      onAssignmentUpdated={refreshAssignment}
     />
   )
 }

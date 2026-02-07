@@ -906,6 +906,35 @@ export const createAssignment = async (assignmentData) => {
   }
 }
 
+// Update an existing assignment
+export const updateAssignment = async (assignmentId, assignmentData) => {
+  try {
+    const updateFields = {}
+    
+    if (assignmentData.title) updateFields.title = assignmentData.title
+    if (assignmentData.description !== undefined) updateFields.description = assignmentData.description
+    if (assignmentData.dueDate) updateFields.due_date = assignmentData.dueDate
+    if (assignmentData.rubricId !== undefined) updateFields.rubric_id = assignmentData.rubricId || null
+    if (assignmentData.maxDuration) updateFields.max_duration_seconds = assignmentData.maxDuration
+
+    const { data, error } = await supabase
+      .from('assignments')
+      .update(updateFields)
+      .eq('id', assignmentId)
+      .select()
+      .single()
+
+    if (error) {
+      throw error
+    }
+
+    return data
+  } catch (error) {
+    console.error('Error updating assignment:', error)
+    throw error
+  }
+}
+
 // Delete an assignment and all related data
 export const deleteAssignment = async (assignmentId) => {
   try {

@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { getRubrics } from '../data/supabaseData'
 
-function NewAssignmentModal({ isOpen, onClose, onSubmit }) {
+function NewAssignmentModal({ isOpen, onClose, onSubmit, editData = null }) {
+  const isEditMode = !!editData
+  
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -12,6 +14,36 @@ function NewAssignmentModal({ isOpen, onClose, onSubmit }) {
   const [rubrics, setRubrics] = useState([])
   const [loadingRubrics, setLoadingRubrics] = useState(false)
 
+  // Initialize form with edit data or reset when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      if (editData) {
+        // Convert ISO date to datetime-local format
+        const formatDateForInput = (isoDate) => {
+          if (!isoDate) return ''
+          const date = new Date(isoDate)
+          return date.toISOString().slice(0, 16)
+        }
+        
+        setFormData({
+          title: editData.title || '',
+          description: editData.description || '',
+          startDate: formatDateForInput(editData.startDate),
+          dueDate: formatDateForInput(editData.dueDate),
+          rubricId: editData.rubricId || ''
+        })
+      } else {
+        setFormData({
+          title: '',
+          description: '',
+          startDate: '',
+          dueDate: '',
+          rubricId: ''
+        })
+      }
+    }
+  }, [isOpen, editData])
+
   // Fetch rubrics when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -20,8 +52,8 @@ function NewAssignmentModal({ isOpen, onClose, onSubmit }) {
         try {
           const data = await getRubrics()
           setRubrics(data)
-          // Auto-select first rubric if available
-          if (data.length > 0 && !formData.rubricId) {
+          // Auto-select first rubric if available and not editing
+          if (data.length > 0 && !formData.rubricId && !editData) {
             setFormData(prev => ({ ...prev, rubricId: data[0].id }))
           }
         } catch (error) {
@@ -44,25 +76,11 @@ function NewAssignmentModal({ isOpen, onClose, onSubmit }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    onSubmit(formData)
-    setFormData({
-      title: '',
-      description: '',
-      startDate: '',
-      dueDate: '',
-      rubricId: ''
-    })
+    onSubmit(formData, isEditMode ? editData.id : null)
     onClose()
   }
 
   const handleCancel = () => {
-    setFormData({
-      title: '',
-      description: '',
-      startDate: '',
-      dueDate: '',
-      rubricId: ''
-    })
     onClose()
   }
 
@@ -74,7 +92,7 @@ function NewAssignmentModal({ isOpen, onClose, onSubmit }) {
   return (
     <div className="modal-overlay" onClick={handleCancel}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <h2 className="modal-title">New Assignment</h2>
+        <h2 className="modal-title">{isEditMode ? 'Edit Assignment' : 'New Assignment'}</h2>
         
         <form onSubmit={handleSubmit} className="assignment-form">
           <div className="form-group">
@@ -91,14 +109,15 @@ function NewAssignmentModal({ isOpen, onClose, onSubmit }) {
           </div>
 
           <div className="form-group">
-            <label htmlFor="description" className="form-label">Description</label>
+            <label htmlFor="description" className="form-label">Description (supports markdown)</label>
             <textarea
               id="description"
               name="description"
               value={formData.description}
               onChange={handleInputChange}
               className="form-textarea"
-              rows="4"
+              rows="6"
+              placeholder="Use **bold**, - bullets, ### headers..."
               required
             />
           </div>
@@ -151,7 +170,7 @@ function NewAssignmentModal({ isOpen, onClose, onSubmit }) {
               value={formData.startDate}
               onChange={handleInputChange}
               className="form-input"
-              required
+              required={!isEditMode}
             />
           </div>
 
@@ -173,7 +192,7 @@ function NewAssignmentModal({ isOpen, onClose, onSubmit }) {
               Cancel
             </button>
             <button type="submit" className="btn-submit">
-              Create Assignment
+              {isEditMode ? 'Save Changes' : 'Create Assignment'}
             </button>
           </div>
         </form>
