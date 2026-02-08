@@ -7,6 +7,7 @@
 
 import { CAR_FRAMEWORK } from './carFramework.ts';
 import { ELEVATOR_PITCH } from './elevatorPitch.ts';
+import { GENERAL_PRESENTATION } from './generalPresentation.ts';
 
 export interface RubricDefinition {
   name: string;
@@ -20,6 +21,7 @@ export interface RubricDefinition {
 export const RUBRIC_REGISTRY: Record<string, RubricDefinition> = {
   'car_framework': CAR_FRAMEWORK,
   'elevator_pitch': ELEVATOR_PITCH,
+  'general_presentation': GENERAL_PRESENTATION,
 };
 
 // Get rubric by prompt_key
