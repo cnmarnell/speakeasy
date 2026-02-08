@@ -9,7 +9,7 @@ export const GENERAL_PRESENTATION = {
   name: 'General Presentation',
   promptKey: 'general_presentation',
   maxScore: 4,
-  criteria: ['Clarity and Structure', 'Conciseness', 'Word Choice', 'Key Takeaway'],
+  criteria: ['Clarity Structure', 'Conciseness', 'Word Choice', 'Key Takeaway'],
   
   buildPrompt: (transcript: string): string => `You are an evaluator assessing a user's spoken response on any topic of their choosing. You are not grading content accuracy or subject matter expertise — you are grading how effectively the user communicates their message.
 
