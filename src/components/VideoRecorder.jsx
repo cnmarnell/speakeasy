@@ -142,14 +142,41 @@ export default function VideoRecorder({ assignmentId }) {
 
       console.log('Video URL:', urlData.publicUrl)
 
-      // 3. Create submission record
+      // 3. Get attempt number (check for previous submissions)
+      const { data: previousSubmissions } = await supabase
+        .from('submissions')
+        .select('id, attempt_number, video_url')
+        .eq('assignment_id', assignmentId)
+        .eq('student_email', userEmail)
+        .order('attempt_number', { ascending: false })
+        .limit(1)
+
+      const previousAttempt = previousSubmissions?.[0]
+      const attemptNumber = previousAttempt ? (previousAttempt.attempt_number || 1) + 1 : 1
+
+      // Delete old video from storage to save space (keep the submission row for history)
+      if (previousAttempt?.video_url) {
+        try {
+          const oldUrl = previousAttempt.video_url
+          const bucketPath = oldUrl.split('/storage/v1/object/public/speech-videos/')[1]
+          if (bucketPath) {
+            await supabase.storage.from('speech-videos').remove([decodeURIComponent(bucketPath)])
+            console.log('Deleted old video:', bucketPath)
+          }
+        } catch (e) {
+          console.warn('Failed to delete old video:', e)
+        }
+      }
+
+      // Create new submission record (never overwrite — keep history)
       const { data: submission, error: insertError } = await supabase
         .from('submissions')
         .insert({
           assignment_id: assignmentId,
           student_email: userEmail,
           video_url: urlData.publicUrl,
-          status: 'processing'
+          status: 'processing',
+          attempt_number: attemptNumber
         })
         .select()
         .single()
