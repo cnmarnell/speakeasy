@@ -22,7 +22,7 @@ MODEL_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/fac
 MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "face_landmarker.task")
 CALIBRATION_DURATION = 3.0   # seconds
 SAMPLE_INTERVAL_MS = 100     # sample every 100ms
-CENTER_THRESHOLD_STDS = 1.5  # within 1.5 std devs = CENTER
+CENTER_THRESHOLD_STDS = 3.0  # within 3.0 std devs = CENTER (only flags major look-aways)
 
 # Eye landmark indices
 RIGHT_EYE = {"iris": 473, "inner": 362, "outer": 263}

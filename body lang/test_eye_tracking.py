@@ -20,7 +20,7 @@ import sys
 
 # Reuse constants from the analyzer
 CALIBRATION_DURATION = 3.0
-CENTER_THRESHOLD_STDS = 1.5
+CENTER_THRESHOLD_STDS = 3.0
 
 # Eye landmark indices
 RIGHT_EYE = {"iris": 473, "inner": 362, "outer": 263}
