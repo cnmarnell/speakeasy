@@ -275,6 +275,38 @@ async function processQueueItem(
       // Keep default feedback
     }
 
+    // Eye tracking / confidence score analysis
+    console.log(`[Queue ${item.id}] Analyzing eye tracking...`);
+    let confidenceScore: number | null = null;
+    let gazeLog: Array<{time: number, direction: string}> = [];
+    try {
+      const handTrackingServiceUrl = Deno.env.get('HAND_TRACKING_SERVICE_URL') || '';
+      // Derive eye tracking URL from hand tracking URL (same service, different endpoint)
+      const eyeTrackingUrl = handTrackingServiceUrl.replace(/\/analyze$/, '/analyze-eyes');
+      
+      if (eyeTrackingUrl && eyeTrackingUrl !== handTrackingServiceUrl) {
+        const eyeResponse = await fetch(eyeTrackingUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ video_url: videoUrl }),
+          signal: AbortSignal.timeout(90000),
+        });
+
+        if (eyeResponse.ok) {
+          const eyeResult = await eyeResponse.json();
+          confidenceScore = eyeResult.confidence_score ?? null;
+          gazeLog = eyeResult.gaze_log || [];
+          console.log(`[Queue ${item.id}] Eye tracking: confidence=${confidenceScore}%`);
+        } else {
+          console.warn(`[Queue ${item.id}] Eye tracking failed: ${eyeResponse.status}`);
+        }
+      } else {
+        console.log(`[Queue ${item.id}] Eye tracking URL not available, skipping`);
+      }
+    } catch (error) {
+      console.error(`[Queue ${item.id}] Eye tracking error:`, error);
+    }
+
     // Filler word analysis
     const fillerAnalysis = analyzeFillerWords(transcript);
 
@@ -302,6 +334,7 @@ async function processQueueItem(
       filler_words_used: fillerAnalysis.fillerWordsUsed,
       filler_word_score: fillerWordScore,
       filler_word_counts: fillerAnalysis.wordCounts,
+      confidence_score: confidenceScore,
       graded_at: new Date().toISOString()
     };
 
