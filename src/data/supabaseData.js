@@ -290,7 +290,7 @@ export const getAssignmentFeedback = async (assignmentId, studentId = null) => {
     query = query.eq('grades.submissions.student_id', studentId)
   }
   
-  const { data, error } = await query.limit(1)
+  const { data, error } = await query.order('created_at', { ascending: false }).limit(1)
   
   if (error || !data.length) {
     return {
@@ -303,6 +303,7 @@ export const getAssignmentFeedback = async (assignmentId, studentId = null) => {
     }
   }
   
+  // Get the most recent feedback (latest attempt)
   const feedback = data[0]
   const submission = feedback.grades.submissions
   
