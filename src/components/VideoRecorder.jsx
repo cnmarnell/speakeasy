@@ -147,7 +147,7 @@ export default function VideoRecorder({ assignmentId }) {
         .from('submissions')
         .select('id, attempt_number, video_url')
         .eq('assignment_id', assignmentId)
-        .eq('student_email', userEmail)
+        .eq('student_id', user.id)
         .order('attempt_number', { ascending: false })
         .limit(1)
 
@@ -173,7 +173,7 @@ export default function VideoRecorder({ assignmentId }) {
         .from('submissions')
         .insert({
           assignment_id: assignmentId,
-          student_email: userEmail,
+          student_id: user.id,
           video_url: urlData.publicUrl,
           status: 'processing',
           attempt_number: attemptNumber
