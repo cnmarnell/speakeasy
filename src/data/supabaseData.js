@@ -512,7 +512,9 @@ export const getStudentAssignmentStatus = async (studentId, assignmentId) => {
     .select('status')
     .eq('student_id', studentId)
     .eq('assignment_id', assignmentId)
-    .single()
+    .order('attempt_number', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
   if (!data) return "Not Started"
 
@@ -1819,7 +1821,9 @@ export const getAssignmentsForStudent = async (studentId) => {
           .select('status')
           .eq('assignment_id', assignment.id)
           .eq('student_id', studentId)
-          .single()
+          .order('attempt_number', { ascending: false })
+          .limit(1)
+          .maybeSingle()
 
         allAssignments.push({
           id: assignment.id,
@@ -2161,7 +2165,9 @@ export const getStudentGradeForAssignment = async (studentId, assignmentId) => {
       `)
       .eq('student_id', studentId)
       .eq('assignment_id', assignmentId)
-      .single()
+      .order('attempt_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
     if (error || !data) return null
 
