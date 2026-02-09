@@ -2527,6 +2527,214 @@ export const getEnrolledClasses = async (studentEmail) => {
   }
 }
 
+// Get class analytics data for teacher analytics dashboard
+export const getClassAnalytics = async (classId) => {
+  try {
+    // Get class info
+    const { data: classData, error: classError } = await supabase
+      .from('classes')
+      .select('id, name')
+      .eq('id', classId)
+      .single()
+
+    if (classError || !classData) {
+      throw new Error('Class not found')
+    }
+
+    // Get enrolled students count
+    const { data: enrollments, error: enrollError } = await supabase
+      .from('class_enrollments')
+      .select('student_id, students(id, name, email)')
+      .eq('class_id', classId)
+
+    if (enrollError) throw enrollError
+
+    // Get all assignments for the class, ordered chronologically
+    const { data: assignments, error: assignError } = await supabase
+      .from('assignments')
+      .select('id, title, due_date, created_at')
+      .eq('class_id', classId)
+      .order('due_date', { ascending: true })
+
+    if (assignError) throw assignError
+
+    if (!assignments || assignments.length === 0) {
+      return {
+        className: classData.name,
+        totalStudents: enrollments?.length || 0,
+        totalSubmissions: 0,
+        classAverageScore: 0,
+        avgFillerWords: 0,
+        assignments: [],
+        submissions: [],
+        students: enrollments?.map(e => e.students) || [],
+        scoreDistribution: [0, 0, 0, 0, 0]
+      }
+    }
+
+    const assignmentIds = assignments.map(a => a.id)
+
+    // Get all submissions with grades for these assignments
+    const { data: submissions, error: subError } = await supabase
+      .from('submissions')
+      .select(`
+        id,
+        student_id,
+        assignment_id,
+        status,
+        submitted_at,
+        students(id, name, email),
+        grades(
+          total_score,
+          speech_content_score,
+          filler_word_count,
+          filler_word_score,
+          graded_at,
+          feedback(
+            speech_content_feedback,
+            filler_words_feedback
+          )
+        )
+      `)
+      .in('assignment_id', assignmentIds)
+
+    if (subError) throw subError
+
+    // Process data
+    const gradedSubmissions = (submissions || []).filter(s => s.grades && s.grades.length > 0 && s.grades[0].total_score != null)
+
+    const totalSubmissions = gradedSubmissions.length
+    const allScores = gradedSubmissions.map(s => s.grades[0].total_score)
+    const classAverageScore = allScores.length > 0
+      ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length)
+      : 0
+
+    const allFillerCounts = gradedSubmissions.map(s => s.grades[0].filler_word_count || 0)
+    const avgFillerWords = allFillerCounts.length > 0
+      ? Math.round((allFillerCounts.reduce((a, b) => a + b, 0) / allFillerCounts.length) * 10) / 10
+      : 0
+
+    // Score distribution (0-20, 21-40, 41-60, 61-80, 81-100)
+    const scoreDistribution = [0, 0, 0, 0, 0]
+    allScores.forEach(score => {
+      if (score <= 20) scoreDistribution[0]++
+      else if (score <= 40) scoreDistribution[1]++
+      else if (score <= 60) scoreDistribution[2]++
+      else if (score <= 80) scoreDistribution[3]++
+      else scoreDistribution[4]++
+    })
+
+    // Per-assignment averages (for charts)
+    const assignmentStats = assignments.map(assignment => {
+      const assignSubs = gradedSubmissions.filter(s => s.assignment_id === assignment.id)
+      const scores = assignSubs.map(s => s.grades[0].total_score)
+      const fillers = assignSubs.map(s => s.grades[0].filler_word_count || 0)
+      return {
+        id: assignment.id,
+        title: assignment.title,
+        dueDate: assignment.due_date,
+        avgScore: scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null,
+        avgFillerWords: fillers.length > 0 ? Math.round((fillers.reduce((a, b) => a + b, 0) / fillers.length) * 10) / 10 : null,
+        submissionCount: assignSubs.length
+      }
+    })
+
+    // Student leaderboard
+    const studentMap = {}
+    gradedSubmissions.forEach(sub => {
+      const sid = sub.student_id
+      if (!studentMap[sid]) {
+        studentMap[sid] = {
+          id: sid,
+          name: sub.students?.name || 'Unknown',
+          email: sub.students?.email || '',
+          scores: [],
+          submissions: 0
+        }
+      }
+      studentMap[sid].scores.push(sub.grades[0].total_score)
+      studentMap[sid].submissions++
+    })
+
+    // Also include students with no submissions
+    enrollments?.forEach(e => {
+      if (!studentMap[e.student_id]) {
+        studentMap[e.student_id] = {
+          id: e.student_id,
+          name: e.students?.name || 'Unknown',
+          email: e.students?.email || '',
+          scores: [],
+          submissions: 0
+        }
+      }
+    })
+
+    const leaderboard = Object.values(studentMap).map(student => {
+      const avgScore = student.scores.length > 0
+        ? Math.round(student.scores.reduce((a, b) => a + b, 0) / student.scores.length)
+        : null
+
+      // Determine trend from scores
+      let trend = 'stable'
+      if (student.scores.length >= 2) {
+        const half = Math.floor(student.scores.length / 2)
+        const firstHalf = student.scores.slice(0, half)
+        const secondHalf = student.scores.slice(half)
+        const firstAvg = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length
+        const secondAvg = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length
+        if (secondAvg - firstAvg > 5) trend = 'improving'
+        else if (firstAvg - secondAvg > 5) trend = 'declining'
+      }
+
+      return {
+        ...student,
+        avgScore,
+        trend
+      }
+    }).sort((a, b) => (b.avgScore || 0) - (a.avgScore || 0))
+
+    // Try to extract criteria from speech_content_feedback
+    const criteriaScores = {}
+    gradedSubmissions.forEach(sub => {
+      const feedback = sub.grades[0]?.feedback?.[0]?.speech_content_feedback
+      if (feedback) {
+        // Try to parse criteria patterns like "**Criteria Name**: X/Y" or "Criteria Name: X/Y"
+        const criteriaRegex = /\*?\*?([A-Za-z\s&]+)\*?\*?\s*:\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+)/g
+        let match
+        while ((match = criteriaRegex.exec(feedback)) !== null) {
+          const name = match[1].trim()
+          const score = parseFloat(match[2])
+          const max = parseFloat(match[3])
+          if (name.length > 2 && name.length < 40 && max > 0) {
+            if (!criteriaScores[name]) criteriaScores[name] = []
+            criteriaScores[name].push((score / max) * 100)
+          }
+        }
+      }
+    })
+
+    const criteriaBreakdown = Object.entries(criteriaScores).map(([name, scores]) => ({
+      name,
+      avgScore: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+    }))
+
+    return {
+      className: classData.name,
+      totalStudents: enrollments?.length || 0,
+      totalSubmissions,
+      classAverageScore,
+      avgFillerWords,
+      assignments: assignmentStats,
+      scoreDistribution,
+      leaderboard,
+      criteriaBreakdown
+    }
+  } catch (error) {
+    console.error('Error fetching class analytics:', error)
+    throw error
+  }
+}
+
 // Get all grades for a student with detailed info
 export const getDetailedStudentGrades = async (studentId) => {
   try {

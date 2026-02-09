@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import NewAssignmentModal from './NewAssignmentModal'
 import { getAssignmentsByClass, getStudentsByClass, createAssignment, deleteAssignment, removeStudentFromClass } from '../data/supabaseData'
 
 function ClassPage({ className, onBack, onViewAssignment, onViewStudent }) {
+  const navigate = useNavigate()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [assignments, setAssignments] = useState([])
   const [students, setStudents] = useState([])
@@ -156,6 +158,12 @@ function ClassPage({ className, onBack, onViewAssignment, onViewStudent }) {
             </div>
           </div>
           <div className="cp-header-actions">
+            <button className="new-assignment-btn" onClick={() => navigate(`/teacher/class/${encodeURIComponent(className)}/analytics`)}>
+              <svg className="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 20V10M12 20V4M6 20v-6"/>
+              </svg>
+              Analytics
+            </button>
             <button className="new-assignment-btn" onClick={handleNewAssignment}>
               <svg className="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 5v14M5 12h14"/>

@@ -17,6 +17,7 @@ import StudentAssignmentPage from './components/StudentAssignmentPage'
 import RecordingPage from './components/RecordingPage'
 import FeedbackButton from './components/FeedbackButton'
 import RoleSelectionModal from './components/RoleSelectionModal'
+import ClassAnalytics from './components/ClassAnalytics'
 
 // Auth-protected layout with Header
 function AuthLayout() {
@@ -380,6 +381,7 @@ function App() {
 
         {/* Teacher routes */}
         <Route path="/teacher/class/:className" element={<TeacherClassRoute />} />
+        <Route path="/teacher/class/:className/analytics" element={<ClassAnalytics />} />
         <Route path="/teacher/class/:className/assignment/:assignmentId" element={<TeacherAssignmentRoute />} />
         <Route path="/teacher/class/:className/assignment/:assignmentId/student/:studentId" element={<TeacherStudentFromAssignmentRoute />} />
         <Route path="/teacher/class/:className/student/:studentId" element={<TeacherStudentFromClassRoute />} />
