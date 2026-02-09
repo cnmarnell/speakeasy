@@ -1332,61 +1332,52 @@ export const initiateSubmission = async (submissionData, videoBlob, assignmentTi
   try {
     console.log('[Queue Submission] Initiating submission with queue system...')
 
-    // Check if submission already exists for this student and assignment
-    const { data: existingSubmission, error: checkError } = await supabase
+    // Get previous submissions to determine attempt number
+    const { data: previousSubmissions } = await supabase
       .from('submissions')
-      .select('id')
+      .select('id, attempt_number, video_url')
       .eq('assignment_id', submissionData.assignmentId)
       .eq('student_id', submissionData.studentId)
-      .single()
+      .order('attempt_number', { ascending: false })
+      .limit(1)
+
+    const previousAttempt = previousSubmissions?.[0]
+    const attemptNumber = previousAttempt ? (previousAttempt.attempt_number || 1) + 1 : 1
+
+    // Delete old video from storage to save space (keep submission row for history)
+    if (previousAttempt?.video_url) {
+      try {
+        const oldUrl = previousAttempt.video_url
+        const bucketPath = oldUrl.split('/storage/v1/object/public/speech-videos/')[1]
+        if (bucketPath) {
+          await supabase.storage.from('speech-videos').remove([decodeURIComponent(bucketPath)])
+          console.log('[Queue Submission] Deleted old video:', bucketPath)
+        }
+      } catch (e) {
+        console.warn('[Queue Submission] Failed to delete old video:', e)
+      }
+    }
 
     let submission
 
-    if (existingSubmission) {
-      // Update existing submission
-      console.log(`[Queue Submission] Updating existing submission ${existingSubmission.id}`)
-      const { data: updatedSubmission, error: updateError } = await supabase
-        .from('submissions')
-        .update({
-          video_url: submissionData.videoUrl,
-          transcript: null,
-          status: 'pending',
-          submitted_at: new Date().toISOString(),
-          processing_started_at: null,
-          processing_completed_at: null,
-          error_message: null
-        })
-        .eq('id', existingSubmission.id)
-        .select()
-        .single()
+    // Always create new submission (keep history for analytics)
+    console.log(`[Queue Submission] Creating submission (attempt ${attemptNumber})`)
+    const { data: newSubmission, error: insertError } = await supabase
+      .from('submissions')
+      .insert([{
+        assignment_id: submissionData.assignmentId,
+        student_id: submissionData.studentId,
+        video_url: submissionData.videoUrl,
+        transcript: null,
+        status: 'pending',
+        submitted_at: new Date().toISOString(),
+        attempt_number: attemptNumber
+      }])
+      .select()
+      .single()
 
-      if (updateError) throw updateError
-      submission = updatedSubmission
-
-      // Remove any existing queue entries for this submission
-      await supabase
-        .from('submission_queue')
-        .delete()
-        .eq('submission_id', existingSubmission.id)
-    } else {
-      // Create new submission
-      console.log('[Queue Submission] Creating new submission')
-      const { data: newSubmission, error: insertError } = await supabase
-        .from('submissions')
-        .insert([{
-          assignment_id: submissionData.assignmentId,
-          student_id: submissionData.studentId,
-          video_url: submissionData.videoUrl,
-          transcript: null,
-          status: 'pending',
-          submitted_at: new Date().toISOString()
-        }])
-        .select()
-        .single()
-
-      if (insertError) throw insertError
-      submission = newSubmission
-    }
+    if (insertError) throw insertError
+    submission = newSubmission
 
     console.log(`[Queue Submission] Submission created with ID: ${submission.id}`)
 
