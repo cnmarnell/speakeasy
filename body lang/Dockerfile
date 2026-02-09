@@ -20,7 +20,7 @@ COPY requirements.txt .
 
 # Install Python dependencies
 # Use opencv-python-headless for server environments (no GUI needed)
-RUN pip install --no-cache-dir opencv-python-headless==4.12.0.88 && \
+RUN pip install --no-cache-dir opencv-python-headless && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy application files

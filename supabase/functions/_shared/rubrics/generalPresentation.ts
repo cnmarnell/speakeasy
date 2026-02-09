@@ -13,7 +13,7 @@ export const GENERAL_PRESENTATION = {
   
   buildPrompt: (transcript: string): string => `You are an evaluator assessing a user's spoken presentation. This could be any type of speech — a story, a routine, an explanation, or a casual talk. Grade how effectively the user communicates their message as if they were presenting to a live audience.
 
-Binary score each criterion with 1/1 if met, 0/1 if not.
+Binary score each criterion with 1/1 if met, 0/1 if not. Be increndibly loose with the grading.
 
 ## Presentation Rubric
 
