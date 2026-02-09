@@ -246,17 +246,19 @@ export const getStudentProgressForAssignment = async (assignmentId) => {
     `)
     .eq('class_enrollments.class_id', assignment.class_id)
   
-  // Get submissions and grades for this assignment
+  // Get submissions and grades for this assignment (ordered so latest attempt is first)
   const { data: submissions } = await supabase
     .from('submissions')
     .select(`
       student_id,
       status,
+      attempt_number,
       grades(total_score)
     `)
     .eq('assignment_id', assignmentId)
+    .order('attempt_number', { ascending: false })
   
-  // Combine the data
+  // Combine the data — use the latest attempt per student
   return enrolledStudents.map(student => {
     const submission = submissions?.find(s => s.student_id === student.id)
     const grade = submission?.grades?.[0]
@@ -348,13 +350,14 @@ export const getDetailedStudentFeedback = async (assignmentId, studentId) => {
       `)
       .eq('assignment_id', assignmentId)
       .eq('student_id', studentId)
-      .single()
+      .order('attempt_number', { ascending: false })
+      .limit(1)
 
-    if (error || !data) {
+    if (error || !data || data.length === 0) {
       return null
     }
 
-    const submission = data
+    const submission = data[0]
     const grade = submission.grades?.[0]
     const feedback = grade?.feedback?.[0]
 
@@ -1033,53 +1036,63 @@ export const deleteAssignment = async (assignmentId) => {
 // Create a submission with AI-powered analysis
 export const createSubmission = async (submissionData, videoBlob = null, assignmentTitle = 'Speech Assignment') => {
   try {
-    // Check if submission already exists for this student and assignment
-    const { data: existingSubmission, error: checkError } = await supabase
+    // Find highest attempt_number for this student+assignment combo
+    const { data: existingSubmissions, error: checkError } = await supabase
       .from('submissions')
-      .select('id')
+      .select('id, attempt_number, video_url')
       .eq('assignment_id', submissionData.assignmentId)
       .eq('student_id', submissionData.studentId)
-      .single()
+      .order('attempt_number', { ascending: false })
+
+    if (checkError) throw checkError
+
+    const nextAttempt = existingSubmissions && existingSubmissions.length > 0
+      ? (existingSubmissions[0].attempt_number || 1) + 1
+      : 1
+
+    // Delete old submission's video from storage to save space (keep the row + grade)
+    if (existingSubmissions && existingSubmissions.length > 0) {
+      const latestOld = existingSubmissions[0]
+      if (latestOld.video_url) {
+        try {
+          // Extract storage path from video_url
+          const urlPath = latestOld.video_url
+          // Try to extract the path after /object/public/ or /storage/v1/object/public/
+          const match = urlPath.match(/\/(?:storage\/v1\/)?object\/(?:public|sign)\/([^?]+)/)
+          if (match) {
+            const fullPath = match[1]
+            const bucketEnd = fullPath.indexOf('/')
+            const bucket = fullPath.substring(0, bucketEnd)
+            const filePath = fullPath.substring(bucketEnd + 1)
+            await supabase.storage.from(bucket).remove([filePath])
+            console.log('Deleted old video from storage:', filePath)
+          }
+        } catch (storageErr) {
+          console.warn('Failed to delete old video from storage (non-fatal):', storageErr)
+        }
+      }
+    }
 
     let submission
 
-    if (existingSubmission) {
-      // Update existing submission
-      const { data: updatedSubmission, error: updateError } = await supabase
-        .from('submissions')
-        .update({
-          video_url: submissionData.videoUrl,
-          transcript: submissionData.transcript,
-          status: 'graded',
-          submitted_at: new Date().toISOString()
-        })
-        .eq('id', existingSubmission.id)
-        .select()
-        .single()
+    // Always create a new submission row with incremented attempt_number
+    const { data: newSubmission, error: submissionError } = await supabase
+      .from('submissions')
+      .insert([{
+        assignment_id: submissionData.assignmentId,
+        student_id: submissionData.studentId,
+        video_url: submissionData.videoUrl,
+        transcript: submissionData.transcript,
+        status: 'graded',
+        attempt_number: nextAttempt
+      }])
+      .select()
+      .single()
 
-      if (updateError) {
-        throw updateError
-      }
-      submission = updatedSubmission
-    } else {
-      // Create new submission
-      const { data: newSubmission, error: submissionError } = await supabase
-        .from('submissions')
-        .insert([{
-          assignment_id: submissionData.assignmentId,
-          student_id: submissionData.studentId,
-          video_url: submissionData.videoUrl,
-          transcript: submissionData.transcript,
-          status: 'graded' // Set to graded since we're auto-grading
-        }])
-        .select()
-        .single()
-
-      if (submissionError) {
-        throw submissionError
-      }
-      submission = newSubmission
+    if (submissionError) {
+      throw submissionError
     }
+    submission = newSubmission
 
     // Process video with AI if video blob is provided
     let aiResult = null
@@ -2731,6 +2744,108 @@ export const getClassAnalytics = async (classId) => {
     }
   } catch (error) {
     console.error('Error fetching class analytics:', error)
+    throw error
+  }
+}
+
+// Get analytics data for a specific assignment (all attempts, grouped by student)
+export const getAssignmentAnalytics = async (assignmentId) => {
+  try {
+    const { data, error } = await supabase
+      .from('submissions')
+      .select(`
+        id,
+        student_id,
+        attempt_number,
+        submitted_at,
+        students(id, name, email),
+        grades(
+          total_score,
+          speech_content_score,
+          content_score_max,
+          filler_word_count,
+          filler_word_score
+        )
+      `)
+      .eq('assignment_id', assignmentId)
+      .order('student_id', { ascending: true })
+      .order('attempt_number', { ascending: true })
+
+    if (error) throw error
+
+    // Group by student
+    const studentMap = {}
+    ;(data || []).forEach(sub => {
+      const sid = sub.student_id
+      if (!studentMap[sid]) {
+        studentMap[sid] = {
+          studentId: sid,
+          studentName: sub.students?.name || 'Unknown',
+          attempts: []
+        }
+      }
+      const grade = sub.grades?.[0]
+      studentMap[sid].attempts.push({
+        attemptNumber: sub.attempt_number || 1,
+        submittedAt: sub.submitted_at,
+        totalScore: grade?.total_score ?? null,
+        speechContentScore: grade?.speech_content_score ?? null,
+        contentScoreMax: grade?.content_score_max ?? 4,
+        fillerWordCount: grade?.filler_word_count ?? null,
+        fillerWordScore: grade?.filler_word_score ?? null
+      })
+    })
+
+    return Object.values(studentMap)
+  } catch (error) {
+    console.error('Error fetching assignment analytics:', error)
+    throw error
+  }
+}
+
+// Get all attempts for a specific student on a specific assignment
+export const getStudentAssignmentAttempts = async (studentId, assignmentId) => {
+  try {
+    const { data, error } = await supabase
+      .from('submissions')
+      .select(`
+        id,
+        attempt_number,
+        submitted_at,
+        transcript,
+        video_url,
+        grades(
+          total_score,
+          speech_content_score,
+          content_score_max,
+          filler_word_count,
+          filler_word_score,
+          graded_at
+        )
+      `)
+      .eq('assignment_id', assignmentId)
+      .eq('student_id', studentId)
+      .order('attempt_number', { ascending: true })
+
+    if (error) throw error
+
+    return (data || []).map(sub => {
+      const grade = sub.grades?.[0]
+      return {
+        attemptNumber: sub.attempt_number || 1,
+        submittedAt: sub.submitted_at,
+        transcript: sub.transcript,
+        videoUrl: sub.video_url,
+        totalScore: grade?.total_score ?? null,
+        speechContentScore: grade?.speech_content_score ?? null,
+        contentScoreMax: grade?.content_score_max ?? 4,
+        fillerWordCount: grade?.filler_word_count ?? null,
+        fillerWordScore: grade?.filler_word_score ?? null,
+        gradedAt: grade?.graded_at ?? null
+      }
+    })
+  } catch (error) {
+    console.error('Error fetching student assignment attempts:', error)
     throw error
   }
 }

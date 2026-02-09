@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { getClassByName, getClassAnalytics } from '../data/supabaseData'
+import { getClassByName, getClassAnalytics, getAssignmentAnalytics } from '../data/supabaseData'
 import {
-  LineChart, Line, BarChart, Bar, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts'
 import './ClassAnalytics.css'
@@ -15,6 +15,11 @@ const CHART_COLORS = {
   orange: '#d97706',
   red: '#dc2626'
 }
+
+const STUDENT_COLORS = [
+  '#8B1538', '#0a7bb8', '#15803d', '#d97706', '#dc2626',
+  '#7c3aed', '#0891b2', '#c2410c', '#4f46e5', '#059669'
+]
 
 function EmptyState({ message }) {
   return (
@@ -35,6 +40,9 @@ function ClassAnalytics() {
   const [analytics, setAnalytics] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState('')
+  const [assignmentAnalytics, setAssignmentAnalytics] = useState(null)
+  const [assignmentLoading, setAssignmentLoading] = useState(false)
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -47,6 +55,10 @@ function ClassAnalytics() {
         }
         const data = await getClassAnalytics(classData.id)
         setAnalytics(data)
+        // Auto-select first assignment if available
+        if (data.assignments && data.assignments.length > 0) {
+          setSelectedAssignmentId(data.assignments[0].id)
+        }
       } catch (err) {
         console.error('Error fetching analytics:', err)
         setError(err.message)
@@ -56,6 +68,94 @@ function ClassAnalytics() {
     }
     fetchAnalytics()
   }, [decodedClassName])
+
+  // Fetch per-assignment analytics when selection changes
+  useEffect(() => {
+    if (!selectedAssignmentId) return
+    const fetchAssignmentData = async () => {
+      setAssignmentLoading(true)
+      try {
+        const data = await getAssignmentAnalytics(selectedAssignmentId)
+        setAssignmentAnalytics(data)
+      } catch (err) {
+        console.error('Error fetching assignment analytics:', err)
+      } finally {
+        setAssignmentLoading(false)
+      }
+    }
+    fetchAssignmentData()
+  }, [selectedAssignmentId])
+
+  // Build chart data for per-assignment improvement (View 1)
+  const { scoreByAttempt, fillerByAttempt, studentNames, showAverage } = useMemo(() => {
+    if (!assignmentAnalytics || assignmentAnalytics.length === 0) {
+      return { scoreByAttempt: [], fillerByAttempt: [], studentNames: [], showAverage: false }
+    }
+
+    const students = assignmentAnalytics.filter(s => s.attempts.length > 0)
+    const names = students.map(s => s.studentName)
+    const useAverage = students.length > 6
+
+    // Find max attempt number
+    const maxAttempt = Math.max(...students.flatMap(s => s.attempts.map(a => a.attemptNumber)))
+
+    const scoreData = []
+    const fillerData = []
+
+    for (let attempt = 1; attempt <= maxAttempt; attempt++) {
+      const scorePoint = { attempt: `Attempt ${attempt}` }
+      const fillerPoint = { attempt: `Attempt ${attempt}` }
+
+      if (useAverage) {
+        const scores = students
+          .map(s => s.attempts.find(a => a.attemptNumber === attempt)?.speechContentScore)
+          .filter(v => v != null)
+        const fillers = students
+          .map(s => s.attempts.find(a => a.attemptNumber === attempt)?.fillerWordCount)
+          .filter(v => v != null)
+        scorePoint['Class Average'] = scores.length > 0
+          ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 100) / 100
+          : null
+        fillerPoint['Class Average'] = fillers.length > 0
+          ? Math.round((fillers.reduce((a, b) => a + b, 0) / fillers.length) * 10) / 10
+          : null
+      } else {
+        students.forEach(s => {
+          const a = s.attempts.find(a => a.attemptNumber === attempt)
+          scorePoint[s.studentName] = a?.speechContentScore ?? null
+          fillerPoint[s.studentName] = a?.fillerWordCount ?? null
+        })
+      }
+
+      scoreData.push(scorePoint)
+      fillerData.push(fillerPoint)
+    }
+
+    return {
+      scoreByAttempt: scoreData,
+      fillerByAttempt: fillerData,
+      studentNames: useAverage ? ['Class Average'] : names,
+      showAverage: useAverage
+    }
+  }, [assignmentAnalytics])
+
+  // Build chart data for macro trends (View 2)
+  const { macroScoreData, macroFillerData } = useMemo(() => {
+    if (!analytics || !analytics.assignments) return { macroScoreData: [], macroFillerData: [] }
+    const assignmentsWithScores = analytics.assignments.filter(a => a.avgScore !== null)
+    const assignmentsWithFillers = analytics.assignments.filter(a => a.avgFillerWords !== null)
+
+    return {
+      macroScoreData: assignmentsWithScores.map(a => ({
+        assignment: a.title,
+        'Class Avg Score': a.avgScore
+      })),
+      macroFillerData: assignmentsWithFillers.map(a => ({
+        assignment: a.title,
+        'Avg Filler Words': a.avgFillerWords
+      }))
+    }
+  }, [analytics])
 
   if (loading) {
     return (
@@ -80,16 +180,6 @@ function ClassAnalytics() {
   }
 
   const hasSubmissions = analytics.totalSubmissions > 0
-  const scoreDistData = [
-    { range: '0-20', count: analytics.scoreDistribution[0] },
-    { range: '21-40', count: analytics.scoreDistribution[1] },
-    { range: '41-60', count: analytics.scoreDistribution[2] },
-    { range: '61-80', count: analytics.scoreDistribution[3] },
-    { range: '81-100', count: analytics.scoreDistribution[4] }
-  ]
-
-  const assignmentsWithScores = analytics.assignments.filter(a => a.avgScore !== null)
-  const assignmentsWithFillers = analytics.assignments.filter(a => a.avgFillerWords !== null)
 
   return (
     <div className="analytics-page">
@@ -160,78 +250,130 @@ function ClassAnalytics() {
         </div>
       </div>
 
-      {/* Charts */}
-      <div className="analytics-charts">
-        {/* Chart 1: Average Score Over Time */}
-        <div className="analytics-chart-card">
-          <h3 className="analytics-chart-title">Class Average Score Over Time</h3>
-          {assignmentsWithScores.length > 0 ? (
-            <div className="analytics-chart-container">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={assignmentsWithScores}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="title" tick={{ fontSize: 12 }} interval={0} angle={-20} textAnchor="end" height={60} />
-                  <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="avgScore" name="Avg Score" stroke={CHART_COLORS.primary} strokeWidth={2.5} dot={{ fill: CHART_COLORS.primary, r: 5 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          ) : <EmptyState message="No graded assignments yet" />}
+      {/* View 1: Per-Assignment Improvement */}
+      <div className="analytics-section">
+        <div className="analytics-section-header">
+          <h3 className="analytics-section-title">Per-Assignment Improvement</h3>
+          <select
+            className="analytics-assignment-select"
+            value={selectedAssignmentId}
+            onChange={(e) => setSelectedAssignmentId(e.target.value)}
+          >
+            {analytics.assignments.map(a => (
+              <option key={a.id} value={a.id}>{a.title}</option>
+            ))}
+          </select>
         </div>
 
-        {/* Chart 2: Score Distribution */}
-        <div className="analytics-chart-card">
-          <h3 className="analytics-chart-title">Score Distribution</h3>
-          {hasSubmissions ? (
-            <div className="analytics-chart-container">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={scoreDistData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="range" tick={{ fontSize: 12 }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                  <Tooltip />
-                  <Bar dataKey="count" name="Students" fill={CHART_COLORS.gold} radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          ) : <EmptyState message="No scores to display" />}
+        <div className="analytics-charts">
+          {/* Chart A: Speech Content Score by Attempt */}
+          <div className="analytics-chart-card">
+            <h3 className="analytics-chart-title">Speech Content Score by Attempt</h3>
+            {assignmentLoading ? (
+              <div className="analytics-empty"><p>Loading...</p></div>
+            ) : scoreByAttempt.length > 0 ? (
+              <div className="analytics-chart-container">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={scoreByAttempt}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="attempt" tick={{ fontSize: 12 }} />
+                    <YAxis domain={[0, 4]} tick={{ fontSize: 12 }} label={{ value: 'Score (0-4)', angle: -90, position: 'insideLeft', style: { fontSize: 11 } }} />
+                    <Tooltip />
+                    <Legend />
+                    {studentNames.map((name, i) => (
+                      <Line
+                        key={name}
+                        type="monotone"
+                        dataKey={name}
+                        stroke={showAverage ? CHART_COLORS.primary : STUDENT_COLORS[i % STUDENT_COLORS.length]}
+                        strokeWidth={2.5}
+                        dot={{ r: 4 }}
+                        connectNulls
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : <EmptyState message="No attempt data for this assignment" />}
+          </div>
+
+          {/* Chart B: Filler Word Count by Attempt */}
+          <div className="analytics-chart-card">
+            <h3 className="analytics-chart-title">Filler Word Count by Attempt</h3>
+            {assignmentLoading ? (
+              <div className="analytics-empty"><p>Loading...</p></div>
+            ) : fillerByAttempt.length > 0 ? (
+              <div className="analytics-chart-container">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={fillerByAttempt}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="attempt" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} label={{ value: 'Filler Words', angle: -90, position: 'insideLeft', style: { fontSize: 11 } }} />
+                    <Tooltip />
+                    <Legend />
+                    {studentNames.map((name, i) => (
+                      <Line
+                        key={name}
+                        type="monotone"
+                        dataKey={name}
+                        stroke={showAverage ? CHART_COLORS.red : STUDENT_COLORS[i % STUDENT_COLORS.length]}
+                        strokeWidth={2.5}
+                        dot={{ r: 4 }}
+                        connectNulls
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : <EmptyState message="No filler word data for this assignment" />}
+          </div>
+        </div>
+      </div>
+
+      {/* View 2: Macro Assignment-to-Assignment Trends */}
+      <div className="analytics-section">
+        <div className="analytics-section-header">
+          <h3 className="analytics-section-title">Assignment-to-Assignment Trends</h3>
         </div>
 
-        {/* Chart 3: Criteria Breakdown */}
-        <div className="analytics-chart-card">
-          <h3 className="analytics-chart-title">Criteria Breakdown</h3>
-          {analytics.criteriaBreakdown && analytics.criteriaBreakdown.length > 0 ? (
-            <div className="analytics-chart-container">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={analytics.criteriaBreakdown} outerRadius="70%">
-                  <PolarGrid stroke="#e5e7eb" />
-                  <PolarAngleAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
-                  <Tooltip />
-                  <Radar name="Avg Score %" dataKey="avgScore" stroke={CHART_COLORS.primary} fill={CHART_COLORS.primary} fillOpacity={0.3} />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-          ) : <EmptyState message="No structured criteria data available" />}
-        </div>
+        <div className="analytics-charts">
+          {/* Chart C: Class Avg Speech Content Score across assignments */}
+          <div className="analytics-chart-card">
+            <h3 className="analytics-chart-title">Class Average Score by Assignment</h3>
+            {macroScoreData.length > 0 ? (
+              <div className="analytics-chart-container">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={macroScoreData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="assignment" tick={{ fontSize: 12 }} interval={0} angle={-20} textAnchor="end" height={60} />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="Class Avg Score" stroke={CHART_COLORS.primary} strokeWidth={2.5} dot={{ fill: CHART_COLORS.primary, r: 5 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : <EmptyState message="No graded assignments yet" />}
+          </div>
 
-        {/* Chart 4: Filler Word Trends */}
-        <div className="analytics-chart-card">
-          <h3 className="analytics-chart-title">Filler Word Trends</h3>
-          {assignmentsWithFillers.length > 0 ? (
-            <div className="analytics-chart-container">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={assignmentsWithFillers}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="title" tick={{ fontSize: 12 }} interval={0} angle={-20} textAnchor="end" height={60} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="avgFillerWords" name="Avg Filler Words" stroke={CHART_COLORS.red} strokeWidth={2.5} dot={{ fill: CHART_COLORS.red, r: 5 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          ) : <EmptyState message="No filler word data yet" />}
+          {/* Chart D: Class Avg Filler Word Count across assignments */}
+          <div className="analytics-chart-card">
+            <h3 className="analytics-chart-title">Class Average Filler Words by Assignment</h3>
+            {macroFillerData.length > 0 ? (
+              <div className="analytics-chart-container">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={macroFillerData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="assignment" tick={{ fontSize: 12 }} interval={0} angle={-20} textAnchor="end" height={60} />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="Avg Filler Words" stroke={CHART_COLORS.red} strokeWidth={2.5} dot={{ fill: CHART_COLORS.red, r: 5 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : <EmptyState message="No filler word data yet" />}
+          </div>
         </div>
       </div>
 
