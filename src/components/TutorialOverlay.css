@@ -22,27 +22,15 @@
   pointer-events: none;
 }
 
-/* Backdrop with spotlight cutout using clip-path */
+/* Backdrop with spotlight cutout using box-shadow trick */
 .tutorial-backdrop-with-spotlight {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.75);
-  pointer-events: none;
-  /* Create spotlight hole using box-shadow on a pseudo element */
-}
-
-.tutorial-backdrop-with-spotlight::before {
-  content: '';
   position: fixed;
   top: var(--spotlight-top);
   left: var(--spotlight-left);
   width: var(--spotlight-width);
   height: var(--spotlight-height);
   border-radius: 12px;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.75);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.8);
   pointer-events: none;
 }
 
