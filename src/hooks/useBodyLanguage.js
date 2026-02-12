@@ -83,21 +83,44 @@ function getEyeContactFromLandmarks(landmarks) {
   const faceWidth = Math.abs(faceRight - faceLeft)
   const nosePosRatio = faceWidth > 0 ? (noseTip.x - faceLeft) / faceWidth : 0.5
 
+  // === VERTICAL GAZE ===
+  // Compare iris vertical position to eye opening height
+  // Left eye vertical
+  const leftEyeHeight = Math.abs(leftLowerMid.y - leftUpperMid.y)
+  const leftIrisCenterY = (leftUpperMid.y + leftLowerMid.y) / 2
+  const leftVertRatio = leftEyeHeight > 0
+    ? (leftIrisCenterY - leftUpperMid.y) / leftEyeHeight
+    : 0.5
+
+  // Right eye vertical
+  const rightEyeHeight = Math.abs(rightLowerMid.y - rightUpperMid.y)
+  const rightIrisCenterY = (rightUpperMid.y + rightLowerMid.y) / 2
+  const rightVertRatio = rightEyeHeight > 0
+    ? (rightIrisCenterY - rightUpperMid.y) / rightEyeHeight
+    : 0.5
+
+  const avgVertRatio = (leftVertRatio + rightVertRatio) / 2
+
   // === COMBINED SCORE ===
-  // Eye gaze: centered = looking at camera (0.35-0.65 range)
+  // Horizontal gaze: centered = looking at camera (0.35-0.65 range)
   const avgEyeRatio = (leftHorizRatio + rightHorizRatio) / 2
-  const eyesLookingStraight = avgEyeRatio >= 0.35 && avgEyeRatio <= 0.65
+  const eyesHorizStraight = avgEyeRatio >= 0.35 && avgEyeRatio <= 0.65
   
-  // Face direction: relaxed threshold (0.30-0.70) since you can look at camera with head slightly turned
+  // Vertical gaze: centered = looking at camera (0.30-0.70 range)
+  // Looking up = low ratio, looking down = high ratio
+  const eyesVertStraight = avgVertRatio >= 0.30 && avgVertRatio <= 0.70
+
+  // Face direction: relaxed threshold (0.30-0.70)
   const faceFacingCamera = nosePosRatio >= 0.30 && nosePosRatio <= 0.70
 
-  // Eye contact = eyes looking straight ahead (primary) AND face roughly facing camera (secondary)
-  const isLookingAtCamera = eyesLookingStraight && faceFacingCamera
+  // Eye contact = horizontal OK AND vertical OK AND face roughly facing camera
+  const isLookingAtCamera = eyesHorizStraight && eyesVertStraight && faceFacingCamera
 
   return { 
     isLookingAtCamera, 
     ratio: avgEyeRatio,
     eyeRatio: avgEyeRatio,
+    vertRatio: avgVertRatio,
     faceRatio: nosePosRatio
   }
 }
