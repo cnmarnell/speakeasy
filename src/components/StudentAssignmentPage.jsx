@@ -269,6 +269,46 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
             )}
           </div>
 
+          {/* Eye Contact Score */}
+          {isCompleted && gradeData && gradeData.confidenceScore !== null && gradeData.confidenceScore !== undefined && (
+            <div className="sap-feedback-card">
+              <h4 className="sap-feedback-card-title">Eye Contact Analysis</h4>
+              <div className="sap-feedback-card-content">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '50%',
+                    background: gradeData.confidenceScore >= 70 ? '#22c55e' :
+                               gradeData.confidenceScore >= 40 ? '#eab308' : '#ef4444',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontWeight: '700',
+                    fontSize: '20px',
+                    flexShrink: 0
+                  }}>
+                    {gradeData.confidenceScore}%
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: '600', fontSize: '16px', color: '#1a1a2e' }}>
+                      {gradeData.confidenceScore >= 70 ? 'Strong Eye Contact' :
+                       gradeData.confidenceScore >= 40 ? 'Moderate Eye Contact' : 'Eye Contact Needs Work'}
+                    </div>
+                    <div style={{ color: '#666', fontSize: '14px', marginTop: '4px' }}>
+                      {gradeData.confidenceScore >= 70
+                        ? 'Great job! You maintained consistent eye contact with the camera throughout your speech.'
+                        : gradeData.confidenceScore >= 40
+                        ? 'You made eye contact some of the time. Try to look at the camera more consistently, especially during key points.'
+                        : 'Focus on looking directly at the camera while speaking. Avoid looking down at notes or away from the audience.'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Filler Words */}
           <div className="sap-feedback-card sap-filler-card">
             <h4 className="sap-feedback-card-title">Filler Words Analysis</h4>

@@ -115,10 +115,30 @@ function RecordingPage({ assignment, studentId, onBack }) {
 
       console.log(`Submission created with ID: ${submissionId}, status: ${status}`)
 
-      // Save body language results to submission if available
+      // Save eye contact score to grades table
       if (bodyLanguageResults) {
-        console.log('Body language results available:', bodyLanguageResults)
-        // TODO: Store body language results in DB when column is ready
+        console.log('Body language results:', bodyLanguageResults)
+        // Store async - don't block redirect
+        import('../lib/supabase').then(({ supabase }) => {
+          // Wait a moment for the submission to be fully created, then update
+          const saveEyeContact = async () => {
+            // Try up to 5 times over 25 seconds to find and update the grade
+            for (let i = 0; i < 5; i++) {
+              await new Promise(r => setTimeout(r, 5000))
+              const { data } = await supabase
+                .from('grades')
+                .update({ confidence_score: bodyLanguageResults.eyeContact.score })
+                .eq('submission_id', submissionId)
+                .select()
+              if (data && data.length > 0) {
+                console.log('Eye contact score saved:', bodyLanguageResults.eyeContact.score)
+                return
+              }
+            }
+            console.warn('Could not save eye contact score - grade row not found')
+          }
+          saveEyeContact()
+        })
       }
 
       // Trigger queue processor multiple times to ensure grading starts

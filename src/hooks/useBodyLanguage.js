@@ -2,6 +2,19 @@ import { useRef, useState, useCallback } from 'react'
 import * as faceapi from 'face-api.js'
 
 const SAMPLE_INTERVAL = 300 // ms between samples
+
+// === SENSITIVITY CONFIG ===
+// Adjust these to make eye contact detection more or less strict
+// Range: 0.0 (center only) to 0.5 (anything counts)
+// Lower = stricter, Higher = more forgiving
+export const EYE_CONTACT_SENSITIVITY = {
+  irisHorizontal: 0.20,   // how far iris can be off-center horizontally (0.30-0.70 with 0.20)
+  irisVertical: 0.20,     // how far iris can be off-center vertically
+  headYaw: 0.20,          // how far head can turn left/right
+  headPitch: 0.20,        // how far head can tilt up/down
+}
+// To make it MORE sensitive (stricter): decrease values toward 0.10
+// To make it LESS sensitive (forgiving): increase values toward 0.30
 const MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1/model'
 
 // Preload models as soon as this module is imported
@@ -109,10 +122,10 @@ function getEyeContactFromLandmarks(landmarks, canvas, ctx) {
     avgIrisY = (leftIris.y + rightIris.y) / 2
     
     // Centered iris = looking at camera
-    // Horizontal: 0.3-0.7 = looking forward (iris in middle of eye)
-    irisHorizOK = avgIrisX >= 0.30 && avgIrisX <= 0.70
-    // Vertical: 0.25-0.65 = looking forward (slight bias upward since iris sits higher)
-    irisVertOK = avgIrisY >= 0.25 && avgIrisY <= 0.65
+    const hSens = EYE_CONTACT_SENSITIVITY.irisHorizontal
+    const vSens = EYE_CONTACT_SENSITIVITY.irisVertical
+    irisHorizOK = avgIrisX >= (0.50 - hSens) && avgIrisX <= (0.50 + hSens)
+    irisVertOK = avgIrisY >= (0.45 - vSens) && avgIrisY <= (0.45 + vSens) // 0.45 center since iris sits slightly high
   }
 
   // === HEAD DIRECTION (secondary signal) ===
@@ -136,8 +149,10 @@ function getEyeContactFromLandmarks(landmarks, canvas, ctx) {
   const avgEAR = ((leftEyeW > 0 ? leftEyeH/leftEyeW : 0.3) + (rightEyeW > 0 ? rightEyeH/rightEyeW : 0.3)) / 2
 
   // === COMBINED ===
-  const headYawOK = yawRatio >= 0.30 && yawRatio <= 0.70
-  const headPitchOK = pitchRatio >= 0.15 && pitchRatio <= 0.55
+  const ySens = EYE_CONTACT_SENSITIVITY.headYaw
+  const pSens = EYE_CONTACT_SENSITIVITY.headPitch
+  const headYawOK = yawRatio >= (0.50 - ySens) && yawRatio <= (0.50 + ySens)
+  const headPitchOK = pitchRatio >= (0.35 - pSens) && pitchRatio <= (0.35 + pSens)
   const eyesOpen = avgEAR >= 0.15
 
   const isLookingAtCamera = irisHorizOK && irisVertOK && headYawOK && headPitchOK && eyesOpen
