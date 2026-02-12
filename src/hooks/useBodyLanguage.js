@@ -4,6 +4,27 @@ import * as faceapi from 'face-api.js'
 const SAMPLE_INTERVAL = 300 // ms between samples
 const MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1/model'
 
+// Preload models as soon as this module is imported
+let modelsPromise = null
+function preloadModels() {
+  if (!modelsPromise) {
+    modelsPromise = Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_URL),
+      faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODELS_URL)
+    ]).then(() => {
+      console.log('Face-api.js models preloaded')
+      return true
+    }).catch(err => {
+      console.warn('Model preload failed:', err.message)
+      modelsPromise = null
+      return false
+    })
+  }
+  return modelsPromise
+}
+// Start preloading immediately
+preloadModels()
+
 // Face-api.js landmark indices
 // Left eye: [36-41], Right eye: [42-47]
 // Left iris approx center between 36-39, Right iris approx center between 42-45
@@ -63,11 +84,9 @@ export function useBodyLanguage() {
       videoRef.current = videoElement
 
       if (!modelsLoadedRef.current) {
-        console.log('Loading face-api.js models...')
-        await faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_URL)
-        await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODELS_URL)
+        console.log('Waiting for face-api.js models...')
+        await preloadModels()
         modelsLoadedRef.current = true
-        console.log('Face-api.js models loaded')
       }
 
       // Create offscreen canvas
