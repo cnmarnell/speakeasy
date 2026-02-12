@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { initiateSubmission, checkSubmissionStatus, uploadVideoToStorage, triggerQueueProcessor } from '../data/supabaseData'
+import { useBodyLanguage } from '../hooks/useBodyLanguage'
 
 function RecordingPage({ assignment, studentId, onBack }) {
   const [isRecording, setIsRecording] = useState(false)
@@ -7,15 +8,18 @@ function RecordingPage({ assignment, studentId, onBack }) {
   const [isProcessing, setIsProcessing] = useState(false)
   const [mediaStream, setMediaStream] = useState(null)
   const [recordedBlob, setRecordedBlob] = useState(null)
+  const [bodyLanguageResults, setBodyLanguageResults] = useState(null)
   
   const videoRef = useRef(null)
   const mediaRecorderRef = useRef(null)
   const recordedChunks = useRef([])
+  const bodyLanguage = useBodyLanguage()
 
   useEffect(() => {
     startCamera()
     return () => {
       stopCamera()
+      bodyLanguage.cleanup()
     }
   }, [])
 
@@ -28,6 +32,8 @@ function RecordingPage({ assignment, studentId, onBack }) {
       setMediaStream(stream)
       if (videoRef.current) {
         videoRef.current.srcObject = stream
+        // Initialize body language tracker with the video element
+        bodyLanguage.initialize(videoRef.current)
       }
     } catch (error) {
       console.error('Error accessing camera:', error)
@@ -64,18 +70,24 @@ function RecordingPage({ assignment, studentId, onBack }) {
 
     mediaRecorderRef.current.start()
     setIsRecording(true)
+    bodyLanguage.startTracking()
   }
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop()
       setIsRecording(false)
+      bodyLanguage.stopTracking()
+      const results = bodyLanguage.getResults()
+      setBodyLanguageResults(results)
+      console.log('Body language results:', results)
     }
   }
 
   const reRecord = () => {
     setHasRecorded(false)
     setRecordedBlob(null)
+    setBodyLanguageResults(null)
     recordedChunks.current = []
   }
 
@@ -190,8 +202,75 @@ function RecordingPage({ assignment, studentId, onBack }) {
                 <span>Recording...</span>
               </div>
             )}
+            {isRecording && bodyLanguage.liveScore !== null && (
+              <div className="rp-eye-contact-badge" style={{
+                position: 'absolute',
+                bottom: '12px',
+                left: '12px',
+                background: bodyLanguage.liveScore >= 70 ? 'rgba(34, 197, 94, 0.9)' : 
+                            bodyLanguage.liveScore >= 40 ? 'rgba(234, 179, 8, 0.9)' : 
+                            'rgba(239, 68, 68, 0.9)',
+                color: 'white',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                fontSize: '13px',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'background 0.3s ease'
+              }}>
+                <span>👁</span>
+                <span>Eye Contact: {bodyLanguage.liveScore}%</span>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Body language preview after recording */}
+        {hasRecorded && bodyLanguageResults && (
+          <div className="rp-body-language-preview" style={{
+            background: 'rgba(139, 21, 56, 0.08)',
+            border: '1px solid rgba(139, 21, 56, 0.2)',
+            borderRadius: '12px',
+            padding: '16px 20px',
+            marginTop: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            maxWidth: '600px',
+            width: '100%'
+          }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: bodyLanguageResults.eyeContact.score >= 70 ? '#22c55e' :
+                         bodyLanguageResults.eyeContact.score >= 40 ? '#eab308' : '#ef4444',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontWeight: '700',
+              fontSize: '18px',
+              flexShrink: 0
+            }}>
+              {bodyLanguageResults.eyeContact.score}%
+            </div>
+            <div>
+              <div style={{ fontWeight: '600', color: '#1a1a2e', fontSize: '15px' }}>
+                Eye Contact: {bodyLanguageResults.eyeContact.label}
+              </div>
+              <div style={{ color: '#666', fontSize: '13px', marginTop: '2px' }}>
+                {bodyLanguageResults.eyeContact.score >= 70 
+                  ? 'Great job maintaining eye contact with the camera!'
+                  : bodyLanguageResults.eyeContact.score >= 40
+                  ? 'Try to look at the camera more consistently.'
+                  : 'Focus on looking directly at the camera while speaking.'}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Controls directly under camera */}
         <div className="rp-controls">
