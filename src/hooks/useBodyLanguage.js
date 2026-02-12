@@ -64,7 +64,7 @@ export function useBodyLanguage() {
               ctxRef.current = canvasRef.current.getContext('2d')
             }
             ctxRef.current.drawImage(video, 0, 0, canvasRef.current.width, canvasRef.current.height)
-            const result = faceLandmarkerRef.current.detectForVideo(canvasRef.current, now)
+            const result = faceLandmarkerRef.current.detect(canvasRef.current)
 
             if (result.faceLandmarks && result.faceLandmarks.length > 0) {
               const landmarks = result.faceLandmarks[0]
@@ -124,7 +124,7 @@ export function useBodyLanguage() {
               modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task',
               delegate
             },
-            runningMode: 'VIDEO',
+            runningMode: 'IMAGE',
             numFaces: 1,
             outputFacialTransformationMatrixes: false,
             outputFaceBlendshapes: false
