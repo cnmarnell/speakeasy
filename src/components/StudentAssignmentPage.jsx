@@ -71,12 +71,24 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
           filter: `student_id=eq.${studentId}`
         },
         (payload) => {
-          // Only react to this assignment's submissions completing
           if (payload.new.assignment_id === assignment.id && 
               payload.new.status === 'completed') {
             console.log('Submission completed! Refreshing results...')
             refetchData()
           }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'grades',
+          filter: `student_id=eq.${studentId}`
+        },
+        (payload) => {
+          console.log('New grade inserted! Refreshing results...')
+          refetchData()
         }
       )
       .subscribe()
@@ -86,6 +98,19 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
     }
   }, [assignment?.id, studentId, refetchData])
   
+  // Polling fallback: if status is pending/processing, poll every 5s
+  useEffect(() => {
+    if (!studentStatus || studentStatus === 'Not Started' || studentStatus === 'Graded') return
+    
+    // Status is "In Progress" or similar - poll for completion
+    const interval = setInterval(() => {
+      console.log('Polling for grade completion...')
+      refetchData()
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [studentStatus, refetchData])
+
   const isCompleted = studentStatus === "In Progress"
   const isProcessing = studentStatus === "Processing..."
   const hasSubmission = isCompleted || isProcessing
