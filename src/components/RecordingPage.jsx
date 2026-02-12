@@ -116,29 +116,26 @@ function RecordingPage({ assignment, studentId, onBack }) {
       console.log(`Submission created with ID: ${submissionId}, status: ${status}`)
 
       // Save eye contact score to grades table
-      if (bodyLanguageResults) {
-        console.log('Body language results:', bodyLanguageResults)
-        // Store async - don't block redirect
-        import('../lib/supabase').then(({ supabase }) => {
-          // Wait a moment for the submission to be fully created, then update
-          const saveEyeContact = async () => {
-            // Try up to 5 times over 25 seconds to find and update the grade
-            for (let i = 0; i < 5; i++) {
-              await new Promise(r => setTimeout(r, 5000))
-              const { data } = await supabase
-                .from('grades')
-                .update({ confidence_score: bodyLanguageResults.eyeContact.score })
-                .eq('submission_id', submissionId)
-                .select()
-              if (data && data.length > 0) {
-                console.log('Eye contact score saved:', bodyLanguageResults.eyeContact.score)
-                return
-              }
-            }
-            console.warn('Could not save eye contact score - grade row not found')
+      // Get results directly from the hook (not state, which clears on unmount)
+      const blResults = bodyLanguageResults || bodyLanguage.getResults()
+      if (blResults) {
+        const eyeScore = blResults.eyeContact.score
+        console.log('Saving eye contact score:', eyeScore, 'for submission:', submissionId)
+        // Fire and forget - runs even after component unmounts
+        const { supabase: sb } = await import('../lib/supabase')
+        const saveScore = async () => {
+          for (let i = 0; i < 8; i++) {
+            await new Promise(r => setTimeout(r, 4000))
+            const { data, error } = await sb
+              .from('grades')
+              .update({ confidence_score: eyeScore })
+              .eq('submission_id', submissionId)
+              .select()
+            console.log(`Eye contact save attempt ${i+1}:`, data?.length ? 'SUCCESS' : 'waiting...', error?.message || '')
+            if (data && data.length > 0) return
           }
-          saveEyeContact()
-        })
+        }
+        saveScore() // don't await - let it run in background
       }
 
       // Trigger queue processor multiple times to ensure grading starts
