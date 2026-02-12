@@ -33,95 +33,58 @@ preloadModels()
 function getEyeContactFromLandmarks(landmarks) {
   const positions = landmarks.positions
 
-  // 68-point landmark indices:
-  // Left eye: 36 (outer corner), 37-38 (upper lid), 39 (inner corner), 40-41 (lower lid)
-  // Right eye: 42 (inner corner), 43-44 (upper lid), 45 (outer corner), 46-47 (lower lid)
-
-  // === EYE GAZE ANALYSIS ===
-  // Calculate where the iris center is relative to the eye opening
-  // We approximate iris center as the centroid of upper and lower eyelid midpoints
-  
-  // Left eye
-  const leftOuterCorner = positions[36]
-  const leftInnerCorner = positions[39]
-  const leftUpperMid = {
-    x: (positions[37].x + positions[38].x) / 2,
-    y: (positions[37].y + positions[38].y) / 2
-  }
-  const leftLowerMid = {
-    x: (positions[40].x + positions[41].x) / 2,
-    y: (positions[40].y + positions[41].y) / 2
-  }
-  // Horizontal: where is the eye opening center relative to corners
-  const leftEyeWidth = Math.abs(leftInnerCorner.x - leftOuterCorner.x)
-  const leftEyeCenterX = (leftUpperMid.x + leftLowerMid.x) / 2
-  const leftHorizRatio = leftEyeWidth > 0 
-    ? (leftEyeCenterX - leftOuterCorner.x) / leftEyeWidth 
-    : 0.5
-
-  // Right eye
-  const rightInnerCorner = positions[42]
-  const rightOuterCorner = positions[45]
-  const rightUpperMid = {
-    x: (positions[43].x + positions[44].x) / 2,
-    y: (positions[43].y + positions[44].y) / 2
-  }
-  const rightLowerMid = {
-    x: (positions[46].x + positions[47].x) / 2,
-    y: (positions[46].y + positions[47].y) / 2
-  }
-  const rightEyeWidth = Math.abs(rightOuterCorner.x - rightInnerCorner.x)
-  const rightEyeCenterX = (rightUpperMid.x + rightLowerMid.x) / 2
-  const rightHorizRatio = rightEyeWidth > 0 
-    ? (rightEyeCenterX - rightInnerCorner.x) / rightEyeWidth 
-    : 0.5
-
-  // === FACE DIRECTION (secondary signal) ===
+  // === HEAD YAW (left/right turn) ===
+  // Nose position relative to face edges
   const noseTip = positions[30]
   const faceLeft = positions[0].x
   const faceRight = positions[16].x
   const faceWidth = Math.abs(faceRight - faceLeft)
-  const nosePosRatio = faceWidth > 0 ? (noseTip.x - faceLeft) / faceWidth : 0.5
+  const yawRatio = faceWidth > 0 ? (noseTip.x - faceLeft) / faceWidth : 0.5
+  // Centered = 0.5, looking left < 0.4, looking right > 0.6
 
-  // === VERTICAL GAZE ===
-  // Compare iris vertical position to eye opening height
-  // Left eye vertical
-  const leftEyeHeight = Math.abs(leftLowerMid.y - leftUpperMid.y)
-  const leftIrisCenterY = (leftUpperMid.y + leftLowerMid.y) / 2
-  const leftVertRatio = leftEyeHeight > 0
-    ? (leftIrisCenterY - leftUpperMid.y) / leftEyeHeight
-    : 0.5
-
-  // Right eye vertical
-  const rightEyeHeight = Math.abs(rightLowerMid.y - rightUpperMid.y)
-  const rightIrisCenterY = (rightUpperMid.y + rightLowerMid.y) / 2
-  const rightVertRatio = rightEyeHeight > 0
-    ? (rightIrisCenterY - rightUpperMid.y) / rightEyeHeight
-    : 0.5
-
-  const avgVertRatio = (leftVertRatio + rightVertRatio) / 2
-
-  // === COMBINED SCORE ===
-  // Horizontal gaze: centered = looking at camera (0.35-0.65 range)
-  const avgEyeRatio = (leftHorizRatio + rightHorizRatio) / 2
-  const eyesHorizStraight = avgEyeRatio >= 0.35 && avgEyeRatio <= 0.65
+  // === HEAD PITCH (up/down tilt) ===
+  // Compare nose tip Y to the midpoint between eyes, normalized by face height
+  const eyeMidY = (positions[39].y + positions[42].y) / 2 // between inner eye corners
+  const chin = positions[8] // bottom of chin
+  const faceHeight = Math.abs(chin.y - positions[19].y) // chin to brow
   
-  // Vertical gaze: centered = looking at camera (0.30-0.70 range)
-  // Looking up = low ratio, looking down = high ratio
-  const eyesVertStraight = avgVertRatio >= 0.30 && avgVertRatio <= 0.70
+  // How far below the eye line is the nose tip, as ratio of face height
+  // Neutral ~= 0.30-0.40. Looking down = nose appears higher relative to chin (ratio decreases)
+  // Looking up = nose drops relative to eyes (ratio increases) 
+  const noseToEyeDist = noseTip.y - eyeMidY
+  const pitchRatio = faceHeight > 0 ? noseToEyeDist / faceHeight : 0.35
 
-  // Face direction: relaxed threshold (0.30-0.70)
-  const faceFacingCamera = nosePosRatio >= 0.30 && nosePosRatio <= 0.70
+  // === EYE OPENNESS (are eyes open/looking at camera vs looking away) ===
+  // Eye Aspect Ratio - closed/squinting eyes suggest looking away or down
+  const leftEyeHeight = (
+    Math.abs(positions[37].y - positions[41].y) + 
+    Math.abs(positions[38].y - positions[40].y)
+  ) / 2
+  const leftEyeWidth = Math.abs(positions[39].x - positions[36].x)
+  const leftEAR = leftEyeWidth > 0 ? leftEyeHeight / leftEyeWidth : 0.3
 
-  // Eye contact = horizontal OK AND vertical OK AND face roughly facing camera
-  const isLookingAtCamera = eyesHorizStraight && eyesVertStraight && faceFacingCamera
+  const rightEyeHeight = (
+    Math.abs(positions[43].y - positions[47].y) + 
+    Math.abs(positions[44].y - positions[46].y)
+  ) / 2
+  const rightEyeWidth = Math.abs(positions[45].x - positions[42].x)
+  const rightEAR = rightEyeWidth > 0 ? rightEyeHeight / rightEyeWidth : 0.3
+
+  const avgEAR = (leftEAR + rightEAR) / 2
+  // Normal open eyes ~0.25-0.35, blinking/closed < 0.15
+
+  // === COMBINED: Are they looking at the camera? ===
+  const yawOK = yawRatio >= 0.35 && yawRatio <= 0.65    // head not turned too far
+  const pitchOK = pitchRatio >= 0.20 && pitchRatio <= 0.50 // head not tilted up/down too far
+  const eyesOpen = avgEAR >= 0.15                          // eyes are actually open
+
+  const isLookingAtCamera = yawOK && pitchOK && eyesOpen
 
   return { 
     isLookingAtCamera, 
-    ratio: avgEyeRatio,
-    eyeRatio: avgEyeRatio,
-    vertRatio: avgVertRatio,
-    faceRatio: nosePosRatio
+    yawRatio,
+    pitchRatio,
+    eyeAspectRatio: avgEAR
   }
 }
 
