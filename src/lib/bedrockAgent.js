@@ -1,5 +1,5 @@
 // AWS Bedrock Agent analysis via Supabase Edge Function
-import { supabase } from '../supabaseClient'
+import { supabase } from '../lib/supabase'
 import { fetchWithRetry } from './apiResilience'
 
 /**

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../supabaseClient'
+import { supabase } from '../lib/supabase'
 import { checkSubmissionStatus } from '../data/supabaseData'
 import StudentEvaluationCard from './StudentEvaluationCard'
 

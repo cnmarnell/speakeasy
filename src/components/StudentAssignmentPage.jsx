@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { supabase } from '../supabaseClient'
+import { supabase } from '../lib/supabase'
 import { getAssignmentById, getAssignmentFeedback, getStudentAssignmentStatus, getStudentGradeForAssignment } from '../data/supabaseData'
 
 function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording }) {

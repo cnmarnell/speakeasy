@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { supabase } from '../supabaseClient'
+import { supabase } from '../lib/supabase'
 
 export default function VideoRecorder({ assignmentId }) {
   const [recording, setRecording] = useState(false)
