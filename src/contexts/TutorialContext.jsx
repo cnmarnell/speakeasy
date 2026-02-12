@@ -118,9 +118,13 @@ export function TutorialProvider({ children }) {
   const getTutorialForPage = useCallback((pathname) => {
     // Check exact matches first, then partial matches
     if (pathname === '/dashboard') return 'welcome'
-    if (pathname.includes('/class/') && pathname.includes('/assignment/')) return 'record'
+    if (pathname.includes('/assignment/')) {
+      // Only show record tutorial on the CAR Practice assignment
+      const CAR_ASSIGNMENT_ID = '71d3127c-11cc-4dec-ba8b-433185cad48a'
+      if (pathname.includes(CAR_ASSIGNMENT_ID)) return 'record'
+      return null
+    }
     if (pathname.includes('/class/')) return 'stats'
-    if (pathname.includes('/assignment/')) return 'record'
     return null
   }, [])
 
