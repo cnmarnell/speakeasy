@@ -30,61 +30,124 @@ preloadModels()
 // Left iris approx center between 36-39, Right iris approx center between 42-45
 // We use the eye corners and pupil-relative position to estimate gaze
 
-function getEyeContactFromLandmarks(landmarks) {
+// Crop eye region from canvas and find iris position via pixel thresholding
+function getIrisPosition(canvas, ctx, eyePoints) {
+  // Get bounding box of eye with padding
+  const xs = eyePoints.map(p => p.x)
+  const ys = eyePoints.map(p => p.y)
+  const minX = Math.floor(Math.min(...xs))
+  const maxX = Math.ceil(Math.max(...xs))
+  const minY = Math.floor(Math.min(...ys))
+  const maxY = Math.ceil(Math.max(...ys))
+  
+  const padX = Math.round((maxX - minX) * 0.1)
+  const padY = Math.round((maxY - minY) * 0.3) // more vertical padding
+  
+  const x = Math.max(0, minX - padX)
+  const y = Math.max(0, minY - padY)
+  const w = Math.min(canvas.width - x, (maxX - minX) + padX * 2)
+  const h = Math.min(canvas.height - y, (maxY - minY) + padY * 2)
+  
+  if (w < 5 || h < 5) return null
+  
+  // Get pixel data for eye region
+  const imageData = ctx.getImageData(x, y, w, h)
+  const pixels = imageData.data
+  
+  // Convert to grayscale and find threshold
+  const gray = []
+  for (let i = 0; i < pixels.length; i += 4) {
+    // Weighted grayscale
+    const g = pixels[i] * 0.299 + pixels[i+1] * 0.587 + pixels[i+2] * 0.114
+    gray.push(g)
+  }
+  
+  // Find darkest 20% of pixels (iris + pupil are the darkest parts)
+  const sorted = [...gray].sort((a, b) => a - b)
+  const threshold = sorted[Math.floor(sorted.length * 0.2)]
+  
+  // Calculate centroid of dark pixels (iris center)
+  let sumX = 0, sumY = 0, count = 0
+  for (let py = 0; py < h; py++) {
+    for (let px = 0; px < w; px++) {
+      const idx = py * w + px
+      if (gray[idx] <= threshold) {
+        sumX += px
+        sumY += py
+        count++
+      }
+    }
+  }
+  
+  if (count === 0) return null
+  
+  // Iris center as ratio within the eye crop (0-1)
+  const irisCenterX = (sumX / count) / w
+  const irisCenterY = (sumY / count) / h
+  
+  return { x: irisCenterX, y: irisCenterY }
+}
+
+function getEyeContactFromLandmarks(landmarks, canvas, ctx) {
   const positions = landmarks.positions
 
-  // === HEAD YAW (left/right turn) ===
-  // Nose position relative to face edges
+  // === IRIS TRACKING (primary signal) ===
+  // Left eye landmarks: 36-41, Right eye: 42-47
+  const leftEyePoints = [36,37,38,39,40,41].map(i => positions[i])
+  const rightEyePoints = [42,43,44,45,46,47].map(i => positions[i])
+  
+  const leftIris = canvas && ctx ? getIrisPosition(canvas, ctx, leftEyePoints) : null
+  const rightIris = canvas && ctx ? getIrisPosition(canvas, ctx, rightEyePoints) : null
+  
+  let irisHorizOK = true
+  let irisVertOK = true
+  let avgIrisX = 0.5
+  let avgIrisY = 0.5
+  
+  if (leftIris && rightIris) {
+    avgIrisX = (leftIris.x + rightIris.x) / 2
+    avgIrisY = (leftIris.y + rightIris.y) / 2
+    
+    // Centered iris = looking at camera
+    // Horizontal: 0.3-0.7 = looking forward (iris in middle of eye)
+    irisHorizOK = avgIrisX >= 0.30 && avgIrisX <= 0.70
+    // Vertical: 0.25-0.65 = looking forward (slight bias upward since iris sits higher)
+    irisVertOK = avgIrisY >= 0.25 && avgIrisY <= 0.65
+  }
+
+  // === HEAD DIRECTION (secondary signal) ===
   const noseTip = positions[30]
   const faceLeft = positions[0].x
   const faceRight = positions[16].x
   const faceWidth = Math.abs(faceRight - faceLeft)
   const yawRatio = faceWidth > 0 ? (noseTip.x - faceLeft) / faceWidth : 0.5
-  // Centered = 0.5, looking left < 0.4, looking right > 0.6
 
-  // === HEAD PITCH (up/down tilt) ===
-  // Compare nose tip Y to the midpoint between eyes, normalized by face height
-  const eyeMidY = (positions[39].y + positions[42].y) / 2 // between inner eye corners
-  const chin = positions[8] // bottom of chin
-  const faceHeight = Math.abs(chin.y - positions[19].y) // chin to brow
-  
-  // How far below the eye line is the nose tip, as ratio of face height
-  // Neutral ~= 0.30-0.40. Looking down = nose appears higher relative to chin (ratio decreases)
-  // Looking up = nose drops relative to eyes (ratio increases) 
+  const eyeMidY = (positions[39].y + positions[42].y) / 2
+  const chin = positions[8]
+  const faceHeight = Math.abs(chin.y - positions[19].y)
   const noseToEyeDist = noseTip.y - eyeMidY
   const pitchRatio = faceHeight > 0 ? noseToEyeDist / faceHeight : 0.35
 
-  // === EYE OPENNESS (are eyes open/looking at camera vs looking away) ===
-  // Eye Aspect Ratio - closed/squinting eyes suggest looking away or down
-  const leftEyeHeight = (
-    Math.abs(positions[37].y - positions[41].y) + 
-    Math.abs(positions[38].y - positions[40].y)
-  ) / 2
-  const leftEyeWidth = Math.abs(positions[39].x - positions[36].x)
-  const leftEAR = leftEyeWidth > 0 ? leftEyeHeight / leftEyeWidth : 0.3
+  // === EYE OPENNESS ===
+  const leftEyeH = (Math.abs(positions[37].y - positions[41].y) + Math.abs(positions[38].y - positions[40].y)) / 2
+  const leftEyeW = Math.abs(positions[39].x - positions[36].x)
+  const rightEyeH = (Math.abs(positions[43].y - positions[47].y) + Math.abs(positions[44].y - positions[46].y)) / 2
+  const rightEyeW = Math.abs(positions[45].x - positions[42].x)
+  const avgEAR = ((leftEyeW > 0 ? leftEyeH/leftEyeW : 0.3) + (rightEyeW > 0 ? rightEyeH/rightEyeW : 0.3)) / 2
 
-  const rightEyeHeight = (
-    Math.abs(positions[43].y - positions[47].y) + 
-    Math.abs(positions[44].y - positions[46].y)
-  ) / 2
-  const rightEyeWidth = Math.abs(positions[45].x - positions[42].x)
-  const rightEAR = rightEyeWidth > 0 ? rightEyeHeight / rightEyeWidth : 0.3
+  // === COMBINED ===
+  const headYawOK = yawRatio >= 0.30 && yawRatio <= 0.70
+  const headPitchOK = pitchRatio >= 0.15 && pitchRatio <= 0.55
+  const eyesOpen = avgEAR >= 0.15
 
-  const avgEAR = (leftEAR + rightEAR) / 2
-  // Normal open eyes ~0.25-0.35, blinking/closed < 0.15
-
-  // === COMBINED: Are they looking at the camera? ===
-  const yawOK = yawRatio >= 0.35 && yawRatio <= 0.65    // head not turned too far
-  const pitchOK = pitchRatio >= 0.20 && pitchRatio <= 0.50 // head not tilted up/down too far
-  const eyesOpen = avgEAR >= 0.15                          // eyes are actually open
-
-  const isLookingAtCamera = yawOK && pitchOK && eyesOpen
+  const isLookingAtCamera = irisHorizOK && irisVertOK && headYawOK && headPitchOK && eyesOpen
 
   return { 
     isLookingAtCamera, 
+    irisX: avgIrisX,
+    irisY: avgIrisY,
     yawRatio,
-    pitchRatio,
-    eyeAspectRatio: avgEAR
+    pitchRatio
   }
 }
 
@@ -136,17 +199,30 @@ export function useBodyLanguage() {
               canvasRef.current.height = video.videoHeight || 480
             }
 
+            // Draw to offscreen canvas for iris analysis
+            if (!canvasRef.current) {
+              canvasRef.current = document.createElement('canvas')
+            }
+            const c = canvasRef.current
+            if (c.width !== video.videoWidth) {
+              c.width = video.videoWidth || 640
+              c.height = video.videoHeight || 480
+            }
+            const cCtx = c.getContext('2d', { willReadFrequently: true })
+            cCtx.drawImage(video, 0, 0, c.width, c.height)
+
             const detection = await faceapi
               .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
-              .withFaceLandmarks(true) // true = use tiny model
+              .withFaceLandmarks(true)
 
             if (detection) {
-              const { isLookingAtCamera, ratio } = getEyeContactFromLandmarks(detection.landmarks)
+              const { isLookingAtCamera, irisX, irisY } = getEyeContactFromLandmarks(detection.landmarks, c, cCtx)
 
               samplesRef.current.push({
                 timestamp: now,
                 eyeContact: isLookingAtCamera,
-                eyeRatio: ratio,
+                irisX,
+                irisY,
                 faceDetected: true,
                 confidence: detection.detection.score
               })
