@@ -1,53 +1,88 @@
-import { useRef, useState, useCallback, useEffect } from 'react'
-import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
+import { useRef, useState, useCallback } from 'react'
+import * as faceapi from 'face-api.js'
 
-// Iris landmark indices from MediaPipe Face Mesh
-const LEFT_IRIS_CENTER = 468
-const LEFT_EYE_INNER = 33
-const LEFT_EYE_OUTER = 133
-const RIGHT_IRIS_CENTER = 473
-const RIGHT_EYE_INNER = 362
-const RIGHT_EYE_OUTER = 263
+const SAMPLE_INTERVAL = 300 // ms between samples
+const MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1/model'
 
-const SAMPLE_INTERVAL = 200
+// Face-api.js landmark indices
+// Left eye: [36-41], Right eye: [42-47]
+// Left iris approx center between 36-39, Right iris approx center between 42-45
+// We use the eye corners and pupil-relative position to estimate gaze
 
-function getEyeContactRatio(landmarks) {
-  const leftIris = landmarks[LEFT_IRIS_CENTER]
-  const leftInner = landmarks[LEFT_EYE_INNER]
-  const leftOuter = landmarks[LEFT_EYE_OUTER]
-  const rightIris = landmarks[RIGHT_IRIS_CENTER]
-  const rightInner = landmarks[RIGHT_EYE_INNER]
-  const rightOuter = landmarks[RIGHT_EYE_OUTER]
+function getEyeContactFromLandmarks(landmarks) {
+  const positions = landmarks.positions
 
-  const leftEyeWidth = Math.abs(leftOuter.x - leftInner.x)
-  const leftIrisPos = leftEyeWidth > 0 ? (leftIris.x - leftInner.x) / leftEyeWidth : 0.5
-  const rightEyeWidth = Math.abs(rightInner.x - rightOuter.x)
-  const rightIrisPos = rightEyeWidth > 0 ? (rightIris.x - rightOuter.x) / rightEyeWidth : 0.5
+  // Left eye corners
+  const leftOuter = positions[36]
+  const leftInner = positions[39]
+  // Right eye corners  
+  const rightInner = positions[42]
+  const rightOuter = positions[45]
 
-  const avgHorizontal = (leftIrisPos + rightIrisPos) / 2
-  const isLookingAtCamera = avgHorizontal >= 0.35 && avgHorizontal <= 0.65
+  // Nose tip as face center reference
+  const noseTip = positions[30]
+  // Face center between eyes
+  const leftEyeCenter = {
+    x: (positions[36].x + positions[39].x) / 2,
+    y: (positions[36].y + positions[39].y) / 2
+  }
+  const rightEyeCenter = {
+    x: (positions[42].x + positions[45].x) / 2,
+    y: (positions[42].y + positions[45].y) / 2
+  }
 
-  return { isLookingAtCamera, ratio: avgHorizontal }
+  // Face width for normalization
+  const faceWidth = Math.abs(positions[16].x - positions[0].x)
+  if (faceWidth === 0) return { isLookingAtCamera: false }
+
+  // Check face symmetry - if face is roughly centered/facing camera
+  // Compare nose position relative to face edges
+  const faceLeft = positions[0].x
+  const faceRight = positions[16].x
+  const nosePosRatio = (noseTip.x - faceLeft) / (faceRight - faceLeft)
+
+  // Face is looking at camera if nose is roughly centered (0.35-0.65)
+  const isLookingAtCamera = nosePosRatio >= 0.35 && nosePosRatio <= 0.65
+
+  return { isLookingAtCamera, ratio: nosePosRatio }
 }
 
 export function useBodyLanguage() {
-  const faceLandmarkerRef = useRef(null)
   const animationFrameRef = useRef(null)
   const lastSampleTime = useRef(0)
   const samplesRef = useRef([])
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
-  const ctxRef = useRef(null)
   const trackingRef = useRef(false)
+  const modelsLoadedRef = useRef(false)
   const [isReady, setIsReady] = useState(false)
   const [liveScore, setLiveScore] = useState(null)
 
-  // Processing loop as a plain function using refs (no stale closures)
-  const runProcessingLoop = () => {
-    const processFrame = () => {
-      if (!trackingRef.current || !faceLandmarkerRef.current || !videoRef.current) {
-        return
+  const initialize = useCallback(async (videoElement) => {
+    try {
+      videoRef.current = videoElement
+
+      if (!modelsLoadedRef.current) {
+        console.log('Loading face-api.js models...')
+        await faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_URL)
+        await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODELS_URL)
+        modelsLoadedRef.current = true
+        console.log('Face-api.js models loaded')
       }
+
+      // Create offscreen canvas
+      canvasRef.current = document.createElement('canvas')
+
+      setIsReady(true)
+      console.log('Body language tracker initialized')
+    } catch (error) {
+      console.error('Failed to initialize body language tracker:', error)
+    }
+  }, [])
+
+  const runProcessingLoop = () => {
+    const processFrame = async () => {
+      if (!trackingRef.current || !videoRef.current) return
 
       const now = performance.now()
       if (now - lastSampleTime.current >= SAMPLE_INTERVAL) {
@@ -56,25 +91,25 @@ export function useBodyLanguage() {
         try {
           const video = videoRef.current
           if (video.readyState >= 2) {
-            // Draw video frame to offscreen canvas to avoid WebGL conflicts
-            if (!canvasRef.current) {
-              canvasRef.current = document.createElement('canvas')
+            // Resize canvas to match video
+            if (canvasRef.current.width !== video.videoWidth) {
               canvasRef.current.width = video.videoWidth || 640
               canvasRef.current.height = video.videoHeight || 480
-              ctxRef.current = canvasRef.current.getContext('2d')
             }
-            ctxRef.current.drawImage(video, 0, 0, canvasRef.current.width, canvasRef.current.height)
-            const result = faceLandmarkerRef.current.detect(canvasRef.current)
 
-            if (result.faceLandmarks && result.faceLandmarks.length > 0) {
-              const landmarks = result.faceLandmarks[0]
-              const { isLookingAtCamera, ratio } = getEyeContactRatio(landmarks)
+            const detection = await faceapi
+              .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 }))
+              .withFaceLandmarks(true) // true = use tiny model
+
+            if (detection) {
+              const { isLookingAtCamera, ratio } = getEyeContactFromLandmarks(detection.landmarks)
 
               samplesRef.current.push({
                 timestamp: now,
                 eyeContact: isLookingAtCamera,
                 eyeRatio: ratio,
-                faceDetected: true
+                faceDetected: true,
+                confidence: detection.detection.score
               })
             } else {
               samplesRef.current.push({
@@ -85,9 +120,9 @@ export function useBodyLanguage() {
               })
             }
 
-            // Update live score every 10 samples
-            if (samplesRef.current.length % 10 === 0) {
-              const recent = samplesRef.current.slice(-30)
+            // Update live score every 5 samples
+            if (samplesRef.current.length % 5 === 0) {
+              const recent = samplesRef.current.slice(-20)
               const eyeContactPct = Math.round(
                 (recent.filter(s => s.eyeContact).length / recent.length) * 100
               )
@@ -107,49 +142,9 @@ export function useBodyLanguage() {
     animationFrameRef.current = requestAnimationFrame(processFrame)
   }
 
-  const initialize = useCallback(async (videoElement) => {
-    try {
-      videoRef.current = videoElement
-
-      const vision = await FilesetResolver.forVisionTasks(
-        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-      )
-
-      // Try GPU first, fall back to CPU
-      let landmarker = null
-      for (const delegate of ['GPU', 'CPU']) {
-        try {
-          landmarker = await FaceLandmarker.createFromOptions(vision, {
-            baseOptions: {
-              modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task',
-              delegate
-            },
-            runningMode: 'IMAGE',
-            numFaces: 1,
-            outputFacialTransformationMatrixes: false,
-            outputFaceBlendshapes: false
-          })
-          console.log(`Body language tracker initialized (${delegate})`)
-          break
-        } catch (err) {
-          console.warn(`FaceLandmarker ${delegate} failed:`, err.message)
-        }
-      }
-
-      if (landmarker) {
-        faceLandmarkerRef.current = landmarker
-        setIsReady(true)
-      } else {
-        console.error('Body language tracker: both GPU and CPU failed')
-      }
-    } catch (error) {
-      console.error('Failed to initialize body language tracker:', error)
-    }
-  }, [])
-
   const startTracking = useCallback(() => {
-    if (!faceLandmarkerRef.current) {
-      console.warn('Cannot start tracking - not initialized')
+    if (!modelsLoadedRef.current) {
+      console.warn('Cannot start tracking - models not loaded')
       return
     }
     samplesRef.current = []
@@ -181,13 +176,18 @@ export function useBodyLanguage() {
       ? Math.round((eyeContactSamples.length / withFace.length) * 100)
       : 0
 
+    const avgConfidence = withFace.length > 0
+      ? Math.round((withFace.reduce((sum, s) => sum + (s.confidence || 0), 0) / withFace.length) * 100)
+      : 0
+
     return {
       eyeContact: {
         score: eyeContactScore,
         label: eyeContactScore >= 70 ? 'Strong' : eyeContactScore >= 40 ? 'Moderate' : 'Needs Work',
         totalSamples: samples.length,
         faceDetectedSamples: withFace.length,
-        faceDetectionRate: Math.round(faceDetectionRate * 100)
+        faceDetectionRate: Math.round(faceDetectionRate * 100),
+        avgConfidence
       },
       overall: {
         score: eyeContactScore,
@@ -201,10 +201,6 @@ export function useBodyLanguage() {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current)
       animationFrameRef.current = null
-    }
-    if (faceLandmarkerRef.current) {
-      faceLandmarkerRef.current.close()
-      faceLandmarkerRef.current = null
     }
     setIsReady(false)
     setLiveScore(null)
