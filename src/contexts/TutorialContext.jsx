@@ -41,7 +41,8 @@ export const TUTORIAL_STEPS = {
     text: 'These stats show your assignment progress — Total, Pending, and Completed. Stay on top of your practice!',
     buttonText: 'Next',
     position: 'bottom',
-    spotlightOffsetX: -22,
+    spotlightOffsetX: 0,
+    spotlightPadding: 16,
     nextStep: 'assignments',
     dismissBehavior: 'advance'
   },
