@@ -32,8 +32,11 @@ function RecordingPage({ assignment, studentId, onBack }) {
       setMediaStream(stream)
       if (videoRef.current) {
         videoRef.current.srcObject = stream
-        // Initialize body language tracker with the video element
-        bodyLanguage.initialize(videoRef.current)
+        // Wait for video to be playing before initializing tracker
+        videoRef.current.onloadeddata = () => {
+          console.log('Video loaded, initializing body language tracker...')
+          bodyLanguage.initialize(videoRef.current)
+        }
       }
     } catch (error) {
       console.error('Error accessing camera:', error)

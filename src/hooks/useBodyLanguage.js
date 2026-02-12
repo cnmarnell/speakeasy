@@ -31,19 +31,33 @@ export function useBodyLanguage() {
         'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
       )
 
-      faceLandmarkerRef.current = await FaceLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.bundle',
-          delegate: 'GPU'
-        },
-        runningMode: 'VIDEO',
-        numFaces: 1,
-        outputFacialTransformationMatrixes: false,
-        outputFaceBlendshapes: false
-      })
+      // Try GPU first, fall back to CPU
+      let landmarker = null
+      for (const delegate of ['GPU', 'CPU']) {
+        try {
+          landmarker = await FaceLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.bundle',
+              delegate
+            },
+            runningMode: 'VIDEO',
+            numFaces: 1,
+            outputFacialTransformationMatrixes: false,
+            outputFaceBlendshapes: false
+          })
+          console.log(`Body language tracker initialized (${delegate})`)
+          break
+        } catch (err) {
+          console.warn(`FaceLandmarker ${delegate} failed:`, err.message)
+        }
+      }
 
-      setIsReady(true)
-      console.log('Body language tracker initialized')
+      if (landmarker) {
+        faceLandmarkerRef.current = landmarker
+        setIsReady(true)
+      } else {
+        console.error('Body language tracker: both GPU and CPU failed')
+      }
     } catch (error) {
       console.error('Failed to initialize body language tracker:', error)
       // Non-fatal - app works without it
