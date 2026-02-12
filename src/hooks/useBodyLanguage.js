@@ -36,6 +36,8 @@ export function useBodyLanguage() {
   const lastSampleTime = useRef(0)
   const samplesRef = useRef([])
   const videoRef = useRef(null)
+  const canvasRef = useRef(null)
+  const ctxRef = useRef(null)
   const trackingRef = useRef(false)
   const [isReady, setIsReady] = useState(false)
   const [liveScore, setLiveScore] = useState(null)
@@ -54,7 +56,15 @@ export function useBodyLanguage() {
         try {
           const video = videoRef.current
           if (video.readyState >= 2) {
-            const result = faceLandmarkerRef.current.detectForVideo(video, now)
+            // Draw video frame to offscreen canvas to avoid WebGL conflicts
+            if (!canvasRef.current) {
+              canvasRef.current = document.createElement('canvas')
+              canvasRef.current.width = video.videoWidth || 640
+              canvasRef.current.height = video.videoHeight || 480
+              ctxRef.current = canvasRef.current.getContext('2d')
+            }
+            ctxRef.current.drawImage(video, 0, 0, canvasRef.current.width, canvasRef.current.height)
+            const result = faceLandmarkerRef.current.detectForVideo(canvasRef.current, now)
 
             if (result.faceLandmarks && result.faceLandmarks.length > 0) {
               const landmarks = result.faceLandmarks[0]
