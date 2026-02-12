@@ -115,17 +115,19 @@ function RecordingPage({ assignment, studentId, onBack }) {
 
       console.log(`Submission created with ID: ${submissionId}, status: ${status}`)
 
-      // Trigger queue processor then redirect immediately
-      triggerQueueProcessor().catch(() => {})
-      
       // Save body language results to submission if available
       if (bodyLanguageResults) {
         console.log('Body language results available:', bodyLanguageResults)
         // TODO: Store body language results in DB when column is ready
       }
 
-      // Redirect right away - the assignment page has realtime subscription
-      // to auto-update when grading completes
+      // Trigger queue processor multiple times to ensure grading starts
+      // Then redirect immediately - assignment page polls for completion
+      triggerQueueProcessor().catch(() => {})
+      setTimeout(() => triggerQueueProcessor().catch(() => {}), 2000)
+      setTimeout(() => triggerQueueProcessor().catch(() => {}), 5000)
+      setTimeout(() => triggerQueueProcessor().catch(() => {}), 10000)
+
       console.log('Submission created, redirecting...')
       setIsProcessing(false)
       onBack()
