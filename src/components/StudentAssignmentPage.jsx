@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
+import { supabase } from '../supabaseClient'
 import { getAssignmentById, getAssignmentFeedback, getStudentAssignmentStatus, getStudentGradeForAssignment } from '../data/supabaseData'
 
 function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording }) {
@@ -37,6 +38,53 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
 
     fetchData()
   }, [assignment?.id, studentId])
+
+  // Refetch all data (used when realtime detects completion)
+  const refetchData = useCallback(async () => {
+    if (!assignment?.id || !studentId) return
+    try {
+      const [status, feedbackInfo, grade] = await Promise.all([
+        getStudentAssignmentStatus(studentId, assignment.id),
+        getAssignmentFeedback(assignment.id, studentId),
+        getStudentGradeForAssignment(studentId, assignment.id)
+      ])
+      setStudentStatus(status)
+      setFeedback(feedbackInfo)
+      setGradeData(grade)
+    } catch (error) {
+      console.error('Error refetching data:', error)
+    }
+  }, [assignment?.id, studentId])
+
+  // Supabase Realtime: listen for submission status changes
+  useEffect(() => {
+    if (!assignment?.id || !studentId) return
+
+    const channel = supabase
+      .channel(`submission-${assignment.id}-${studentId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'submissions',
+          filter: `student_id=eq.${studentId}`
+        },
+        (payload) => {
+          // Only react to this assignment's submissions completing
+          if (payload.new.assignment_id === assignment.id && 
+              payload.new.status === 'completed') {
+            console.log('Submission completed! Refreshing results...')
+            refetchData()
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [assignment?.id, studentId, refetchData])
   
   const isCompleted = studentStatus === "In Progress"
   const isProcessing = studentStatus === "Processing..."
