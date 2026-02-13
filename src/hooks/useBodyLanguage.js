@@ -8,12 +8,14 @@ const SAMPLE_INTERVAL = 300 // ms between samples
 // Range: 0.0 (center only) to 0.5 (anything counts)
 // Lower = stricter, Higher = more forgiving
 export const EYE_CONTACT_SENSITIVITY = {
-  irisHorizontal: 0.20,   // how far iris can be off-center horizontally (0.30-0.70 with 0.20)
-  irisVertical: 0.20,     // how far iris can be off-center vertically
+  irisHorizontal: 0.20,   // how far iris can be off-center horizontally
+  irisVerticalUp: 0.20,   // how far iris can drift upward
+  irisVerticalDown: 0.08, // how far iris can drift downward (STRICT - catches reading notes)
   headYaw: 0.20,          // how far head can turn left/right
-  headPitch: 0.20,        // how far head can tilt up/down
+  headPitchUp: 0.20,      // how far head can tilt up
+  headPitchDown: 0.10,    // how far head can tilt down (STRICT)
 }
-// To make it MORE sensitive (stricter): decrease values toward 0.10
+// To make it MORE sensitive (stricter): decrease values toward 0.05
 // To make it LESS sensitive (forgiving): increase values toward 0.30
 const MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1/model'
 
@@ -123,9 +125,10 @@ function getEyeContactFromLandmarks(landmarks, canvas, ctx) {
     
     // Centered iris = looking at camera
     const hSens = EYE_CONTACT_SENSITIVITY.irisHorizontal
-    const vSens = EYE_CONTACT_SENSITIVITY.irisVertical
     irisHorizOK = avgIrisX >= (0.50 - hSens) && avgIrisX <= (0.50 + hSens)
-    irisVertOK = avgIrisY >= (0.45 - vSens) && avgIrisY <= (0.45 + vSens) // 0.45 center since iris sits slightly high
+    // Asymmetric vertical: strict downward, relaxed upward
+    irisVertOK = avgIrisY >= (0.45 - EYE_CONTACT_SENSITIVITY.irisVerticalUp) && 
+                 avgIrisY <= (0.45 + EYE_CONTACT_SENSITIVITY.irisVerticalDown)
   }
 
   // === HEAD DIRECTION (secondary signal) ===
@@ -150,9 +153,10 @@ function getEyeContactFromLandmarks(landmarks, canvas, ctx) {
 
   // === COMBINED ===
   const ySens = EYE_CONTACT_SENSITIVITY.headYaw
-  const pSens = EYE_CONTACT_SENSITIVITY.headPitch
   const headYawOK = yawRatio >= (0.50 - ySens) && yawRatio <= (0.50 + ySens)
-  const headPitchOK = pitchRatio >= (0.35 - pSens) && pitchRatio <= (0.35 + pSens)
+  // Asymmetric pitch: strict downward, relaxed upward
+  const headPitchOK = pitchRatio >= (0.35 - EYE_CONTACT_SENSITIVITY.headPitchUp) && 
+                      pitchRatio <= (0.35 + EYE_CONTACT_SENSITIVITY.headPitchDown)
   const eyesOpen = avgEAR >= 0.15
 
   const isLookingAtCamera = irisHorizOK && irisVertOK && headYawOK && headPitchOK && eyesOpen
