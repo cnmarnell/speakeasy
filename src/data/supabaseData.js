@@ -2151,6 +2151,7 @@ export const getStudentGradeForAssignment = async (studentId, assignmentId) => {
         id,
         status,
         submitted_at,
+        eye_contact_score,
         grades(
           total_score,
           speech_content_score,
@@ -2161,8 +2162,7 @@ export const getStudentGradeForAssignment = async (studentId, assignmentId) => {
           filler_word_counts,
           filler_words_per_minute,
           filler_category_breakdown,
-          graded_at,
-          confidence_score
+          graded_at
         )
       `)
       .eq('student_id', studentId)
@@ -2188,7 +2188,7 @@ export const getStudentGradeForAssignment = async (studentId, assignmentId) => {
       categoryBreakdown: grade.filler_category_breakdown || {},
       gradedAt: grade.graded_at,
       submittedAt: data.submitted_at,
-      confidenceScore: grade.confidence_score,
+      eyeContactScore: data.eye_contact_score,
       letterGrade: getLetterGrade(grade.total_score)
     }
   } catch (error) {

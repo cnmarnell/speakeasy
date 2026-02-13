@@ -98,11 +98,10 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
     }
   }, [assignment?.id, studentId, refetchData])
   
-  // Polling fallback: if status is pending/processing, poll every 5s
+  // Polling fallback: only poll when actively processing
   useEffect(() => {
-    if (!studentStatus || studentStatus === 'Not Started' || studentStatus === 'Graded') return
+    if (studentStatus !== 'Processing...') return
     
-    // Status is "In Progress" or similar - poll for completion
     const interval = setInterval(() => {
       console.log('Polling for grade completion...')
       refetchData()
@@ -270,7 +269,7 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
           </div>
 
           {/* Eye Contact Score */}
-          {isCompleted && gradeData && gradeData.confidenceScore !== null && gradeData.confidenceScore !== undefined && (
+          {isCompleted && gradeData && gradeData.eyeContactScore !== null && gradeData.eyeContactScore !== undefined && (
             <div className="sap-feedback-card">
               <h4 className="sap-feedback-card-title">Eye Contact Analysis</h4>
               <div className="sap-feedback-card-content">
@@ -279,8 +278,8 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
                     width: '64px',
                     height: '64px',
                     borderRadius: '50%',
-                    background: gradeData.confidenceScore >= 70 ? '#22c55e' :
-                               gradeData.confidenceScore >= 40 ? '#eab308' : '#ef4444',
+                    background: gradeData.eyeContactScore >= 70 ? '#22c55e' :
+                               gradeData.eyeContactScore >= 40 ? '#eab308' : '#ef4444',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -289,17 +288,17 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
                     fontSize: '20px',
                     flexShrink: 0
                   }}>
-                    {gradeData.confidenceScore}%
+                    {gradeData.eyeContactScore}%
                   </div>
                   <div>
                     <div style={{ fontWeight: '600', fontSize: '16px', color: '#1a1a2e' }}>
-                      {gradeData.confidenceScore >= 70 ? 'Strong Eye Contact' :
-                       gradeData.confidenceScore >= 40 ? 'Moderate Eye Contact' : 'Eye Contact Needs Work'}
+                      {gradeData.eyeContactScore >= 70 ? 'Strong Eye Contact' :
+                       gradeData.eyeContactScore >= 40 ? 'Moderate Eye Contact' : 'Eye Contact Needs Work'}
                     </div>
                     <div style={{ color: '#666', fontSize: '14px', marginTop: '4px' }}>
-                      {gradeData.confidenceScore >= 70
+                      {gradeData.eyeContactScore >= 70
                         ? 'Great job! You maintained consistent eye contact with the camera throughout your speech.'
-                        : gradeData.confidenceScore >= 40
+                        : gradeData.eyeContactScore >= 40
                         ? 'You made eye contact some of the time. Try to look at the camera more consistently, especially during key points.'
                         : 'Focus on looking directly at the camera while speaking. Avoid looking down at notes or away from the audience.'}
                     </div>

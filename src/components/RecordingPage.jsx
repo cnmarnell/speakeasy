@@ -115,27 +115,21 @@ function RecordingPage({ assignment, studentId, onBack }) {
 
       console.log(`Submission created with ID: ${submissionId}, status: ${status}`)
 
-      // Save eye contact score to grades table
-      // Get results directly from the hook (not state, which clears on unmount)
+      // Save eye contact score directly to submission row (no RLS issues)
       const blResults = bodyLanguageResults || bodyLanguage.getResults()
       if (blResults) {
         const eyeScore = blResults.eyeContact.score
-        console.log('Saving eye contact score:', eyeScore, 'for submission:', submissionId)
-        // Fire and forget - runs even after component unmounts
+        console.log('Saving eye contact score:', eyeScore, 'to submission:', submissionId)
         const { supabase: sb } = await import('../lib/supabase')
-        const saveScore = async () => {
-          for (let i = 0; i < 8; i++) {
-            await new Promise(r => setTimeout(r, 4000))
-            const { data, error } = await sb
-              .from('grades')
-              .update({ confidence_score: eyeScore })
-              .eq('submission_id', submissionId)
-              .select()
-            console.log(`Eye contact save attempt ${i+1}:`, data?.length ? 'SUCCESS' : 'waiting...', error?.message || '')
-            if (data && data.length > 0) return
-          }
+        const { error } = await sb
+          .from('submissions')
+          .update({ eye_contact_score: eyeScore })
+          .eq('id', submissionId)
+        if (error) {
+          console.warn('Failed to save eye contact score:', error.message)
+        } else {
+          console.log('Eye contact score saved!')
         }
-        saveScore() // don't await - let it run in background
       }
 
       // Trigger queue processor multiple times to ensure grading starts
