@@ -318,8 +318,8 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
             <div className="sap-feedback-card-content">
               {isCompleted && feedback ? (
                 <>
-                  {/* Eye Contact */}
-                  {gradeData && gradeData.eyeContactScore !== null && gradeData.eyeContactScore !== undefined && (
+                  {/* Eye Contact (only shown if teacher enabled it for this assignment) */}
+                  {assignmentData?.eyeContactEnabled && gradeData && gradeData.eyeContactScore !== null && gradeData.eyeContactScore !== undefined && (
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px', fontSize: '15px', fontWeight: '600', color: '#1a1a2e' }}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '18px', height: '18px' }}>

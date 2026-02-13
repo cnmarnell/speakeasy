@@ -122,7 +122,8 @@ export const getAssignmentsByClass = async (className) => {
       day: 'numeric',
       year: 'numeric'
     }),
-    rawDueDate: assignment.due_date // Keep raw date for sorting
+    rawDueDate: assignment.due_date, // Keep raw date for sorting
+    eyeContactEnabled: assignment.eye_contact_enabled || false
   }))
 }
 
@@ -450,7 +451,8 @@ export const getAssignmentById = async (id) => {
       day: 'numeric', 
       year: 'numeric'
     }),
-    rawDueDate: data.due_date // Add raw due date for comparison
+    rawDueDate: data.due_date, // Add raw due date for comparison
+    eyeContactEnabled: data.eye_contact_enabled || false
   } : null
 }
 
@@ -891,7 +893,8 @@ export const createAssignment = async (assignmentData) => {
         description: assignmentData.description,
         max_duration_seconds: assignmentData.maxDuration || 60,
         due_date: assignmentData.dueDate,
-        rubric_id: assignmentData.rubricId || null
+        rubric_id: assignmentData.rubricId || null,
+        eye_contact_enabled: assignmentData.eyeContactEnabled || false
       }])
       .select()
       .single()
@@ -917,6 +920,7 @@ export const updateAssignment = async (assignmentId, assignmentData) => {
     if (assignmentData.dueDate) updateFields.due_date = assignmentData.dueDate
     if (assignmentData.rubricId !== undefined) updateFields.rubric_id = assignmentData.rubricId || null
     if (assignmentData.maxDuration) updateFields.max_duration_seconds = assignmentData.maxDuration
+    if (assignmentData.eyeContactEnabled !== undefined) updateFields.eye_contact_enabled = assignmentData.eyeContactEnabled
 
     const { data, error } = await supabase
       .from('assignments')

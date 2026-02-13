@@ -9,7 +9,8 @@ function NewAssignmentModal({ isOpen, onClose, onSubmit, editData = null }) {
     description: '',
     startDate: '',
     dueDate: '',
-    rubricId: ''
+    rubricId: '',
+    eyeContactEnabled: false
   })
   const [rubrics, setRubrics] = useState([])
   const [loadingRubrics, setLoadingRubrics] = useState(false)
@@ -30,7 +31,8 @@ function NewAssignmentModal({ isOpen, onClose, onSubmit, editData = null }) {
           description: editData.description || '',
           startDate: formatDateForInput(editData.startDate),
           dueDate: formatDateForInput(editData.dueDate),
-          rubricId: editData.rubricId || ''
+          rubricId: editData.rubricId || '',
+          eyeContactEnabled: editData.eyeContactEnabled || false
         })
       } else {
         setFormData({
@@ -38,7 +40,8 @@ function NewAssignmentModal({ isOpen, onClose, onSubmit, editData = null }) {
           description: '',
           startDate: '',
           dueDate: '',
-          rubricId: ''
+          rubricId: '',
+          eyeContactEnabled: false
         })
       }
     }
@@ -67,10 +70,10 @@ function NewAssignmentModal({ isOpen, onClose, onSubmit, editData = null }) {
   }, [isOpen])
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target
+    const { name, value, type, checked } = e.target
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: type === 'checkbox' ? checked : value
     }))
   }
 
@@ -159,6 +162,66 @@ function NewAssignmentModal({ isOpen, onClose, onSubmit, editData = null }) {
                 )}
               </>
             )}
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" style={{ marginBottom: '8px' }}>Eye Contact Tracking</label>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '12px 16px',
+              background: formData.eyeContactEnabled ? 'rgba(34, 197, 94, 0.08)' : 'rgba(100, 100, 100, 0.05)',
+              borderRadius: '8px',
+              border: formData.eyeContactEnabled ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(100, 100, 100, 0.15)',
+              transition: 'all 0.2s ease'
+            }}>
+              <label style={{
+                position: 'relative',
+                display: 'inline-block',
+                width: '44px',
+                height: '24px',
+                flexShrink: 0
+              }}>
+                <input
+                  type="checkbox"
+                  name="eyeContactEnabled"
+                  checked={formData.eyeContactEnabled}
+                  onChange={handleInputChange}
+                  style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
+                />
+                <span style={{
+                  position: 'absolute',
+                  cursor: 'pointer',
+                  top: 0, left: 0, right: 0, bottom: 0,
+                  backgroundColor: formData.eyeContactEnabled ? '#22c55e' : '#ccc',
+                  borderRadius: '24px',
+                  transition: 'background-color 0.2s'
+                }}>
+                  <span style={{
+                    position: 'absolute',
+                    content: '',
+                    height: '18px',
+                    width: '18px',
+                    left: formData.eyeContactEnabled ? '23px' : '3px',
+                    bottom: '3px',
+                    backgroundColor: 'white',
+                    borderRadius: '50%',
+                    transition: 'left 0.2s'
+                  }} />
+                </span>
+              </label>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 500, color: '#333' }}>
+                  {formData.eyeContactEnabled ? 'Enabled' : 'Disabled'}
+                </div>
+                <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>
+                  {formData.eyeContactEnabled
+                    ? 'Students will see real-time eye contact feedback during recording and in their results.'
+                    : 'Eye contact will not be tracked or shown to students for this assignment.'}
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="form-group">

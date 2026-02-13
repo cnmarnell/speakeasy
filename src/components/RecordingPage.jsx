@@ -13,13 +13,14 @@ function RecordingPage({ assignment, studentId, onBack }) {
   const videoRef = useRef(null)
   const mediaRecorderRef = useRef(null)
   const recordedChunks = useRef([])
+  const eyeContactEnabled = assignment?.eyeContactEnabled || false
   const bodyLanguage = useBodyLanguage()
 
   useEffect(() => {
     startCamera()
     return () => {
       stopCamera()
-      bodyLanguage.cleanup()
+      if (eyeContactEnabled) bodyLanguage.cleanup()
     }
   }, [])
 
@@ -34,8 +35,10 @@ function RecordingPage({ assignment, studentId, onBack }) {
         videoRef.current.srcObject = stream
         // Wait for video to be playing before initializing tracker
         videoRef.current.onloadeddata = () => {
-          console.log('Video loaded, initializing body language tracker...')
-          bodyLanguage.initialize(videoRef.current)
+          if (eyeContactEnabled) {
+            console.log('Video loaded, initializing body language tracker...')
+            bodyLanguage.initialize(videoRef.current)
+          }
         }
       }
     } catch (error) {
@@ -73,17 +76,19 @@ function RecordingPage({ assignment, studentId, onBack }) {
 
     mediaRecorderRef.current.start()
     setIsRecording(true)
-    bodyLanguage.startTracking()
+    if (eyeContactEnabled) bodyLanguage.startTracking()
   }
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop()
       setIsRecording(false)
-      bodyLanguage.stopTracking()
-      const results = bodyLanguage.getResults()
-      setBodyLanguageResults(results)
-      console.log('Body language results:', results)
+      if (eyeContactEnabled) {
+        bodyLanguage.stopTracking()
+        const results = bodyLanguage.getResults()
+        setBodyLanguageResults(results)
+        console.log('Body language results:', results)
+      }
     }
   }
 
@@ -116,19 +121,21 @@ function RecordingPage({ assignment, studentId, onBack }) {
       console.log(`Submission created with ID: ${submissionId}, status: ${status}`)
 
       // Save eye contact score directly to submission row (no RLS issues)
-      const blResults = bodyLanguageResults || bodyLanguage.getResults()
-      if (blResults) {
-        const eyeScore = blResults.eyeContact.score
-        console.log('Saving eye contact score:', eyeScore, 'to submission:', submissionId)
-        const { supabase: sb } = await import('../lib/supabase')
-        const { error } = await sb
-          .from('submissions')
-          .update({ eye_contact_score: eyeScore })
-          .eq('id', submissionId)
-        if (error) {
-          console.warn('Failed to save eye contact score:', error.message)
-        } else {
-          console.log('Eye contact score saved!')
+      if (eyeContactEnabled) {
+        const blResults = bodyLanguageResults || bodyLanguage.getResults()
+        if (blResults) {
+          const eyeScore = blResults.eyeContact.score
+          console.log('Saving eye contact score:', eyeScore, 'to submission:', submissionId)
+          const { supabase: sb } = await import('../lib/supabase')
+          const { error } = await sb
+            .from('submissions')
+            .update({ eye_contact_score: eyeScore })
+            .eq('id', submissionId)
+          if (error) {
+            console.warn('Failed to save eye contact score:', error.message)
+          } else {
+            console.log('Eye contact score saved!')
+          }
         }
       }
 
@@ -221,7 +228,7 @@ function RecordingPage({ assignment, studentId, onBack }) {
                 <span>Recording...</span>
               </div>
             )}
-            {isRecording && bodyLanguage.liveScore !== null && (
+            {eyeContactEnabled && isRecording && bodyLanguage.liveScore !== null && (
               <div className="rp-eye-contact-badge" style={{
                 position: 'absolute',
                 bottom: '12px',
@@ -247,7 +254,7 @@ function RecordingPage({ assignment, studentId, onBack }) {
         </div>
 
         {/* Body language preview after recording */}
-        {hasRecorded && bodyLanguageResults && (
+        {eyeContactEnabled && hasRecorded && bodyLanguageResults && (
           <div className="rp-body-language-preview" style={{
             background: 'rgba(139, 21, 56, 0.08)',
             border: '1px solid rgba(139, 21, 56, 0.2)',
