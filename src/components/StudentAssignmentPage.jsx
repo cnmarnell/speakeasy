@@ -268,104 +268,6 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
             )}
           </div>
 
-          {/* Eye Contact Score */}
-          {isCompleted && gradeData && gradeData.eyeContactScore !== null && gradeData.eyeContactScore !== undefined && (
-            <div className="sap-feedback-card sap-eye-contact-card">
-              <h4 className="sap-feedback-card-title">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '20px', height: '20px', marginRight: '8px', verticalAlign: 'middle' }}>
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-                Eye Contact Analysis
-              </h4>
-              <div className="sap-feedback-card-content">
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '8px 0 20px' }}>
-                  {/* Circular progress ring */}
-                  <div style={{ position: 'relative', width: '120px', height: '120px', marginBottom: '16px' }}>
-                    <svg viewBox="0 0 120 120" style={{ width: '120px', height: '120px', transform: 'rotate(-90deg)' }}>
-                      <circle cx="60" cy="60" r="52" fill="none" stroke="#e5e7eb" strokeWidth="8" />
-                      <circle cx="60" cy="60" r="52" fill="none"
-                        stroke={gradeData.eyeContactScore >= 70 ? '#22c55e' : gradeData.eyeContactScore >= 40 ? '#eab308' : '#ef4444'}
-                        strokeWidth="8"
-                        strokeLinecap="round"
-                        strokeDasharray={`${(gradeData.eyeContactScore / 100) * 327} 327`}
-                      />
-                    </svg>
-                    <div style={{
-                      position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      textAlign: 'center'
-                    }}>
-                      <div style={{ fontSize: '28px', fontWeight: '700', color: '#1a1a2e', lineHeight: 1 }}>
-                        {gradeData.eyeContactScore}%
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Label badge */}
-                  <div style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '6px 16px',
-                    borderRadius: '20px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    marginBottom: '12px',
-                    background: gradeData.eyeContactScore >= 70 ? 'rgba(34, 197, 94, 0.1)' :
-                               gradeData.eyeContactScore >= 40 ? 'rgba(234, 179, 8, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                    color: gradeData.eyeContactScore >= 70 ? '#16a34a' :
-                           gradeData.eyeContactScore >= 40 ? '#ca8a04' : '#dc2626'
-                  }}>
-                    <span>{gradeData.eyeContactScore >= 70 ? '✓' : gradeData.eyeContactScore >= 40 ? '!' : '✗'}</span>
-                    {gradeData.eyeContactScore >= 70 ? 'Strong Eye Contact' :
-                     gradeData.eyeContactScore >= 40 ? 'Moderate Eye Contact' : 'Needs Improvement'}
-                  </div>
-
-                  {/* Feedback text */}
-                  <p style={{
-                    color: '#555',
-                    fontSize: '14px',
-                    lineHeight: '1.6',
-                    textAlign: 'center',
-                    maxWidth: '440px',
-                    margin: 0
-                  }}>
-                    {gradeData.eyeContactScore >= 70
-                      ? 'Great job! You maintained consistent eye contact with the camera throughout your speech. This shows confidence and helps engage your audience.'
-                      : gradeData.eyeContactScore >= 40
-                      ? 'You made eye contact some of the time. Try to look at the camera more consistently, especially during key points. Avoid glancing down at notes too often.'
-                      : 'Focus on looking directly at the camera while speaking. Avoid looking down at notes or away from the audience. Practice delivering key points from memory to improve.'}
-                  </p>
-
-                  {/* Tips section for lower scores */}
-                  {gradeData.eyeContactScore < 70 && (
-                    <div style={{
-                      marginTop: '16px',
-                      padding: '12px 16px',
-                      background: '#f8f9fa',
-                      borderRadius: '10px',
-                      width: '100%',
-                      maxWidth: '440px'
-                    }}>
-                      <div style={{ fontSize: '13px', fontWeight: '600', color: '#1a1a2e', marginBottom: '6px' }}>
-                        💡 Tips to Improve
-                      </div>
-                      <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '13px', color: '#555', lineHeight: '1.8' }}>
-                        <li>Place your notes at camera level, not on your desk</li>
-                        <li>Practice your speech until you only need brief glances at notes</li>
-                        <li>Focus on the camera lens as if it were a person's eyes</li>
-                        {gradeData.eyeContactScore < 40 && <li>Try recording yourself to see where you tend to look away</li>}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Filler Words */}
           <div className="sap-feedback-card sap-filler-card">
             <h4 className="sap-feedback-card-title">Filler Words Analysis</h4>
@@ -415,15 +317,80 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
             <h4 className="sap-feedback-card-title">Delivery & Language Analysis</h4>
             <div className="sap-feedback-card-content">
               {isCompleted && feedback ? (
-                <div className="sap-delivery-result">
-                  <span style={{
-                    fontSize: '16px',
-                    fontWeight: '500',
-                    color: feedback.bodyLanguage?.includes('✓') ? '#22c55e' : '#ef4444'
-                  }}>
-                    {feedback.bodyLanguage || '✗ Did not use hands effectively'}
-                  </span>
-                </div>
+                <>
+                  {/* Hand Gestures */}
+                  <div className="sap-delivery-result">
+                    <span style={{
+                      fontSize: '16px',
+                      fontWeight: '500',
+                      color: feedback.bodyLanguage?.includes('✓') ? '#22c55e' : '#ef4444'
+                    }}>
+                      {feedback.bodyLanguage || '✗ Did not use hands effectively'}
+                    </span>
+                  </div>
+
+                  {/* Eye Contact */}
+                  {gradeData && gradeData.eyeContactScore !== null && gradeData.eyeContactScore !== undefined && (
+                    <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px', fontSize: '15px', fontWeight: '600', color: '#1a1a2e' }}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '18px', height: '18px' }}>
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                          <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        Eye Contact
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        {/* Progress ring */}
+                        <div style={{ position: 'relative', width: '80px', height: '80px', flexShrink: 0 }}>
+                          <svg viewBox="0 0 80 80" style={{ width: '80px', height: '80px', transform: 'rotate(-90deg)' }}>
+                            <circle cx="40" cy="40" r="34" fill="none" stroke="#e5e7eb" strokeWidth="6" />
+                            <circle cx="40" cy="40" r="34" fill="none"
+                              stroke={gradeData.eyeContactScore >= 70 ? '#22c55e' : gradeData.eyeContactScore >= 40 ? '#eab308' : '#ef4444'}
+                              strokeWidth="6"
+                              strokeLinecap="round"
+                              strokeDasharray={`${(gradeData.eyeContactScore / 100) * 213.6} 213.6`}
+                            />
+                          </svg>
+                          <div style={{
+                            position: 'absolute', top: '50%', left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            fontSize: '18px', fontWeight: '700', color: '#1a1a2e'
+                          }}>
+                            {gradeData.eyeContactScore}%
+                          </div>
+                        </div>
+
+                        <div style={{ flex: 1 }}>
+                          {/* Badge */}
+                          <div style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '5px',
+                            padding: '4px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: '600', marginBottom: '6px',
+                            background: gradeData.eyeContactScore >= 70 ? 'rgba(34,197,94,0.1)' : gradeData.eyeContactScore >= 40 ? 'rgba(234,179,8,0.1)' : 'rgba(239,68,68,0.1)',
+                            color: gradeData.eyeContactScore >= 70 ? '#16a34a' : gradeData.eyeContactScore >= 40 ? '#ca8a04' : '#dc2626'
+                          }}>
+                            {gradeData.eyeContactScore >= 70 ? '✓ Strong' : gradeData.eyeContactScore >= 40 ? '! Moderate' : '✗ Needs Work'}
+                          </div>
+                          <p style={{ color: '#555', fontSize: '13px', lineHeight: '1.5', margin: 0 }}>
+                            {gradeData.eyeContactScore >= 70
+                              ? 'You maintained strong eye contact with the camera, showing confidence and audience engagement.'
+                              : gradeData.eyeContactScore >= 40
+                              ? 'Try looking at the camera more consistently, especially during key points.'
+                              : 'Focus on looking at the camera instead of down at notes. Practice delivering from memory.'}
+                          </p>
+
+                          {/* Tips for low scores */}
+                          {gradeData.eyeContactScore < 70 && (
+                            <div style={{ marginTop: '10px', padding: '8px 12px', background: '#f8f9fa', borderRadius: '8px', fontSize: '12px', color: '#666' }}>
+                              <strong>💡 Tip:</strong> {gradeData.eyeContactScore < 40
+                                ? 'Place notes at camera level and practice until you only need quick glances.'
+                                : 'Try focusing on the camera lens as if it were a person\'s eyes.'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : isProcessing ? (
                 <p className="sap-processing-message">🔄 Your speech is being analyzed... Check back in a few minutes!</p>
               ) : (
