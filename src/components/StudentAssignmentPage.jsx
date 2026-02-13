@@ -318,20 +318,9 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
             <div className="sap-feedback-card-content">
               {isCompleted && feedback ? (
                 <>
-                  {/* Hand Gestures */}
-                  <div className="sap-delivery-result">
-                    <span style={{
-                      fontSize: '16px',
-                      fontWeight: '500',
-                      color: feedback.bodyLanguage?.includes('✓') ? '#22c55e' : '#ef4444'
-                    }}>
-                      {feedback.bodyLanguage || '✗ Did not use hands effectively'}
-                    </span>
-                  </div>
-
                   {/* Eye Contact */}
                   {gradeData && gradeData.eyeContactScore !== null && gradeData.eyeContactScore !== undefined && (
-                    <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
+                    <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px', fontSize: '15px', fontWeight: '600', color: '#1a1a2e' }}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '18px', height: '18px' }}>
                           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
