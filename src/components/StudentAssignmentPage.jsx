@@ -3,6 +3,99 @@ import ReactMarkdown from 'react-markdown'
 import { supabase } from '../lib/supabase'
 import { getAssignmentById, getAssignmentFeedback, getStudentAssignmentStatus, getStudentGradeForAssignment } from '../data/supabaseData'
 
+// Animated processing indicator
+function AnalyzingIndicator({ message = "Analyzing your speech..." }) {
+  const [dots, setDots] = useState('')
+  const [step, setStep] = useState(0)
+  
+  const steps = [
+    { icon: '🎙️', text: 'Processing audio...' },
+    { icon: '📝', text: 'Generating transcript...' },
+    { icon: '🧠', text: 'AI is evaluating your speech...' },
+    { icon: '📊', text: 'Calculating scores...' }
+  ]
+
+  useEffect(() => {
+    const dotInterval = setInterval(() => {
+      setDots(prev => prev.length >= 3 ? '' : prev + '.')
+    }, 500)
+    const stepInterval = setInterval(() => {
+      setStep(prev => (prev + 1) % steps.length)
+    }, 3000)
+    return () => { clearInterval(dotInterval); clearInterval(stepInterval) }
+  }, [])
+
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      padding: '24px 16px',
+      gap: '16px'
+    }}>
+      {/* Pulsing ring animation */}
+      <div style={{ position: 'relative', width: '56px', height: '56px' }}>
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: '50%',
+          border: '3px solid #e5e7eb',
+        }} />
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: '50%',
+          border: '3px solid transparent',
+          borderTopColor: '#8B1538',
+          borderRightColor: '#8B1538',
+          animation: 'sapSpin 1s linear infinite',
+        }} />
+        <div style={{
+          position: 'absolute',
+          inset: '8px',
+          borderRadius: '50%',
+          background: 'rgba(139, 21, 56, 0.06)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '20px',
+          animation: 'sapPulse 2s ease-in-out infinite',
+        }}>
+          {steps[step].icon}
+        </div>
+      </div>
+      
+      <div style={{ textAlign: 'center' }}>
+        <div style={{
+          fontSize: '14px',
+          fontWeight: 600,
+          color: '#1a1a2e',
+          minWidth: '200px',
+        }}>
+          {steps[step].text}{dots}
+        </div>
+        <div style={{
+          fontSize: '12px',
+          color: '#999',
+          marginTop: '4px',
+        }}>
+          This usually takes 30-60 seconds
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes sapSpin {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes sapPulse {
+          0%, 100% { transform: scale(1); opacity: 0.8; }
+          50% { transform: scale(1.08); opacity: 1; }
+        }
+      `}</style>
+    </div>
+  )
+}
+
 function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording }) {
   const [assignmentData, setAssignmentData] = useState(null)
   const [studentStatus, setStudentStatus] = useState('Not Started')
@@ -215,6 +308,20 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
         <div className="sap-feedback-section">
           <h3 className="sap-feedback-title">Your Speech Analysis</h3>
 
+          {/* Processing Banner */}
+          {isProcessing && (
+            <div style={{
+              background: 'linear-gradient(135deg, #f8f4ff 0%, #fff8e7 100%)',
+              border: '1px solid rgba(139, 21, 56, 0.15)',
+              borderRadius: '16px',
+              padding: '28px',
+              marginBottom: '20px',
+              textAlign: 'center',
+            }}>
+              <AnalyzingIndicator />
+            </div>
+          )}
+
           {/* Grade Summary Card */}
           {isCompleted && gradeData && (
             <div className="sap-grade-summary">
@@ -254,9 +361,7 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
               {isCompleted && feedback && feedback.transcript && feedback.transcript !== "No transcript available yet." ? (
                 <p className="sap-transcript-text">{feedback.transcript}</p>
               ) : isProcessing ? (
-                <p className="sap-processing-message">
-                  🔄 Your speech is being analyzed... Check back in a few minutes!
-                </p>
+                <AnalyzingIndicator />
               ) : (
                 <p className="sap-placeholder">Transcript processing...</p>
               )}
@@ -283,7 +388,7 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
                   }}
                 />
               ) : isProcessing ? (
-                <p className="sap-processing-message">🔄 Your speech is being analyzed... Check back in a few minutes!</p>
+                <AnalyzingIndicator />
               ) : (
                 <p className="sap-placeholder">Analysis pending...</p>
               )}
@@ -305,7 +410,7 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
                   }}
                 />
               ) : isProcessing ? (
-                <p className="sap-processing-message">🔄 Your speech is being analyzed... Check back in a few minutes!</p>
+                <AnalyzingIndicator />
               ) : (
                 <p className="sap-placeholder">Analysis pending...</p>
               )}
@@ -381,7 +486,7 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
                   )}
                 </>
               ) : isProcessing ? (
-                <p className="sap-processing-message">🔄 Your speech is being analyzed... Check back in a few minutes!</p>
+                <AnalyzingIndicator />
               ) : (
                 <p className="sap-placeholder">Analysis pending...</p>
               )}
