@@ -270,39 +270,97 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
 
           {/* Eye Contact Score */}
           {isCompleted && gradeData && gradeData.eyeContactScore !== null && gradeData.eyeContactScore !== undefined && (
-            <div className="sap-feedback-card">
-              <h4 className="sap-feedback-card-title">Eye Contact Analysis</h4>
+            <div className="sap-feedback-card sap-eye-contact-card">
+              <h4 className="sap-feedback-card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '20px', height: '20px', marginRight: '8px', verticalAlign: 'middle' }}>
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                Eye Contact Analysis
+              </h4>
               <div className="sap-feedback-card-content">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '8px 0 20px' }}>
+                  {/* Circular progress ring */}
+                  <div style={{ position: 'relative', width: '120px', height: '120px', marginBottom: '16px' }}>
+                    <svg viewBox="0 0 120 120" style={{ width: '120px', height: '120px', transform: 'rotate(-90deg)' }}>
+                      <circle cx="60" cy="60" r="52" fill="none" stroke="#e5e7eb" strokeWidth="8" />
+                      <circle cx="60" cy="60" r="52" fill="none"
+                        stroke={gradeData.eyeContactScore >= 70 ? '#22c55e' : gradeData.eyeContactScore >= 40 ? '#eab308' : '#ef4444'}
+                        strokeWidth="8"
+                        strokeLinecap="round"
+                        strokeDasharray={`${(gradeData.eyeContactScore / 100) * 327} 327`}
+                      />
+                    </svg>
+                    <div style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: '28px', fontWeight: '700', color: '#1a1a2e', lineHeight: 1 }}>
+                        {gradeData.eyeContactScore}%
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Label badge */}
                   <div style={{
-                    width: '64px',
-                    height: '64px',
-                    borderRadius: '50%',
-                    background: gradeData.eyeContactScore >= 70 ? '#22c55e' :
-                               gradeData.eyeContactScore >= 40 ? '#eab308' : '#ef4444',
-                    display: 'flex',
+                    display: 'inline-flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    fontWeight: '700',
-                    fontSize: '20px',
-                    flexShrink: 0
+                    gap: '6px',
+                    padding: '6px 16px',
+                    borderRadius: '20px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    marginBottom: '12px',
+                    background: gradeData.eyeContactScore >= 70 ? 'rgba(34, 197, 94, 0.1)' :
+                               gradeData.eyeContactScore >= 40 ? 'rgba(234, 179, 8, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                    color: gradeData.eyeContactScore >= 70 ? '#16a34a' :
+                           gradeData.eyeContactScore >= 40 ? '#ca8a04' : '#dc2626'
                   }}>
-                    {gradeData.eyeContactScore}%
+                    <span>{gradeData.eyeContactScore >= 70 ? '✓' : gradeData.eyeContactScore >= 40 ? '!' : '✗'}</span>
+                    {gradeData.eyeContactScore >= 70 ? 'Strong Eye Contact' :
+                     gradeData.eyeContactScore >= 40 ? 'Moderate Eye Contact' : 'Needs Improvement'}
                   </div>
-                  <div>
-                    <div style={{ fontWeight: '600', fontSize: '16px', color: '#1a1a2e' }}>
-                      {gradeData.eyeContactScore >= 70 ? 'Strong Eye Contact' :
-                       gradeData.eyeContactScore >= 40 ? 'Moderate Eye Contact' : 'Eye Contact Needs Work'}
+
+                  {/* Feedback text */}
+                  <p style={{
+                    color: '#555',
+                    fontSize: '14px',
+                    lineHeight: '1.6',
+                    textAlign: 'center',
+                    maxWidth: '440px',
+                    margin: 0
+                  }}>
+                    {gradeData.eyeContactScore >= 70
+                      ? 'Great job! You maintained consistent eye contact with the camera throughout your speech. This shows confidence and helps engage your audience.'
+                      : gradeData.eyeContactScore >= 40
+                      ? 'You made eye contact some of the time. Try to look at the camera more consistently, especially during key points. Avoid glancing down at notes too often.'
+                      : 'Focus on looking directly at the camera while speaking. Avoid looking down at notes or away from the audience. Practice delivering key points from memory to improve.'}
+                  </p>
+
+                  {/* Tips section for lower scores */}
+                  {gradeData.eyeContactScore < 70 && (
+                    <div style={{
+                      marginTop: '16px',
+                      padding: '12px 16px',
+                      background: '#f8f9fa',
+                      borderRadius: '10px',
+                      width: '100%',
+                      maxWidth: '440px'
+                    }}>
+                      <div style={{ fontSize: '13px', fontWeight: '600', color: '#1a1a2e', marginBottom: '6px' }}>
+                        💡 Tips to Improve
+                      </div>
+                      <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '13px', color: '#555', lineHeight: '1.8' }}>
+                        <li>Place your notes at camera level, not on your desk</li>
+                        <li>Practice your speech until you only need brief glances at notes</li>
+                        <li>Focus on the camera lens as if it were a person's eyes</li>
+                        {gradeData.eyeContactScore < 40 && <li>Try recording yourself to see where you tend to look away</li>}
+                      </ul>
                     </div>
-                    <div style={{ color: '#666', fontSize: '14px', marginTop: '4px' }}>
-                      {gradeData.eyeContactScore >= 70
-                        ? 'Great job! You maintained consistent eye contact with the camera throughout your speech.'
-                        : gradeData.eyeContactScore >= 40
-                        ? 'You made eye contact some of the time. Try to look at the camera more consistently, especially during key points.'
-                        : 'Focus on looking directly at the camera while speaking. Avoid looking down at notes or away from the audience.'}
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
