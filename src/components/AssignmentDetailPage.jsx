@@ -66,7 +66,8 @@ function AssignmentDetailPage({ assignment, onBack, onViewStudent, onAssignmentU
         title: formData.title,
         description: formData.description,
         dueDate: formData.dueDate ? new Date(formData.dueDate).toISOString() : null,
-        rubricId: formData.rubricId
+        rubricId: formData.rubricId,
+        eyeContactEnabled: formData.eyeContactEnabled
       })
       
       // Notify parent to refresh the assignment data
@@ -87,7 +88,8 @@ function AssignmentDetailPage({ assignment, onBack, onViewStudent, onAssignmentU
     title: assignment.title,
     description: assignment.description,
     dueDate: assignment.rawDueDate || assignment.dueDate,
-    rubricId: assignment.rubric_id
+    rubricId: assignment.rubric_id,
+    eyeContactEnabled: assignment.eye_contact_enabled || false
   })
 
   // Compute assignment stats
@@ -365,18 +367,6 @@ function AssignmentDetailPage({ assignment, onBack, onViewStudent, onAssignmentU
                     />
                   </div>
 
-                  <div className="feedback-category">
-                    <h4>Delivery & Language Analysis</h4>
-                    <div>
-                      <span style={{
-                        fontSize: '16px',
-                        fontWeight: '500',
-                        color: selectedStudentFeedback.feedback.bodyLanguage?.includes('✓') ? '#22c55e' : '#ef4444'
-                      }}>
-                        {selectedStudentFeedback.feedback.bodyLanguage || '✗ Did not use hands effectively'}
-                      </span>
-                    </div>
-                  </div>
                 </div>
               )}
 

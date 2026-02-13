@@ -105,7 +105,6 @@ export const analyzeSpeechWithBedrockAgent = async (transcript, assignmentTitle,
       confidence: result.confidence,
       sources: result.sources,
       overallScore: contentScore,
-      bodyLanguage: 'Focus on clear articulation, confident posture, and engaging delivery. Maintain eye contact and use purposeful gestures to enhance your message.',
       contentOrganization: result.speechContent || 'Analysis not available',
       // Include structured grading data if available for detailed breakdowns
       structuredGrading: result.structuredGrading || null
@@ -152,7 +151,6 @@ This analysis provides basic feedback. For more detailed, AI-powered insights, e
     confidence: 0.6,
     sources: ['Basic Analysis - Bedrock Agent Unavailable'],
     overallScore: 2, // Default to 2/4 (Average) when AI unavailable
-    bodyLanguage: 'Delivery Analysis: Focus on maintaining clear articulation, appropriate volume, and confident posture. Practice using vocal variety to keep your audience engaged.',
     contentOrganization: 'Structure: Organize your speech with a strong opening that captures attention, well-developed main points with supporting evidence, and a memorable conclusion.',
     structuredGrading: null
   }

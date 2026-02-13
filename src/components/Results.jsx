@@ -85,7 +85,6 @@ export default function Results({ submissionId }) {
           .select(`
             *,
             feedback(
-              body_language_feedback,
               speech_content_feedback,
               filler_words_feedback
             )
@@ -98,7 +97,6 @@ export default function Results({ submissionId }) {
         // Flatten feedback into grade object for easier access
         const gradeWithFeedback = {
           ...gradeData,
-          body_language_feedback: gradeData.feedback?.[0]?.body_language_feedback,
           speech_content_feedback: gradeData.feedback?.[0]?.speech_content_feedback,
           filler_words_feedback: gradeData.feedback?.[0]?.filler_words_feedback
         }
@@ -350,19 +348,6 @@ export default function Results({ submissionId }) {
       </div>
 
       {/* Delivery & Language Analysis */}
-      {grade?.body_language_feedback && (
-        <div className="bg-purple-50 rounded-lg p-4 mb-6">
-          <h3 className="font-bold text-lg mb-2">📹 Delivery & Language Analysis</h3>
-          <span style={{
-            fontSize: '16px',
-            fontWeight: '500',
-            color: grade.body_language_feedback?.includes('✓') ? '#22c55e' : '#ef4444'
-          }}>
-            {grade.body_language_feedback}
-          </span>
-        </div>
-      )}
-
       {/* Feedback */}
       {grade?.feedback && (
         <div className="space-y-4 mb-6">

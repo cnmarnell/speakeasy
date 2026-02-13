@@ -3,6 +3,99 @@ import ReactMarkdown from 'react-markdown'
 import { supabase } from '../lib/supabase'
 import { getAssignmentById, getAssignmentFeedback, getStudentAssignmentStatus, getStudentGradeForAssignment } from '../data/supabaseData'
 
+// Animated processing indicator
+function AnalyzingIndicator({ message = "Analyzing your speech..." }) {
+  const [dots, setDots] = useState('')
+  const [step, setStep] = useState(0)
+  
+  const steps = [
+    { icon: '🎙️', text: 'Processing audio...' },
+    { icon: '📝', text: 'Generating transcript...' },
+    { icon: '🧠', text: 'AI is evaluating your speech...' },
+    { icon: '📊', text: 'Calculating scores...' }
+  ]
+
+  useEffect(() => {
+    const dotInterval = setInterval(() => {
+      setDots(prev => prev.length >= 3 ? '' : prev + '.')
+    }, 500)
+    const stepInterval = setInterval(() => {
+      setStep(prev => (prev + 1) % steps.length)
+    }, 3000)
+    return () => { clearInterval(dotInterval); clearInterval(stepInterval) }
+  }, [])
+
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      padding: '24px 16px',
+      gap: '16px'
+    }}>
+      {/* Pulsing ring animation */}
+      <div style={{ position: 'relative', width: '56px', height: '56px' }}>
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: '50%',
+          border: '3px solid #e5e7eb',
+        }} />
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: '50%',
+          border: '3px solid transparent',
+          borderTopColor: '#8B1538',
+          borderRightColor: '#8B1538',
+          animation: 'sapSpin 1s linear infinite',
+        }} />
+        <div style={{
+          position: 'absolute',
+          inset: '8px',
+          borderRadius: '50%',
+          background: 'rgba(139, 21, 56, 0.06)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '20px',
+          animation: 'sapPulse 2s ease-in-out infinite',
+        }}>
+          {steps[step].icon}
+        </div>
+      </div>
+      
+      <div style={{ textAlign: 'center' }}>
+        <div style={{
+          fontSize: '14px',
+          fontWeight: 600,
+          color: '#1a1a2e',
+          minWidth: '200px',
+        }}>
+          {steps[step].text}{dots}
+        </div>
+        <div style={{
+          fontSize: '12px',
+          color: '#999',
+          marginTop: '4px',
+        }}>
+          This usually takes 30-60 seconds
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes sapSpin {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes sapPulse {
+          0%, 100% { transform: scale(1); opacity: 0.8; }
+          50% { transform: scale(1.08); opacity: 1; }
+        }
+      `}</style>
+    </div>
+  )
+}
+
 function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording }) {
   const [assignmentData, setAssignmentData] = useState(null)
   const [studentStatus, setStudentStatus] = useState('Not Started')
@@ -71,12 +164,24 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
           filter: `student_id=eq.${studentId}`
         },
         (payload) => {
-          // Only react to this assignment's submissions completing
           if (payload.new.assignment_id === assignment.id && 
               payload.new.status === 'completed') {
             console.log('Submission completed! Refreshing results...')
             refetchData()
           }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'grades',
+          filter: `student_id=eq.${studentId}`
+        },
+        (payload) => {
+          console.log('New grade inserted! Refreshing results...')
+          refetchData()
         }
       )
       .subscribe()
@@ -86,6 +191,18 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
     }
   }, [assignment?.id, studentId, refetchData])
   
+  // Polling fallback: only poll when actively processing
+  useEffect(() => {
+    if (studentStatus !== 'Processing...') return
+    
+    const interval = setInterval(() => {
+      console.log('Polling for grade completion...')
+      refetchData()
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [studentStatus, refetchData])
+
   const isCompleted = studentStatus === "In Progress"
   const isProcessing = studentStatus === "Processing..."
   const hasSubmission = isCompleted || isProcessing
@@ -191,6 +308,20 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
         <div className="sap-feedback-section">
           <h3 className="sap-feedback-title">Your Speech Analysis</h3>
 
+          {/* Processing Banner */}
+          {isProcessing && (
+            <div style={{
+              background: 'linear-gradient(135deg, #f8f4ff 0%, #fff8e7 100%)',
+              border: '1px solid rgba(139, 21, 56, 0.15)',
+              borderRadius: '16px',
+              padding: '28px',
+              marginBottom: '20px',
+              textAlign: 'center',
+            }}>
+              <AnalyzingIndicator />
+            </div>
+          )}
+
           {/* Grade Summary Card */}
           {isCompleted && gradeData && (
             <div className="sap-grade-summary">
@@ -230,9 +361,7 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
               {isCompleted && feedback && feedback.transcript && feedback.transcript !== "No transcript available yet." ? (
                 <p className="sap-transcript-text">{feedback.transcript}</p>
               ) : isProcessing ? (
-                <p className="sap-processing-message">
-                  🔄 Your speech is being analyzed... Check back in a few minutes!
-                </p>
+                <AnalyzingIndicator />
               ) : (
                 <p className="sap-placeholder">Transcript processing...</p>
               )}
@@ -259,7 +388,7 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
                   }}
                 />
               ) : isProcessing ? (
-                <p className="sap-processing-message">🔄 Your speech is being analyzed... Check back in a few minutes!</p>
+                <AnalyzingIndicator />
               ) : (
                 <p className="sap-placeholder">Analysis pending...</p>
               )}
@@ -281,7 +410,7 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
                   }}
                 />
               ) : isProcessing ? (
-                <p className="sap-processing-message">🔄 Your speech is being analyzed... Check back in a few minutes!</p>
+                <AnalyzingIndicator />
               ) : (
                 <p className="sap-placeholder">Analysis pending...</p>
               )}
@@ -293,17 +422,71 @@ function StudentAssignmentPage({ assignment, studentId, onBack, onViewRecording 
             <h4 className="sap-feedback-card-title">Delivery & Language Analysis</h4>
             <div className="sap-feedback-card-content">
               {isCompleted && feedback ? (
-                <div className="sap-delivery-result">
-                  <span style={{
-                    fontSize: '16px',
-                    fontWeight: '500',
-                    color: feedback.bodyLanguage?.includes('✓') ? '#22c55e' : '#ef4444'
-                  }}>
-                    {feedback.bodyLanguage || '✗ Did not use hands effectively'}
-                  </span>
-                </div>
+                <>
+                  {/* Eye Contact (only shown if teacher enabled it for this assignment) */}
+                  {assignmentData?.eyeContactEnabled && gradeData && gradeData.eyeContactScore !== null && gradeData.eyeContactScore !== undefined && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px', fontSize: '15px', fontWeight: '600', color: '#1a1a2e' }}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '18px', height: '18px' }}>
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                          <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        Eye Contact
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        {/* Progress ring */}
+                        <div style={{ position: 'relative', width: '80px', height: '80px', flexShrink: 0 }}>
+                          <svg viewBox="0 0 80 80" style={{ width: '80px', height: '80px', transform: 'rotate(-90deg)' }}>
+                            <circle cx="40" cy="40" r="34" fill="none" stroke="#e5e7eb" strokeWidth="6" />
+                            <circle cx="40" cy="40" r="34" fill="none"
+                              stroke={gradeData.eyeContactScore >= 70 ? '#22c55e' : gradeData.eyeContactScore >= 40 ? '#eab308' : '#ef4444'}
+                              strokeWidth="6"
+                              strokeLinecap="round"
+                              strokeDasharray={`${(gradeData.eyeContactScore / 100) * 213.6} 213.6`}
+                            />
+                          </svg>
+                          <div style={{
+                            position: 'absolute', top: '50%', left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            fontSize: '18px', fontWeight: '700', color: '#1a1a2e'
+                          }}>
+                            {gradeData.eyeContactScore}%
+                          </div>
+                        </div>
+
+                        <div style={{ flex: 1 }}>
+                          {/* Badge */}
+                          <div style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '5px',
+                            padding: '4px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: '600', marginBottom: '6px',
+                            background: gradeData.eyeContactScore >= 70 ? 'rgba(34,197,94,0.1)' : gradeData.eyeContactScore >= 40 ? 'rgba(234,179,8,0.1)' : 'rgba(239,68,68,0.1)',
+                            color: gradeData.eyeContactScore >= 70 ? '#16a34a' : gradeData.eyeContactScore >= 40 ? '#ca8a04' : '#dc2626'
+                          }}>
+                            {gradeData.eyeContactScore >= 70 ? '✓ Strong' : gradeData.eyeContactScore >= 40 ? '! Moderate' : '✗ Needs Work'}
+                          </div>
+                          <p style={{ color: '#555', fontSize: '13px', lineHeight: '1.5', margin: 0 }}>
+                            {gradeData.eyeContactScore >= 70
+                              ? 'You maintained strong eye contact with the camera, showing confidence and audience engagement.'
+                              : gradeData.eyeContactScore >= 40
+                              ? 'Try looking at the camera more consistently, especially during key points.'
+                              : 'Focus on looking at the camera instead of down at notes. Practice delivering from memory.'}
+                          </p>
+
+                          {/* Tips for low scores */}
+                          {gradeData.eyeContactScore < 70 && (
+                            <div style={{ marginTop: '10px', padding: '8px 12px', background: '#f8f9fa', borderRadius: '8px', fontSize: '12px', color: '#666' }}>
+                              <strong>💡 Tip:</strong> {gradeData.eyeContactScore < 40
+                                ? 'Place notes at camera level and practice until you only need quick glances.'
+                                : 'Try focusing on the camera lens as if it were a person\'s eyes.'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : isProcessing ? (
-                <p className="sap-processing-message">🔄 Your speech is being analyzed... Check back in a few minutes!</p>
+                <AnalyzingIndicator />
               ) : (
                 <p className="sap-placeholder">Analysis pending...</p>
               )}

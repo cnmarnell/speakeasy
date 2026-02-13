@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { initiateSubmission, checkSubmissionStatus, uploadVideoToStorage, triggerQueueProcessor } from '../data/supabaseData'
+import { useBodyLanguage } from '../hooks/useBodyLanguage'
 
 function RecordingPage({ assignment, studentId, onBack }) {
   const [isRecording, setIsRecording] = useState(false)
@@ -7,15 +8,19 @@ function RecordingPage({ assignment, studentId, onBack }) {
   const [isProcessing, setIsProcessing] = useState(false)
   const [mediaStream, setMediaStream] = useState(null)
   const [recordedBlob, setRecordedBlob] = useState(null)
+  const [bodyLanguageResults, setBodyLanguageResults] = useState(null)
   
   const videoRef = useRef(null)
   const mediaRecorderRef = useRef(null)
   const recordedChunks = useRef([])
+  const eyeContactEnabled = assignment?.eyeContactEnabled || false
+  const bodyLanguage = useBodyLanguage()
 
   useEffect(() => {
     startCamera()
     return () => {
       stopCamera()
+      if (eyeContactEnabled) bodyLanguage.cleanup()
     }
   }, [])
 
@@ -28,6 +33,13 @@ function RecordingPage({ assignment, studentId, onBack }) {
       setMediaStream(stream)
       if (videoRef.current) {
         videoRef.current.srcObject = stream
+        // Wait for video to be playing before initializing tracker
+        videoRef.current.onloadeddata = () => {
+          if (eyeContactEnabled) {
+            console.log('Video loaded, initializing body language tracker...')
+            bodyLanguage.initialize(videoRef.current)
+          }
+        }
       }
     } catch (error) {
       console.error('Error accessing camera:', error)
@@ -64,18 +76,26 @@ function RecordingPage({ assignment, studentId, onBack }) {
 
     mediaRecorderRef.current.start()
     setIsRecording(true)
+    if (eyeContactEnabled) bodyLanguage.startTracking()
   }
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop()
       setIsRecording(false)
+      if (eyeContactEnabled) {
+        bodyLanguage.stopTracking()
+        const results = bodyLanguage.getResults()
+        setBodyLanguageResults(results)
+        console.log('Body language results:', results)
+      }
     }
   }
 
   const reRecord = () => {
     setHasRecorded(false)
     setRecordedBlob(null)
+    setBodyLanguageResults(null)
     recordedChunks.current = []
   }
 
@@ -100,51 +120,69 @@ function RecordingPage({ assignment, studentId, onBack }) {
 
       console.log(`Submission created with ID: ${submissionId}, status: ${status}`)
 
-      // Step 3: Poll for completion with 15-second timeout
+      // Save eye contact score directly to submission row (no RLS issues)
+      if (eyeContactEnabled) {
+        const blResults = bodyLanguageResults || bodyLanguage.getResults()
+        if (blResults) {
+          const eyeScore = blResults.eyeContact.score
+          console.log('Saving eye contact score:', eyeScore, 'to submission:', submissionId)
+          const { supabase: sb } = await import('../lib/supabase')
+          const { error } = await sb
+            .from('submissions')
+            .update({ eye_contact_score: eyeScore })
+            .eq('id', submissionId)
+          if (error) {
+            console.warn('Failed to save eye contact score:', error.message)
+          } else {
+            console.log('Eye contact score saved!')
+          }
+        }
+      }
+
+      // Trigger queue processor multiple times to ensure grading starts
+      // Then redirect immediately - assignment page polls for completion
+      triggerQueueProcessor().catch(() => {})
+      setTimeout(() => triggerQueueProcessor().catch(() => {}), 2000)
+      setTimeout(() => triggerQueueProcessor().catch(() => {}), 5000)
+      setTimeout(() => triggerQueueProcessor().catch(() => {}), 10000)
+
+      console.log('Submission created, redirecting...')
+      setIsProcessing(false)
+      onBack()
+      return
+
+      /* Legacy polling code - keeping for reference
       const startTime = Date.now()
-      const POLL_INTERVAL = 2000 // 2 seconds
-      const REDIRECT_TIMEOUT = 15000 // 15 seconds
+      const POLL_INTERVAL = 2000
+      const REDIRECT_TIMEOUT = 15000
 
       const pollStatus = async () => {
         const elapsedTime = Date.now() - startTime
+        triggerQueueProcessor().catch(() => {})
 
-        // Trigger queue processor to process pending submissions
-        triggerQueueProcessor().catch(() => {}) // Silent fail
-
-        // Check if 15 seconds have elapsed
         if (elapsedTime >= REDIRECT_TIMEOUT) {
-          console.log('15 seconds elapsed - processing still in progress')
-          alert('Video submitted! Your speech is being analyzed in the background. Check back in a few minutes for your results.')
           setIsProcessing(false)
-          onBack() // Return to assignment page
+          onBack()
           return
         }
 
-        // Poll for status
         const submissionStatus = await checkSubmissionStatus(submissionId)
-        console.log(`Status check: ${submissionStatus.status} (elapsed: ${elapsedTime}ms)`)
 
         if (submissionStatus.status === 'completed') {
-          // Fast path: Analysis completed within 15 seconds
-          console.log('Analysis completed successfully!')
-          alert('Video submitted and analyzed successfully! Your results are ready.')
           setIsProcessing(false)
-          onBack() // Return to assignment page
+          onBack()
           return
         }
 
         if (submissionStatus.status === 'failed') {
-          // Processing failed
-          console.error('Analysis failed:', submissionStatus.error_message)
           throw new Error(submissionStatus.error_message || 'Analysis failed')
         }
 
-        // Still pending/processing - continue polling
         setTimeout(pollStatus, POLL_INTERVAL)
       }
 
-      // Start the polling loop
       pollStatus()
+      */
 
     } catch (error) {
       console.error('Error submitting video:', error)
@@ -190,8 +228,75 @@ function RecordingPage({ assignment, studentId, onBack }) {
                 <span>Recording...</span>
               </div>
             )}
+            {eyeContactEnabled && isRecording && bodyLanguage.liveScore !== null && (
+              <div className="rp-eye-contact-badge" style={{
+                position: 'absolute',
+                bottom: '12px',
+                left: '12px',
+                background: bodyLanguage.liveScore >= 70 ? 'rgba(34, 197, 94, 0.9)' : 
+                            bodyLanguage.liveScore >= 40 ? 'rgba(234, 179, 8, 0.9)' : 
+                            'rgba(239, 68, 68, 0.9)',
+                color: 'white',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                fontSize: '13px',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'background 0.3s ease'
+              }}>
+                <span>👁</span>
+                <span>Eye Contact: {bodyLanguage.liveScore}%</span>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Body language preview after recording */}
+        {eyeContactEnabled && hasRecorded && bodyLanguageResults && (
+          <div className="rp-body-language-preview" style={{
+            background: 'rgba(139, 21, 56, 0.08)',
+            border: '1px solid rgba(139, 21, 56, 0.2)',
+            borderRadius: '12px',
+            padding: '16px 20px',
+            marginTop: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            maxWidth: '600px',
+            width: '100%'
+          }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: bodyLanguageResults.eyeContact.score >= 70 ? '#22c55e' :
+                         bodyLanguageResults.eyeContact.score >= 40 ? '#eab308' : '#ef4444',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontWeight: '700',
+              fontSize: '18px',
+              flexShrink: 0
+            }}>
+              {bodyLanguageResults.eyeContact.score}%
+            </div>
+            <div>
+              <div style={{ fontWeight: '600', color: '#1a1a2e', fontSize: '15px' }}>
+                Eye Contact: {bodyLanguageResults.eyeContact.label}
+              </div>
+              <div style={{ color: '#666', fontSize: '13px', marginTop: '2px' }}>
+                {bodyLanguageResults.eyeContact.score >= 70 
+                  ? 'Great job maintaining eye contact with the camera!'
+                  : bodyLanguageResults.eyeContact.score >= 40
+                  ? 'Try to look at the camera more consistently.'
+                  : 'Focus on looking directly at the camera while speaking.'}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Controls directly under camera */}
         <div className="rp-controls">

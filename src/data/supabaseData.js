@@ -122,7 +122,8 @@ export const getAssignmentsByClass = async (className) => {
       day: 'numeric',
       year: 'numeric'
     }),
-    rawDueDate: assignment.due_date // Keep raw date for sorting
+    rawDueDate: assignment.due_date, // Keep raw date for sorting
+    eyeContactEnabled: assignment.eye_contact_enabled || false
   }))
 }
 
@@ -296,7 +297,6 @@ export const getAssignmentFeedback = async (assignmentId, studentId = null) => {
     return {
       fillerWords: "No feedback available yet.",
       speechContent: "No feedback available yet.",
-      bodyLanguage: "No feedback available yet.",
       transcript: "No transcript available yet.",
       submittedAt: null,
       videoUrl: null
@@ -310,7 +310,6 @@ export const getAssignmentFeedback = async (assignmentId, studentId = null) => {
   return {
     fillerWords: feedback.filler_words_feedback || "No feedback available yet.",
     speechContent: feedback.speech_content_feedback || "No feedback available yet.",
-    bodyLanguage: feedback.body_language_feedback || "No feedback available yet.",
     transcript: submission.transcript || "No transcript available yet.",
     submittedAt: submission.submitted_at,
     videoUrl: submission.video_url || null
@@ -345,7 +344,6 @@ export const getDetailedStudentFeedback = async (assignmentId, studentId) => {
           feedback(
             filler_words_feedback,
             speech_content_feedback,
-            body_language_feedback
           )
         )
       `)
@@ -405,7 +403,6 @@ export const getDetailedStudentFeedback = async (assignmentId, studentId) => {
       feedback: feedback ? {
         fillerWords: feedback.filler_words_feedback,
         speechContent: feedback.speech_content_feedback,
-        bodyLanguage: feedback.body_language_feedback
       } : null
     }
   } catch (error) {
@@ -454,7 +451,8 @@ export const getAssignmentById = async (id) => {
       day: 'numeric', 
       year: 'numeric'
     }),
-    rawDueDate: data.due_date // Add raw due date for comparison
+    rawDueDate: data.due_date, // Add raw due date for comparison
+    eyeContactEnabled: data.eye_contact_enabled || false
   } : null
 }
 
@@ -823,7 +821,6 @@ export const processVideoWithAI = async (videoBlob, assignmentTitle, assignmentI
       analysis: {
         speechContent: 'Temporary service interruption. Your submission has been recorded.',
         fillerWords: 'Analysis will be available when AI services are restored.',
-        bodyLanguage: 'Analysis will be available when AI services are restored.',
         overallScore: null // Don't generate a grade for failed analysis
       },
       fillerWordAnalysis: fallbackFillerAnalysis,
@@ -896,7 +893,8 @@ export const createAssignment = async (assignmentData) => {
         description: assignmentData.description,
         max_duration_seconds: assignmentData.maxDuration || 60,
         due_date: assignmentData.dueDate,
-        rubric_id: assignmentData.rubricId || null
+        rubric_id: assignmentData.rubricId || null,
+        eye_contact_enabled: assignmentData.eyeContactEnabled || false
       }])
       .select()
       .single()
@@ -922,6 +920,7 @@ export const updateAssignment = async (assignmentId, assignmentData) => {
     if (assignmentData.dueDate) updateFields.due_date = assignmentData.dueDate
     if (assignmentData.rubricId !== undefined) updateFields.rubric_id = assignmentData.rubricId || null
     if (assignmentData.maxDuration) updateFields.max_duration_seconds = assignmentData.maxDuration
+    if (assignmentData.eyeContactEnabled !== undefined) updateFields.eye_contact_enabled = assignmentData.eyeContactEnabled
 
     const { data, error } = await supabase
       .from('assignments')
@@ -1276,14 +1275,12 @@ export const createSubmission = async (submissionData, videoBlob = null, assignm
       feedbackTexts = {
         filler_words: aiResult.analysis.fillerWords || generateFillerFeedback(),
         speech_content: aiResult.analysis.speechContent || "Speech content analysis temporarily unavailable.",
-        body_language: aiResult.analysis.bodyLanguage || "Delivery analysis will be available when AI processing is restored."
       }
     } else {
       // Simple fallback when AI processing fails entirely
       feedbackTexts = {
         filler_words: generateFillerFeedback(),
         speech_content: "Speech content analysis temporarily unavailable. Please try submitting again.",
-        body_language: "Delivery analysis will be available when AI processing is restored."
       }
     }
     
@@ -1301,7 +1298,6 @@ export const createSubmission = async (submissionData, videoBlob = null, assignm
         .update({
           filler_words_feedback: feedbackTexts.filler_words,
           speech_content_feedback: feedbackTexts.speech_content,
-          body_language_feedback: feedbackTexts.body_language,
           created_at: new Date().toISOString()
         })
         .eq('id', existingFeedback.id)
@@ -1313,7 +1309,6 @@ export const createSubmission = async (submissionData, videoBlob = null, assignm
           grade_id: grade.id,
           filler_words_feedback: feedbackTexts.filler_words,
           speech_content_feedback: feedbackTexts.speech_content,
-          body_language_feedback: feedbackTexts.body_language
         }])
     }
 
@@ -1579,7 +1574,6 @@ const runBackgroundAI = async (submissionId, videoBlob, assignmentTitle, assignm
     const feedbackTexts = {
       filler_words: aiResult.analysis.fillerWords || generateFillerFeedback(),
       speech_content: aiResult.analysis.speechContent || "Speech content analysis completed.",
-      body_language: aiResult.analysis.bodyLanguage || "Delivery analysis completed."
     }
 
     // Check if feedback already exists for this grade (prevent duplicates)
@@ -1595,7 +1589,6 @@ const runBackgroundAI = async (submissionId, videoBlob, assignmentTitle, assignm
       await supabase.from('feedback').update({
         filler_words_feedback: feedbackTexts.filler_words,
         speech_content_feedback: feedbackTexts.speech_content,
-        body_language_feedback: feedbackTexts.body_language,
         created_at: new Date().toISOString()
       }).eq('id', existingFeedback.id)
     } else {
@@ -1605,7 +1598,6 @@ const runBackgroundAI = async (submissionId, videoBlob, assignmentTitle, assignm
         grade_id: grade.id,
         filler_words_feedback: feedbackTexts.filler_words,
         speech_content_feedback: feedbackTexts.speech_content,
-        body_language_feedback: feedbackTexts.body_language
       }])
     }
 
@@ -2151,6 +2143,7 @@ export const getStudentGradeForAssignment = async (studentId, assignmentId) => {
         id,
         status,
         submitted_at,
+        eye_contact_score,
         grades(
           total_score,
           speech_content_score,
@@ -2187,6 +2180,7 @@ export const getStudentGradeForAssignment = async (studentId, assignmentId) => {
       categoryBreakdown: grade.filler_category_breakdown || {},
       gradedAt: grade.graded_at,
       submittedAt: data.submitted_at,
+      eyeContactScore: data.eye_contact_score,
       letterGrade: getLetterGrade(grade.total_score)
     }
   } catch (error) {
