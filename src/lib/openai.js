@@ -119,7 +119,6 @@ const parseFeedbackResponse = (response) => {
     return {
       speechContent: contentMatch ? contentMatch[1].trim() : defaultFeedback.speechContent,
       fillerWords: patternsMatch ? patternsMatch[1].trim() : defaultFeedback.fillerWords,
-      bodyLanguage: languageMatch ? languageMatch[1].trim() : 'Language and delivery analysis completed.',
       overallScore: calculateScoreFromFeedback(response)
     }
   } catch (error) {
