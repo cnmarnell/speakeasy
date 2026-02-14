@@ -8,12 +8,12 @@ const SAMPLE_INTERVAL = 300 // ms between samples
 // Range: 0.0 (center only) to 0.5 (anything counts)
 // Lower = stricter, Higher = more forgiving
 export const EYE_CONTACT_SENSITIVITY = {
-  irisHorizontal: 0.20,   // how far iris can be off-center horizontally
-  irisVerticalUp: 0.20,   // how far iris can drift upward
-  irisVerticalDown: 0.08, // how far iris can drift downward (STRICT - catches reading notes)
-  headYaw: 0.20,          // how far head can turn left/right
-  headPitchUp: 0.20,      // how far head can tilt up
-  headPitchDown: 0.10,    // how far head can tilt down (STRICT)
+  irisHorizontal: 0.5,   // how far iris can be off-center horizontally
+  irisVerticalUp: 0.3,   // how far iris can drift upward
+  irisVerticalDown: 0.22, // how far iris can drift downward (STRICT - catches reading notes)
+  headYaw: 0.50,          // how far head can turn left/right
+  headPitchUp: 0.50,      // how far head can tilt up
+  headPitchDown: 0.5,    // how far head can tilt down (STRICT)
 }
 // To make it MORE sensitive (stricter): decrease values toward 0.05
 // To make it LESS sensitive (forgiving): increase values toward 0.30
